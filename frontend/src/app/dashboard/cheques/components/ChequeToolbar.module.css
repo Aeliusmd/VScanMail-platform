@@ -1,0 +1,33 @@
+@reference "../../../globals.css";
+
+.toolbar {
+  @apply flex items-center justify-between px-4 py-2 border-b border-gray-100;
+}
+
+.leftGroup {
+  @apply flex items-center gap-3;
+}
+
+.checkboxGroup {
+  @apply flex items-center gap-1;
+}
+
+.checkbox {
+  @apply w-4 h-4 rounded border-gray-300 cursor-pointer;
+}
+
+.iconBtnSmall {
+  @apply w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-600 cursor-pointer;
+}
+
+.iconBtnMedium {
+  @apply w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded cursor-pointer transition;
+}
+
+.rightGroup {
+  @apply flex items-center gap-1 text-sm text-gray-500;
+}
+
+.navBtn {
+  @apply w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100 disabled:opacity-30 cursor-pointer transition;
+}

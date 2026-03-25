@@ -1,0 +1,571 @@
+/* ─── Login Page Layout ─────────────────────────────────────── */
+
+.page {
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+  background-color: #FFFFFF;
+}
+
+/* ─── Mobile Top Image ──────────────────────────────────────── */
+
+.mobileTopImage {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobileTopImage {
+    display: block;
+    position: relative;
+    width: 100%;
+    height: 200px; 
+  }
+}
+
+/* ─── Left Side ─────────────────────────────────────────────── */
+
+.leftSide {
+  width: 50%;
+  position: relative;
+  display: flex;
+  justify-content: flex-start;
+  background: #BAD9F5;
+}
+
+.leftCard {
+  background-color: #ffffff;
+  width: calc(50vw - 350px);
+  height: 100%;
+  border-radius: 0 30px 30px 0;
+  position: relative;
+}
+
+.leftTitle {
+  position: absolute;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 284px;
+  height: 40px;
+  line-height: 40px;
+  font-size: 40px;
+  font-weight: 700;
+  font-family: Roboto;
+  color: #000000;
+  white-space: nowrap;
+  text-align: center;
+  opacity: 1;
+}
+
+.leftSubtitle {
+  position: absolute;
+  top: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 367px;
+  height: 40px;
+  font-size: 23px;
+  color: #656565;
+  white-space: nowrap;
+  text-align: center;
+  opacity: 1;
+  font-family: Roboto;
+  line-height: 40px;
+}
+
+.leftImage {
+  position: absolute;
+  top: 180px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-height: calc(100vh - 185px);
+  height: auto;
+  object-fit: contain;
+}
+
+
+
+/* ─── Right Side ────────────────────────────────────────────── */
+
+.rightSide {
+  width: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #BAD9F5;
+  padding-right: 350px;
+  box-sizing: border-box;
+}
+
+.formContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.formCard {
+  width: 448px;
+  height: 577px;
+  opacity: 1;
+  padding: 32px;
+  border-radius: 16px;
+  background: #FFFFFF;
+  box-shadow: 0px 20px 25px -5px #0000001A, 0px 8px 10px -6px #0000001A;
+  box-sizing: border-box;
+}
+
+/* ─── Form Header ───────────────────────────────────────────── */
+
+.header {
+  width: 384px;
+  height: 100px;
+  opacity: 1;
+  padding-bottom: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+}
+
+.heading {
+  display: flex;
+  align-items: center;
+  width: 210px;
+  height: 36px;
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 700;
+  font-size: 30px;
+  line-height: 40px;
+  color: #111827;
+  margin: 0;
+}
+
+.subheading {
+  display: flex;
+  align-items: center;
+  width: 287px;
+  height: 24px;
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 24px;
+  color: #4B5563;
+  margin: 0;
+}
+
+/* ─── Form ──────────────────────────────────────────────────── */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0px;
+  width: 384px;
+  height: 296px;
+  gap: 24px;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0px;
+  width: 384px;
+  height: 78px;
+}
+
+.label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 0px 0px 8px;
+  width: 384px;
+  height: 28px;
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 20px;
+  color: #374151;
+  box-sizing: border-box;
+}
+
+.inputWrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0px;
+  isolation: isolate;
+  width: 384px;
+  height: 50px;
+  position: relative;
+}
+
+.input {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 13px 13px 13px 41px;
+  isolation: isolate;
+  width: 384px;
+  height: 50px;
+  background: #FFFFFF;
+  border: 1px solid #D1D5DB;
+  border-radius: 8px;
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 500;
+  font-size: 16px;
+  line-height: 24px;
+  color: #111827;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.input::placeholder {
+  color: #9CA3AF;
+  font-family: 'Roboto';
+  font-weight: 500;
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.input:focus {
+  border-color: #0A3D8F;
+  box-shadow: 0 0 0 3px rgba(10, 61, 143, 0.15);
+}
+
+.inputPasswordPad {
+  padding: 13px 41px;
+}
+
+.inputIcon {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 0px 0px 0px 12px;
+  position: absolute;
+  width: 28.67px;
+  height: 50px;
+  left: 0px;
+  top: 0px;
+  color: #9CA3AF;
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
+.inputIconGlyph {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 0px;
+  isolation: isolate;
+  width: 16.67px;
+  height: 24px;
+  font-size: 16px;
+  color: #9CA3AF;
+  line-height: 16px;
+  position: relative;
+}
+
+.eyeButton {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding: 0px 12px 0px 0px;
+  position: absolute;
+  width: 28.67px;
+  height: 50px;
+  left: 355.33px;
+  top: 0px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9CA3AF;
+  box-sizing: border-box;
+}
+
+.eyeIcon {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  padding: 0px;
+  isolation: isolate;
+  width: 16.67px;
+  height: 24px;
+  font-size: 16px;
+  color: #9CA3AF;
+  line-height: 16px;
+}
+
+/* ─── Remember / Forgot ─────────────────────────────────────── */
+
+.rememberRow {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0px;
+  width: 384px;
+  height: 20px;
+}
+
+.rememberLabel {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 0px;
+  gap: 8px;
+  width: 115.17px;
+  height: 20px;
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 20px;
+  color: #4B5563;
+  cursor: pointer;
+  size: 14px;
+}
+
+.forgotLink {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 0px;
+  width: 112.16px;
+  height: 20px;
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 20px;
+  color: #0A3D8F;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.forgotLink:hover {
+  text-decoration: underline;
+}
+
+/* ─── Submit Button ─────────────────────────────────────────── */
+
+.submitButton {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  padding: 12px 16px;
+  gap: 8px;
+  width: 384px;
+  height: 48px;
+  background: #0A3D8F;
+  border: none;
+  border-radius: 8px;
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 500;
+  font-size: 16px;
+  line-height: 24px;
+  color: #FFFFFF;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.submitButton:hover {
+  opacity: 0.9;
+}
+
+/* ─── Register Link ─────────────────────────────────────────── */
+
+.registerText {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  padding: 0px;
+  width: 384px;
+  height: 20px;
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 20px;
+  color: #4B5563;
+  margin: 0;
+}
+
+.registerLink {
+  display: flex;
+  align-items: center;
+  width: 145px;
+  height: 20px;
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 20px;
+  color: #0A3D8F;
+  text-align: center;
+  text-decoration: none;
+  margin-left: 4px;
+  size: 14px;
+  forced-color-adjust: #0A3D8F;
+
+}
+
+.registerLink:hover {
+  text-decoration: underline;
+}
+
+/* ─── Terms ─────────────────────────────────────────────────── */
+
+.termsWrapper {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 25px 0px 0px;
+  width: 384px;
+  height: 41px;
+  border-top: 1px solid #E5E7EB;
+}
+
+.termsText {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  padding: 0px;
+  width: 384px;
+  height: 16px;
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 16px;
+  color: #6B7280;
+  text-align: center;
+  margin: 0;
+}
+
+
+/* ─── Responsive ─────────────────────────────────────────────── */
+
+/* iPad, tablet, mobile: ≤ 1200px */
+@media (max-width: 1200px) {
+  .page {
+    flex-direction: column;
+    background-color: #BAD9F5;
+  }
+
+  .mobileTopImage {
+    display: block;
+    position: relative;
+    width: 100%;
+    height: 220px;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+
+  .leftSide {
+    display: none;
+  }
+
+  .rightSide {
+    width: 100%;
+    padding: 24px 24px 32px;
+    align-items: flex-start;
+    padding-right: 24px;
+    box-sizing: border-box;
+  }
+
+  .formContainer {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .formCard {
+    width: 100%;
+    max-width: 480px;
+    height: auto;
+    padding: 32px 24px;
+    margin: 0 auto;
+  }
+
+  .header {
+    width: 100%;
+    height: auto;
+    padding-bottom: 20px;
+  }
+
+  .heading {
+    width: 100%;
+    font-size: 26px;
+  }
+
+  .subheading {
+    width: 100%;
+    font-size: 14px;
+  }
+
+  .form {
+    width: 100%;
+    height: auto;
+  }
+
+  .fieldGroup {
+    width: 100%;
+    height: auto;
+  }
+
+  .label {
+    width: 100%;
+    height: auto;
+  }
+
+  .inputWrapper,
+  .input {
+    width: 100%;
+  }
+
+  .rememberRow,
+  .registerText,
+  .termsWrapper,
+  .termsText {
+    width: 100%;
+    height: auto;
+    box-sizing: border-box;
+  }
+
+  .submitButton {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Small mobile: ≤ 480px */
+@media (max-width: 480px) {
+  .rightSide {
+    padding: 16px 12px;
+  }
+
+  .formCard {
+    padding: 24px 16px;
+    border-radius: 12px;
+  }
+
+  .heading {
+    font-size: 22px;
+  }
+}
