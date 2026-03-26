@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { mails, type Mail } from '../../../mocks/mails';
 import MailToolbar from './components/MailToolbar';
@@ -22,6 +22,14 @@ const TABS: { label: TabType; count: number }[] = [
 const PER_PAGE = 10;
 
 export default function AllMailsPage() { 
+  return (
+    <Suspense fallback={null}>
+      <AllMailsPageContent />
+    </Suspense>
+  );
+}
+
+function AllMailsPageContent() {
   const [activeTab, setActiveTab] = useState<TabType>('All');
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [page, setPage] = useState(1);

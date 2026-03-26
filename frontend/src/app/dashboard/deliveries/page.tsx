@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { deliveries, type DeliveryRequest } from '../../../mocks/deliveries';
 import DeliveryToolbar from './components/DeliveryToolbar';
@@ -17,6 +17,14 @@ const TABS: TabType[] = ['All', 'Pending', 'In Transit', 'Delivered', 'Failed'];
 const PER_PAGE = 10;
 
 export default function DeliveriesPage() {
+  return (
+    <Suspense fallback={null}>
+      <DeliveriesPageContent />
+    </Suspense>
+  );
+}
+
+function DeliveriesPageContent() {
   const [activeTab, setActiveTab] = useState<TabType>('All');
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');

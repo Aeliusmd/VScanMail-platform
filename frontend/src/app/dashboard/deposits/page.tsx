@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { deposits, type Deposit } from '../../../mocks/deposits';
 import DepositToolbar from './components/DepositToolbar';
@@ -24,6 +24,14 @@ const TABS: { label: TabType }[] = [
 const PER_PAGE = 10;
 
 export default function DepositsPage() {
+  return (
+    <Suspense fallback={null}>
+      <DepositsPageContent />
+    </Suspense>
+  );
+}
+
+function DepositsPageContent() {
   const [activeTab, setActiveTab] = useState<TabType>('All');
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [page, setPage] = useState(1);

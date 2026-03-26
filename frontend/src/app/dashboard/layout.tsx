@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { Icon } from '@iconify/react';
 import Sidebar from './components/Sidebar';
@@ -32,7 +32,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       )}
 
       <div className={`fixed md:static inset-y-0 left-0 z-40 md:z-auto transition-transform duration-300 ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
-        <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
+        <Suspense fallback={null}>
+          <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
+        </Suspense>
       </div>
 
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">

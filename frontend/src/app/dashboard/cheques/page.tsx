@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { cheques, type Cheque } from '../../../mocks/cheques';
 import ChequeToolbar from './components/ChequeToolbar';
@@ -23,6 +23,14 @@ const TABS: { label: TabType }[] = [
 const PER_PAGE = 10;
 
 export default function AllChequesPage() {
+  return (
+    <Suspense fallback={null}>
+      <AllChequesPageContent />
+    </Suspense>
+  );
+}
+
+function AllChequesPageContent() {
   const [activeTab, setActiveTab] = useState<TabType>('All');
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [page, setPage] = useState(1);
