@@ -82,7 +82,7 @@ export default function SelectPlan() {
           <img
             src="/images/A-4.png"
             alt="VScanMail"
-            className="w-[139px] h-[72px] object-contain opacity-100"
+            className="w-auto h-full object-contain opacity-100"
           />
           
         </Link>

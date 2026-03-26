@@ -52,7 +52,7 @@ export default function CustomerRegister() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
+
     if (formData.password !== formData.confirmPassword) {
       setSubmitStatus('error');
       setErrorMessage('Passwords do not match');
@@ -99,16 +99,16 @@ export default function CustomerRegister() {
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex flex-col lg:flex-row">
       {/* Left Panel - Brand */}
       <div className="hidden lg:flex lg:w-2/5 bg-gradient-to-br from-[#0A3D8F] via-[#0A3D8F] to-[#083170] p-12 flex-col justify-between relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-20 left-20 w-64 h-64 bg-white rounded-full blur-3xl"></div>
           <div className="absolute bottom-20 right-20 w-96 h-96 bg-white rounded-full blur-3xl"></div>
         </div>
-        
+
         <div className="relative z-10">
-        <Link href="/customer-dashboard">
+          <Link href="/customer-dashboard">
             <img
               src="\images\A-4.png"
               alt="VScan Mail"
@@ -168,25 +168,27 @@ export default function CustomerRegister() {
         </div>
 
         <div className="relative z-10 text-blue-100 text-sm">
-          © 2024 VScan Mail. All rights reserved.
+          © 2026 VScan Mail. All rights reserved.
         </div>
       </div>
 
       {/* Right Panel - Registration Form */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-gray-50 overflow-y-auto">
+      <div className="flex-1 flex items-start lg:items-center justify-center p-4 sm:p-8 bg-gray-50 overflow-y-auto">
         <div className="w-full max-w-2xl">
           {/* Mobile Logo */}
           <div className="lg:hidden mb-8 text-center">
-            <Link href="/">
-              <img 
-                src="https://static.readdy.ai/image/306c0f034255580e0c7c21250ba38e98/448654b3ab8dbd6e9a6eacf64f18bab4.png" 
-                alt="VScan Mail" 
-                className="h-10 w-auto mx-auto"
-              />
+            <Link href="/customer-dashboard">
+              <div className="flex justify-center">
+                <img
+                  src="/images/A-4.png"
+                  alt="VScan Mail"
+                  className="w-[139px] h-[72px] object-contain"
+                />
+              </div>
             </Link>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-xl p-8">
+          <div className="bg-white rounded-2xl shadow-xl p-5 sm:p-8">
             {/* Progress Bar */}
             <div className="mb-8">
               <div className="flex items-center justify-between mb-2">
@@ -194,14 +196,13 @@ export default function CustomerRegister() {
                 <span className="text-sm text-gray-500">{Math.round((step / 3) * 100)}% Complete</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className={`bg-[#0A3D8F] h-2 rounded-full transition-all duration-300 ${
-                    step === 1
+                <div
+                  className={`bg-[#0A3D8F] h-2 rounded-full transition-all duration-300 ${step === 1
                       ? "w-[33.33%]"
                       : step === 2
-                      ? "w-[66.66%]"
-                      : "w-full"
-                  }`}
+                        ? "w-[66.66%]"
+                        : "w-full"
+                    }`}
                 ></div>
               </div>
             </div>
@@ -599,11 +600,11 @@ export default function CustomerRegister() {
                         />
                         <span className="ml-3 text-sm text-gray-600">
                           I agree to the{' '}
-                          <a href="#" className="text-[#0A3D8F] hover:text-[#083170] font-medium whitespace-nowrap">
+                          <a href="#" className="text-[#0A3D8F] hover:text-[#083170] font-medium">
                             Terms of Service
                           </a>
                           {' '}and{' '}
-                          <a href="#" className="text-[#0A3D8F] hover:text-[#083170] font-medium whitespace-nowrap">
+                          <a href="#" className="text-[#0A3D8F] hover:text-[#083170] font-medium">
                             Privacy Policy
                           </a>
                         </span>
@@ -646,7 +647,7 @@ export default function CustomerRegister() {
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
               Already have an account?{' '}
-            <Link href="/customer-dashboard/login" className="font-medium text-[#0A3D8F] hover:text-[#083170] whitespace-nowrap">
+              <Link href="/customer-dashboard/login" className="font-medium text-[#0A3D8F] hover:text-[#083170] whitespace-nowrap">
                 Sign in here
               </Link>
             </p>

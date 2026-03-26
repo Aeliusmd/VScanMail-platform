@@ -1,4 +1,5 @@
 import { Icon } from '@iconify/react';
+import Link from 'next/link';
 
 interface QuickActionsProps {
   onNewScan?: () => void;
@@ -19,6 +20,7 @@ export default function QuickActions({ onNewScan }: QuickActionsProps) {
         <h2 className="text-base font-bold text-gray-900 font-roboto mb-5">Quick Actions</h2>
         <div className="flex flex-col gap-3">
           {/* New Scan */}
+          <Link href="/dashboard/scan">
           <button
             onClick={onNewScan}
             className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-[#1E3A8A] text-white rounded-lg font-roboto font-medium text-sm hover:bg-[#1e40af] transition cursor-pointer whitespace-nowrap"
@@ -28,22 +30,28 @@ export default function QuickActions({ onNewScan }: QuickActionsProps) {
             </div>
             <span>New Scan</span>
           </button>
+          </Link>
+          
 
           {/* View Requests */}
+          <Link href="/dashboard/deposits">
           <button className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white border border-gray-200 text-gray-700 rounded-lg font-roboto font-medium text-sm hover:bg-gray-50 transition cursor-pointer whitespace-nowrap">
             <div className="flex items-center justify-center w-5 h-5">
               <Icon icon='ri:exchange-dollar-line' className="text-base text-gray-500" />
             </div>
             <span>View Requests</span>
           </button>
+          </Link>
 
           {/* Manage Companies */}
+          <Link href="/dashboard/companies">
           <button className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white border border-gray-200 text-gray-700 rounded-lg font-roboto font-medium text-sm hover:bg-gray-50 transition cursor-pointer whitespace-nowrap">
             <div className="flex items-center justify-center w-5 h-5">
               <Icon icon="ri:building-line" className="text-base text-gray-500" />
             </div>
             <span>Manage Companies</span>
           </button>
+          </Link>
         </div>
       </div>
 

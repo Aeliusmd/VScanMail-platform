@@ -59,7 +59,7 @@ export default function ClickedCheque({ cheque, onClose }: ClickedChequeProps) {
         <div className="p-3 sm:p-5">
           <div className="rounded-xl border border-[#E2E8F0] bg-[#F1F5F9] p-2 mb-4">
             <img
-              src="https://images.unsplash.com/photo-1609834941319-4604f777d95b?q=80&w=1200&auto=format&fit=crop"
+              src="https://readdy.ai/api/search-image?query=business%20cheque%20document%20on%20white%20background%20with%20bank%20details%20amount%20and%20signature%20lines%20professional%20financial%20instrument%20scanned%20clean&width=160&height=100&seq=chq-thumb-1&orientation=landscape"
               alt="Cheque preview"
               className="w-full h-[140px] sm:h-[180px] object-cover rounded-lg"
             />

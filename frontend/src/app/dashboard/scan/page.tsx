@@ -520,7 +520,7 @@ export default function AdminScanPage() {
                       </p>
                       <p className="text-xs text-slate-500 mt-0.5">Resolution: 300 DPI &nbsp;·&nbsp; Format: PDF/TIFF</p>
                       <div className="flex items-center space-x-2 mt-2 flex-wrap">
-                        <span className="px-2 py-0.5 bg-green-100 text-[#2F8F3A] text-xs font-semibold rounded-full">Clear Image</span>
+                        <span className="px-2 py-0.5 bg-red-100 text-red-600 text-xs font-semibold rounded-full">Image is damaged</span>
                         <span className="px-2 py-0.5 bg-blue-100 text-[#0A3D8F] text-xs font-semibold rounded-full">Saved</span>
                       </div>
                     </div>
@@ -670,33 +670,63 @@ export default function AdminScanPage() {
       {/* Send Popup */}
       {showPopup && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-6" onClick={() => setShowPopup(false)}>
-          <div className="bg-white rounded-2xl p-6 sm:p-8 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl p-8 w-full max-w-[448px]" onClick={(e) => e.stopPropagation()}>
             <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-5">
-              <i className="ri-mail-send-line text-[#0A3D8F] text-3xl"></i>
+              <i className="ri-mail-send-line text-[#0A3D8F] text-[30px]"></i>
             </div>
-            <h2 className="text-xl font-bold text-slate-900 text-center mb-3">Forward Scanned Copy</h2>
-            <p className="text-slate-600 text-sm text-center mb-6 leading-relaxed">
-              This mail is addressed to <strong>Tech Solutions Inc</strong>. Click &apos;Send&apos; to forward the scanned copy.
+            <h2 className="text-[28px] leading-7 font-bold text-slate-900 text-center mb-3">Forward Scanned Copy</h2>
+            <p className="text-slate-600 text-sm text-center mb-6 leading-[23px]">
+              We&apos;ve pre-selected a company for you. <strong>Not quite right?</strong> Choose the correct one.
             </p>
-            <div className="bg-slate-50 rounded-xl p-4 mb-4 border border-slate-200">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-[#0A3D8F] rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                  TS
+
+            <div className="bg-slate-50 rounded-xl p-4 mb-4 border border-slate-200 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 bg-[#0A3D8F] rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                    TS
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-900 truncate">Tech Solutions Inc</p>
+                    <p className="text-xs text-slate-500 truncate">info@techsolutions.com</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">Tech Solutions Inc</p>
-                  <p className="text-xs text-slate-500">info@techsolutions.com</p>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="px-2 py-1 bg-blue-100 text-[#0A3D8F] text-xs font-semibold rounded-full whitespace-nowrap">
+                    AI Detected
+                  </span>
+                  <button type="button" className="w-5 h-5 rounded bg-slate-200 text-slate-600 flex items-center justify-center">
+                    <i className="ri-arrow-down-s-line text-sm"></i>
+                  </button>
                 </div>
-                <span className="ml-auto px-2 py-1 bg-blue-100 text-[#0A3D8F] text-xs font-semibold rounded-full whitespace-nowrap">
-                  Verified
-                </span>
               </div>
+
+              <div className="h-px bg-slate-200"></div>
+
+              {[
+                { initial: 'T', name: 'Tech Solutions Inc', email: 'info@techsolutions.com', bg: 'bg-[#0A3D8F]' },
+                { initial: 'I', name: 'Innovatech Co', email: 'contact@innovatech.co', bg: 'bg-[#2F8F3A]' },
+                { initial: '2', name: 'NextGen Systems', email: 'support@nextgensystems.com', bg: 'bg-[#D97706]' },
+                { initial: '3', name: 'SmartTech Ltd', email: 'hello@smarttechltd.com', bg: 'bg-[#0A3D8F]' },
+                { initial: '4', name: 'Digital Dynamics', email: 'info@digitaldynamics.com', bg: 'bg-[#EF4444]' },
+              ].map((company) => (
+                <div key={company.email} className="flex items-center py-1">
+                  <div className="flex items-center gap-2 min-w-0 w-[58%]">
+                    <div className={`w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center ${company.bg}`}>
+                      {company.initial}
+                    </div>
+                    <p className="text-[14px] leading-5 font-semibold text-slate-900 truncate">{company.name}</p>
+                  </div>
+                  <p className="text-[14px] leading-5 text-slate-400 truncate w-[42%] text-right">{company.email}</p>
+                </div>
+              ))}
             </div>
-            <div className="bg-slate-50 rounded-xl p-4 mb-6 border border-slate-200 text-sm">
-              <p className="text-xs text-slate-400 mb-1 uppercase tracking-wide font-semibold">Subject</p>
-              <p className="text-slate-800 font-medium">New Mail Scanned – Requires Your Attention</p>
+
+            <div className="bg-slate-50 rounded-xl p-4 mb-6 border border-slate-200">
+              <p className="text-xs text-slate-400 mb-1 font-semibold">Subject</p>
+              <p className="text-slate-800 font-medium text-sm">New Mail Scanned - Requires Your Attention</p>
             </div>
-            <div className="flex items-center space-x-3">
+
+            <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => setShowPopup(false)}

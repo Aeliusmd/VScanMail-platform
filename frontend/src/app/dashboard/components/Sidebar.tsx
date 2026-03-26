@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { Icon } from '@iconify/react';
 
@@ -23,6 +23,8 @@ interface SidebarProps {
 
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const tabFromUrl = searchParams.get('tab');
   const isSettingsRoute =
     pathname === '/dashboard/settings' || pathname.startsWith('/dashboard/settings/');
   const isMailsPage = pathname === '/dashboard/mails';
@@ -30,6 +32,69 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const isCompaniesPage = pathname === '/dashboard/companies';
   const isDepositsPage = pathname === '/dashboard/deposits';
   const isDeliveriesPage = pathname === '/dashboard/deliveries';
+
+  const getTabValueForLabel = (pagePath: string, label: string): string | null => {
+    // Mail page tabs: All | Processed | Delivered | Pending Delivery
+    if (pagePath === '/dashboard/mails') {
+      if (label === 'All Mail') return 'All';
+      if (label === 'Processed') return 'Processed';
+      if (label === 'Delivered') return 'Delivered';
+      if (label === 'Pending') return 'Pending Delivery';
+      return null;
+    }
+
+    // Cheques page tabs: All | Pending Deposit | Deposited | Rejected | On Hold
+    if (pagePath === '/dashboard/cheques') {
+      if (label === 'All Cheques') return 'All';
+      if (label === 'Pending') return 'Pending Deposit';
+      if (label === 'Deposited') return 'Deposited';
+      if (label === 'Rejected') return 'Rejected';
+      if (label === 'On Hold') return 'On Hold';
+      return null;
+    }
+
+    // Companies page tabs: All | Active | Pending | Inactive
+    if (pagePath === '/dashboard/companies') {
+      if (label === 'All Companies') return 'All';
+      if (label === 'Active') return 'Active';
+      if (label === 'Pending') return 'Pending';
+      if (label === 'Inactive') return 'Inactive';
+      return null;
+    }
+
+    // Deposits page tabs: All | Pending | Approved | Rejected
+    if (pagePath === '/dashboard/deposits') {
+      if (label === 'All Requests') return 'All';
+      if (label === 'Pending') return 'Pending';
+      if (label === 'Approved') return 'Approved';
+      if (label === 'Rejected') return 'Rejected';
+      return null;
+    }
+
+    // Deliveries page tabs: All | Pending | In Transit | Delivered | Failed
+    if (pagePath === '/dashboard/deliveries') {
+      if (label === 'All Requests') return 'All';
+      if (label === 'Pending') return 'Pending';
+      if (label === 'In Transit') return 'In Transit';
+      if (label === 'Delivered') return 'Delivered';
+      if (label === 'Failed') return 'Failed';
+      return null;
+    }
+
+    return null;
+  };
+
+  const labelsPagePath = isMailsPage
+    ? '/dashboard/mails'
+    : isChequesPage
+      ? '/dashboard/cheques'
+      : isCompaniesPage
+        ? '/dashboard/companies'
+        : isDepositsPage
+          ? '/dashboard/deposits'
+          : isDeliveriesPage
+            ? '/dashboard/deliveries'
+            : null;
 
   const mailLabels = [
     { icon: 'ri:inbox-line', label: 'All Mail', count: 10, color: '#0F172A', bg: 'bg-[#F1F5F9]', fontWeight: 'font-semibold' },
@@ -108,11 +173,11 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100 h-[64px]">
         {!collapsed && (
           <Image
-            src="/images/icon.jpg"
+            src="/images/A-4.png"
             alt="VScanMail"
-            width={130}
-            height={52}
-            className="w-[130px] h-[52px] object-contain opacity-100 ml-[-4px]"
+            width={140}
+            height={100}
+            className="w-[140px] h-[100px] object-contain opacity-100 ml-[-4px]"
           />
         )}
         <button
@@ -138,7 +203,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
               }`}
             >
               {isActive && (
-                <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#0A3D8F] rounded-r opacity-0"></div> /* the screenshot didn't have the blue bar, but keeping placeholder just in case */
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#0A3D8F] rounded-r opacity-0"></div> 
               )}
               <div 
                 className="flex items-center justify-center flex-shrink-0 w-[20.84px] h-[28px]"
@@ -169,25 +234,36 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           </h3>
           <div className="flex flex-col gap-1">
             {labels.map((item, idx) => (
-              <div 
+              <Link
                 key={idx}
+                href={
+                  labelsPagePath
+                    ? `${labelsPagePath}?tab=${encodeURIComponent(
+                        getTabValueForLabel(labelsPagePath, item.label) ?? 'All'
+                      )}`
+                    : '#'
+                }
                 className={`flex items-center justify-between px-4 py-2 rounded-lg cursor-pointer transition-colors h-[36px] ${
                   item.bg || 'hover:bg-gray-50'
-                }`}
+                } ${tabFromUrl && getTabValueForLabel(labelsPagePath ?? '', item.label) === tabFromUrl ? 'bg-[#EFF6FF]' : ''}`}
               >
                 <div className="flex items-center gap-2">
                   <Icon
                     icon={item.icon}
                     className={`text-[16px] ${getLabelColorClass(item.color)}`}
                   />
-                  <span 
+                  <span
                     className={`text-sm ${item.fontWeight || 'font-normal'} text-[#0F172A] text-[14px]`}
-                  >{item.label}</span>
+                  >
+                    {item.label}
+                  </span>
                 </div>
-                <span 
+                <span
                   className={`text-xs ${item.fontWeight || 'font-normal'} text-[#94A3B8] text-[12px]`}
-                >{item.count}</span>
-              </div>
+                >
+                  {item.count}
+                </span>
+              </Link>
             ))}
           </div>
         </div>

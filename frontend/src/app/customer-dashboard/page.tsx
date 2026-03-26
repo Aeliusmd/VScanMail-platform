@@ -30,7 +30,7 @@ function LandingPage() {
               <img
                 src="/images/A-4.png"
                 alt="VScanMail"
-                className="w-[139px] h-[72px] object-contain opacity-100"
+                className="w-auto h-full object-contain opacity-100"
               />
             </Link>
 
@@ -110,55 +110,55 @@ function LandingPage() {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative pt-28 pb-0 overflow-hidden bg-gradient-to-br from-blue-50 via-slate-50 to-red-50">
+      <section className="relative pt-16 min-[390px]:pt-18 min-[425px]:pt-22 lg:pt-28 pb-0 overflow-hidden bg-gradient-to-br from-blue-50 via-slate-50 to-red-50">
         <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-gradient-to-br from-blue-200/30 to-blue-100/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
         <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-gradient-to-tr from-red-200/30 to-red-100/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3"></div>
 
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 relative z-10">
-          <div className="grid lg:grid-cols-2 gap-12 items-end">
-            <div className="space-y-7 pb-20">
+        <div className="max-w-7xl mx-auto px-4 min-[390px]:px-5 min-[425px]:px-6 lg:px-8 relative z-10">
+          <div className="grid lg:grid-cols-2 gap-8 min-[425px]:gap-10 lg:gap-12 items-end">
+            <div className="space-y-4 min-[390px]:space-y-5 sm:space-y-7 pb-8 min-[390px]:pb-10 sm:pb-16 lg:pb-20">
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">
                 <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
                 AI-Powered Document Management
               </div>
-              <h1 className="text-5xl lg:text-6xl font-extrabold text-slate-900 leading-[1.1]">
+              <h1 className="text-[2rem] min-[360px]:text-[2.2rem] min-[390px]:text-[2.45rem] min-[425px]:text-[2.85rem] lg:text-6xl font-extrabold text-slate-900 leading-[1.05] min-[425px]:leading-[1.1]">
                 Digitize Your
-                <br />
+                <br className="hidden lg:block" />
                 <span className="text-blue-600">Mail & Cheques</span>
-                <br />
+                <br className="hidden min-[430px]:block" />
                 Instantly
               </h1>
-              <p className="text-lg text-slate-500 leading-relaxed max-w-lg">
+              <p className="text-[0.95rem] min-[390px]:text-base min-[425px]:text-lg text-slate-500 leading-relaxed max-w-lg">
                 VScan Mail revolutionizes how businesses handle physical mail and cheques. AI-powered scanning that
                 automatically processes, summarizes, and delivers your documents digitally.
               </p>
               <div className="flex flex-wrap gap-4">
                 <Link
                   href="/customer-dashboard/register"
-                  className="px-8 py-4 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all whitespace-nowrap text-sm"
+                  className="px-6 min-[390px]:px-7 min-[425px]:px-8 py-3.5 min-[425px]:py-4 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all whitespace-nowrap text-sm"
                 >
                   Start Free Trial <i className="ri-arrow-right-line ml-1"></i>
                 </Link>
                 <a
                   href="#how-it-works"
-                  className="px-8 py-4 bg-white text-slate-800 font-bold rounded-2xl hover:bg-slate-50 transition-all border border-slate-200 whitespace-nowrap text-sm"
+                  className="px-6 min-[390px]:px-7 min-[425px]:px-8 py-3.5 min-[425px]:py-4 bg-white text-slate-800 font-bold rounded-2xl hover:bg-slate-50 transition-all border border-slate-200 whitespace-nowrap text-sm"
                 >
                   See How It Works
                 </a>
               </div>
-              <div className="flex items-center gap-10 pt-2">
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-4 min-[425px]:gap-x-10 pt-2">
                 <div>
-                  <div className="text-3xl font-extrabold text-slate-900">10K+</div>
+                  <div className="text-[1.35rem] min-[390px]:text-2xl min-[425px]:text-3xl font-extrabold text-slate-900">10K+</div>
                   <div className="text-xs text-slate-500 font-medium">Documents Scanned</div>
                 </div>
-                <div className="w-px h-10 bg-slate-200"></div>
+                <div className="hidden min-[430px]:block w-px h-10 bg-slate-200"></div>
                 <div>
-                  <div className="text-3xl font-extrabold text-slate-900">500+</div>
+                  <div className="text-[1.35rem] min-[390px]:text-2xl min-[425px]:text-3xl font-extrabold text-slate-900">500+</div>
                   <div className="text-xs text-slate-500 font-medium">Active Companies</div>
                 </div>
-                <div className="w-px h-10 bg-slate-200"></div>
+                <div className="hidden min-[430px]:block w-px h-10 bg-slate-200"></div>
                 <div>
-                  <div className="text-3xl font-extrabold text-slate-900">99.9%</div>
+                  <div className="text-[1.35rem] min-[390px]:text-2xl min-[425px]:text-3xl font-extrabold text-slate-900">99.9%</div>
                   <div className="text-xs text-slate-500 font-medium">Accuracy Rate</div>
                 </div>
               </div>
@@ -641,7 +641,7 @@ function LandingPage() {
           <div className="grid md:grid-cols-4 gap-10 mb-10">
             <div>
               <div className="flex items-center space-x-2 mb-4">
-                <img src="/images/icon.jpg" alt="VScanMail" className="w-[72px] h-[72px] object-contain" />
+                <img src="/images/icon.jpg" alt="VScanMail" className="w-[140px] h-[100px] object-contain" />
               </div>
               <p className="text-xs leading-relaxed">
                 Revolutionizing mail and cheque management with AI-powered scanning technology for modern businesses.
@@ -747,7 +747,7 @@ function LandingPage() {
             </div>
           </div>
           <div className="border-t border-slate-200 pt-6 flex flex-col md:flex-row justify-between items-center">
-            <p className="text-xs">&copy; 2025 VScan Mail. All rights reserved.</p>
+            <p className="text-xs">&copy; 2026 VScan Mail. All rights reserved.</p>
             <p className="text-xs mt-2 md:mt-0">Made with care for modern businesses</p>
           </div>
         </div>

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Icon } from '@iconify/react';
+import Link from 'next/link';
 
 interface TopBarProps {
   title: string;
@@ -109,14 +110,18 @@ export default function TopBar({ title, subtitle, hideSearch }: TopBarProps) {
 
           {showUserMenu && (
             <div className="absolute right-0 top-12 w-[180px] bg-white rounded-xl shadow-lg border border-gray-100 z-50 py-1">
-              <a href="#" className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
+              <Link href="/dashboard/settings/profile" className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
                 <div className="w-4 h-4 flex items-center justify-center"><Icon icon="ri:user-line" className="text-sm" /></div>
                 My Profile
-              </a>
-              <a href="#" className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
+              </Link>
+              <Link
+                href="/dashboard/settings"
+                onClick={() => setShowUserMenu(false)}
+                className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
+              >
                 <div className="w-4 h-4 flex items-center justify-center"><Icon icon="ri:settings-3-line" className="text-sm" /></div>
                 Settings
-              </a>
+              </Link>
               <div className="border-t border-gray-100 my-1"></div>
               <a href="/login" className="flex items-center gap-2 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 cursor-pointer">
                 <div className="w-4 h-4 flex items-center justify-center"><Icon icon="ri:logout-box-r-line" className="text-sm" /></div>

@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { mails, type Mail } from '../../../mocks/mails';
 import MailToolbar from './components/MailToolbar';
 import MailRow from './components/MailRow';
 import ClickedMail from './clickedmail/clickedmail';
 import styles from './page.module.css';
+import Link from 'next/link';
+import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 
 type TabType = 'All' | 'Processed' | 'Delivered' | 'Pending Delivery';
 
@@ -19,7 +21,7 @@ const TABS: { label: TabType; count: number }[] = [
 
 const PER_PAGE = 10;
 
-export default function AllMailsPage() {
+export default function AllMailsPage() { 
   const [activeTab, setActiveTab] = useState<TabType>('All');
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [page, setPage] = useState(1);
@@ -27,6 +29,21 @@ export default function AllMailsPage() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [openedMail, setOpenedMail] = useState<Mail | null>(null);
+
+  const searchParams = useSearchParams();
+  const tabFromUrl = searchParams.get('tab');
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // Keep the tab UI in sync when selecting filters via sidebar labels.
+  useEffect(() => {
+    if (!tabFromUrl) return;
+    const nextTab = TABS.find((t) => t.label === tabFromUrl)?.label;
+    if (nextTab && nextTab !== activeTab) {
+      setActiveTab(nextTab);
+      setPage(1);
+    }
+  }, [tabFromUrl, activeTab]);
 
   // Mock Notifications for Mail Page Topbar
   const notifications = [
@@ -75,12 +92,14 @@ export default function AllMailsPage() {
           />
         </div>
         <div className={styles.topActions}>
-          <button className={styles.newScanBtn}>
-            <div className={styles.newScanIcon}>
-              <Icon icon="ri:scan-2-line" className="text-sm" />
-            </div>
-            New Scan
-          </button>
+          <Link href="/dashboard/scan">
+            <button className={styles.newScanBtn}>
+              <div className={styles.newScanIcon}>
+                <Icon icon="ri:scan-2-line" className="text-sm" />
+              </div>
+              New Scan
+            </button>
+          </Link>
 
           {/* Notifications */}
           <div className="relative">
@@ -141,14 +160,18 @@ export default function AllMailsPage() {
 
             {showUserMenu && (
               <div className="absolute right-0 top-12 w-[180px] bg-white rounded-xl shadow-lg border border-gray-100 z-50 py-1">
-                <a href="#" className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
-                  <div className="w-4 h-4 flex items-center justify-center"><Icon icon="ri:user-line" className="text-sm" /></div>
-                  My Profile
-                </a>
-                <a href="#" className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
-                  <div className="w-4 h-4 flex items-center justify-center"><Icon icon="ri:settings-3-line" className="text-sm" /></div>
-                  Settings
-                </a>
+               <Link href="/dashboard/settings/profile" className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
+                <div className="w-4 h-4 flex items-center justify-center"><Icon icon="ri:user-line" className="text-sm" /></div>
+                My Profile
+              </Link>
+              <Link
+                href="/dashboard/settings"
+                onClick={() => setShowUserMenu(false)}
+                className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
+              >
+                <div className="w-4 h-4 flex items-center justify-center"><Icon icon="ri:settings-3-line" className="text-sm" /></div>
+                Settings
+              </Link>
                 <div className="border-t border-gray-100 my-1"></div>
                 <a href="/login" className="flex items-center gap-2 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 cursor-pointer">
                   <div className="w-4 h-4 flex items-center justify-center"><Icon icon="ri:logout-box-r-line" className="text-sm" /></div>
@@ -174,7 +197,11 @@ export default function AllMailsPage() {
         {TABS.map((tab) => (
           <button
             key={tab.label}
-            onClick={() => { setActiveTab(tab.label); setPage(1); }}
+                onClick={() => {
+                  setActiveTab(tab.label);
+                  setPage(1);
+                  router.replace(`${pathname}?tab=${encodeURIComponent(tab.label)}`);
+                }}
             className={activeTab === tab.label ? styles.tabActive : styles.tab}
           >
             {tab.label}
