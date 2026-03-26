@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { companies, type Company } from '../../../mocks/companies';
 import CompanyToolbar from './components/CompanyToolbar';
@@ -16,6 +16,14 @@ const TABS: TabType[] = ['All', 'Active', 'Pending', 'Inactive'];
 const PER_PAGE = 10;
 
 export default function CompaniesPage() {
+  return (
+    <Suspense fallback={null}>
+      <CompaniesPageContent />
+    </Suspense>
+  );
+}
+
+function CompaniesPageContent() {
   const [activeTab, setActiveTab] = useState<TabType>('All');
   const [companyList, setCompanyList] = useState<Company[]>(companies);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
