@@ -74,7 +74,7 @@ export default function CustomerLogin() {
           </div>
         </div>
 
-        <div className="relative z-10 text-blue-100 text-sm">© 2024 VScan Mail. All rights reserved.</div>
+        <div className="relative z-10 text-blue-100 text-sm">© 2026 VScan Mail. All rights reserved.</div>
       </div>
 
       {/* Right Panel - Login Form */}
@@ -82,11 +82,13 @@ export default function CustomerLogin() {
         <div className="w-full max-w-md">
           <div className="lg:hidden mb-8 text-center">
             <Link href="/customer-dashboard">
-              <img
-                src="https://static.readdy.ai/image/306c0f034255580e0c7c21250ba38e98/448654b3ab8dbd6e9a6eacf64f18bab4.png"
-                alt="VScan Mail"
-                className="h-10 w-auto mx-auto"
-              />
+              <div className="flex justify-center">
+                <img
+                  src="/images/A-4.png"
+                  alt="VScan Mail"
+                  className="w-[139px] h-[72px] object-contain"
+                />
+              </div>
             </Link>
           </div>
 

@@ -176,7 +176,7 @@ export default function LoginPage() {
               {/* REGISTER */}
 
               <p className={styles.registerText}>
-                Don't have an account?
+                Don&apos;t have an account?
                 <Link
                   href="/register1"
                   className={styles.registerLink}
