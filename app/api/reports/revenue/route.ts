@@ -1,25 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth, withRole } from "@/lib/middleware/auth";
-import { supabaseAdmin } from "@/lib/config/supabase";
+import { db } from "@/lib/db/mysql";
+import { usageEvents } from "@/lib/db/schema";
 
 export async function GET(req: NextRequest) {
   try {
     const user = await withAuth(req);
     withRole(user, ["admin"]);
 
-    const { data, error } = await supabaseAdmin
-      .from("usage_events")
-      .select("event_type, quantity, total_cost, created_at");
-
-    if (error) throw error;
+    const data = await db
+      .select({
+        event_type: usageEvents.eventType,
+        quantity: usageEvents.quantity,
+        total_cost: usageEvents.totalCost,
+        created_at: usageEvents.createdAt,
+      })
+      .from(usageEvents);
 
     let totalRevenue = 0;
     const byEvent: Record<string, { count: number; revenue: number }> = {};
     for (const e of data || []) {
-      totalRevenue += e.total_cost;
+      const cost = Number(e.total_cost || 0);
+      totalRevenue += cost;
       if (!byEvent[e.event_type]) byEvent[e.event_type] = { count: 0, revenue: 0 };
       byEvent[e.event_type].count += e.quantity;
-      byEvent[e.event_type].revenue += e.total_cost;
+      byEvent[e.event_type].revenue += cost;
     }
 
     return NextResponse.json({

@@ -1,7 +1,9 @@
 // ---- app/api/reports/intake/route.ts ----
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth, withRole } from "@/lib/middleware/auth";
-import { supabaseAdmin } from "@/lib/config/supabase";
+import { db, sql } from "@/lib/db/mysql";
+import { mailItems, clients, cheques } from "@/lib/db/schema";
+import { eq, and, desc } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,24 +16,31 @@ export async function GET(req: NextRequest) {
     const clientId = user.role === "admin" ? null : user.clientId!;
 
     // Mail aggregates.
-    let mailQuery = supabaseAdmin
-      .from("mail_items")
-      .select("type, status, client_id, scanned_at", { count: "exact" });
+    const mailConditions = [];
+    if (from) mailConditions.push(sql`${mailItems.scannedAt} >= ${from}`);
+    if (to) mailConditions.push(sql`${mailItems.scannedAt} <= ${to}`);
+    if (clientId) mailConditions.push(eq(mailItems.clientId, clientId));
 
-    if (from) mailQuery = mailQuery.gte("scanned_at", from);
-    if (to) mailQuery = mailQuery.lte("scanned_at", to);
-    if (clientId) mailQuery = mailQuery.eq("client_id", clientId);
+    const data = await db
+      .select({
+        type: mailItems.type,
+        status: mailItems.status,
+        client_id: mailItems.clientId,
+        scanned_at: mailItems.scannedAt,
+      })
+      .from(mailItems)
+      .where(mailConditions.length > 0 ? and(...mailConditions) : undefined)
+      .orderBy(desc(mailItems.scannedAt));
 
-    const { data, count, error } = await mailQuery.order("scanned_at", {
-      ascending: false,
-    });
-    if (error) throw error;
+    const count = data.length;
 
     const byType: Record<string, number> = {};
     const byStatus: Record<string, number> = {};
     for (const item of data || []) {
-      byType[item.type] = (byType[item.type] || 0) + 1;
-      byStatus[item.status] = (byStatus[item.status] || 0) + 1;
+      const typeStr = item.type as string;
+      const statusStr = item.status as string;
+      byType[typeStr] = (byType[typeStr] || 0) + 1;
+      byStatus[statusStr] = (byStatus[statusStr] || 0) + 1;
     }
 
     const totalCheques = byType["cheque"] || 0;
@@ -41,39 +50,35 @@ export async function GET(req: NextRequest) {
     // Active companies.
     let activeCompanies = 0;
     if (user.role === "admin") {
-      const { data: clients, error: clientsErr } = await supabaseAdmin
-        .from("clients")
-        .select("id", { count: "exact" })
-        .eq("status", "active");
-      if (clientsErr) throw clientsErr;
-      activeCompanies = clients?.length || 0;
+      const res = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(clients)
+        .where(eq(clients.status, "active"));
+      activeCompanies = Number(res[0]?.count || 0);
     } else {
-      const { data: me, error: meErr } = await supabaseAdmin
-        .from("clients")
-        .select("status")
-        .eq("id", clientId)
-        .single();
-      if (meErr) throw meErr;
-      activeCompanies = me?.status === "active" ? 1 : 0;
+      const me = await db
+        .select({ status: clients.status })
+        .from(clients)
+        .where(eq(clients.id, clientId!))
+        .limit(1);
+      activeCompanies = me[0]?.status === "active" ? 1 : 0;
     }
 
-    // Pending cheque requests (client_decision='pending').
+    // Pending cheque requests (clientDecision='pending').
     let pendingRequests = 0;
     if (user.role === "admin") {
-      const { count: pendingCount, error: pendingErr } = await supabaseAdmin
-        .from("cheques")
-        .select("id", { count: "exact" })
-        .eq("client_decision", "pending");
-      if (pendingErr) throw pendingErr;
-      pendingRequests = pendingCount || 0;
+      const pendingRes = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(cheques)
+        .where(eq(cheques.clientDecision, "pending"));
+      pendingRequests = Number(pendingRes[0]?.count || 0);
     } else {
-      const { count: pendingCount, error: pendingErr } = await supabaseAdmin
-        .from("cheques")
-        .select("id, mail_items!inner(client_id)", { count: "exact" })
-        .eq("client_decision", "pending")
-        .eq("mail_items.client_id", clientId);
-      if (pendingErr) throw pendingErr;
-      pendingRequests = pendingCount || 0;
+      const pendingRes = await db
+        .select({ id: cheques.id })
+        .from(cheques)
+        .innerJoin(mailItems, eq(cheques.mailItemId, mailItems.id))
+        .where(and(eq(cheques.clientDecision, "pending"), eq(mailItems.clientId, clientId!)));
+      pendingRequests = pendingRes.length;
     }
 
     return NextResponse.json({

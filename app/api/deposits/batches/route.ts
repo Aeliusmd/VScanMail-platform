@@ -1,8 +1,10 @@
 // ---- app/api/deposits/batches/route.ts ----
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth, withRole } from "@/lib/middleware/auth";
-import { depositBatchModel, chequeModel } from "@/lib/models/shared.models";
-import { supabaseAdmin } from "@/lib/config/supabase";
+import { depositBatchModel } from "@/lib/models/shared.models";
+import { db } from "@/lib/db/mysql";
+import { cheques, mailItems } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 import { clientModel } from "@/lib/models/client.model";
 import { auditService } from "@/lib/services/supporting.services";
 import { z } from "zod";
@@ -26,14 +28,14 @@ export async function GET(req: NextRequest) {
         let email: string | null = null;
 
         // Deposit batches contain cheques; all cheques in a batch should belong to the same client.
-        const { data: chequeRows } = await supabaseAdmin
-          .from("cheques")
-          .select("mail_items!inner(client_id)")
-          .eq("deposit_batch_id", b.id)
+        const chequeRows = await db
+          .select({ clientId: mailItems.clientId })
+          .from(cheques)
+          .innerJoin(mailItems, eq(cheques.mailItemId, mailItems.id))
+          .where(eq(cheques.depositBatchId, b.id))
           .limit(1);
 
-        const clientId =
-          (chequeRows?.[0] as any)?.mail_items?.client_id || null;
+        const clientId = chequeRows?.[0]?.clientId || null;
 
         if (clientId) {
           const client = await clientModel.findById(clientId);

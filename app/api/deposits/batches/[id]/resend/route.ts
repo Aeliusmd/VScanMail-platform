@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth, withRole } from "@/lib/middleware/auth";
 import { notificationService } from "@/lib/services/supporting.services";
-import { supabaseAdmin } from "@/lib/config/supabase";
+import { db } from "@/lib/db/mysql";
+import { cheques, mailItems } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 
 export async function POST(
   req: NextRequest,
@@ -13,21 +15,24 @@ export async function POST(
 
     const { id } = await params;
 
-    const { data: cheques, error } = await supabaseAdmin
-      .from("cheques")
-      .select("*, mail_items!inner(client_id)")
-      .eq("deposit_batch_id", id);
-
-    if (error) throw error;
+    const chequesData = await db
+      .select({
+        cheque: cheques,
+        clientId: mailItems.clientId,
+      })
+      .from(cheques)
+      .innerJoin(mailItems, eq(cheques.mailItemId, mailItems.id))
+      .where(eq(cheques.depositBatchId, id));
 
     await Promise.all(
-      (cheques || []).map(async (q: any) => {
-        const clientId = q?.mail_items?.client_id;
+      chequesData.map(async (row) => {
+        const clientId = row.clientId;
+        const q = row.cheque;
         if (!clientId) return;
         await notificationService.sendChequeAlert(
           clientId,
           q,
-          q.ai_raw_result
+          q.aiRawResult
         );
       })
     );
