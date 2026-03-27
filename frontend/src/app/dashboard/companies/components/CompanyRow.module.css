@@ -1,0 +1,114 @@
+@reference "../../../globals.css";
+
+.row {
+  @apply flex items-center px-4 py-2.5 border-b border-gray-100 hover:bg-gray-50 transition cursor-pointer min-w-[1160px];
+}
+
+.rowSelected {
+  @apply bg-[#EFF6FF];
+}
+
+.controls {
+  @apply flex items-center gap-1.5 w-[72px] flex-shrink-0;
+}
+
+.checkbox {
+  @apply w-4 h-4 rounded border-gray-300 cursor-pointer;
+}
+
+.iconBtn {
+  @apply w-4 h-4 flex items-center justify-center text-gray-300 hover:text-gray-500 transition cursor-pointer;
+}
+
+.starActive {
+  @apply text-[#FBBF24];
+}
+
+.flagActive {
+  @apply text-[#22C55E];
+}
+
+.avatarWrap {
+  @apply w-[34px] flex-shrink-0 mr-3;
+}
+
+.avatar {
+  @apply w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold;
+}
+
+.nameWrap {
+  @apply w-[188px] flex-shrink-0 mr-3;
+}
+
+.name {
+  @apply text-sm font-semibold text-slate-800 truncate;
+}
+
+.infoWrap {
+  @apply flex-1 min-w-0 mr-3 flex items-center gap-2;
+}
+
+.industry {
+  @apply text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap;
+}
+
+.contact {
+  @apply text-sm font-semibold text-slate-600 whitespace-nowrap;
+}
+
+.email {
+  @apply text-sm text-slate-400 truncate;
+}
+
+.metrics {
+  @apply w-[120px] flex-shrink-0 mr-3 flex items-center gap-3 justify-end text-xs text-slate-400;
+}
+
+.metric {
+  @apply inline-flex items-center gap-1;
+}
+
+.statusWrap {
+  @apply w-[84px] flex-shrink-0 mr-3;
+}
+
+.statusActive {
+  @apply inline-flex text-xs font-semibold px-2.5 py-0.5 rounded-full bg-green-100 text-green-700;
+}
+
+.statusPending {
+  @apply inline-flex text-xs font-semibold px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-700;
+}
+
+.statusInactive {
+  @apply inline-flex text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-600;
+}
+
+.timeWrap {
+  @apply w-[110px] flex-shrink-0 text-right;
+}
+
+.time {
+  @apply text-xs text-slate-500 whitespace-nowrap;
+}
+
+@media (max-width: 1024px) {
+  .metrics {
+    @apply hidden;
+  }
+
+  .nameWrap {
+    @apply w-[170px];
+  }
+}
+
+@media (max-width: 768px) {
+  .row {
+    @apply min-w-[920px];
+  }
+
+  .statusWrap,
+  .timeWrap {
+    @apply hidden;
+  }
+}

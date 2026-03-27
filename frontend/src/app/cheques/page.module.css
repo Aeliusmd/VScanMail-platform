@@ -1,0 +1,117 @@
+.page {
+  min-height: 100vh;
+  background: #f7f8fc;
+  padding: 24px;
+}
+
+.card {
+  max-width: 1100px;
+  margin: 0 auto;
+  background: #ffffff;
+  border: 1px solid #e8ebf2;
+  border-radius: 16px;
+  box-shadow: 0 6px 24px rgba(15, 23, 42, 0.06);
+}
+
+.header {
+  padding: 22px 24px 10px;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.55rem;
+  line-height: 1.2;
+  color: #102347;
+}
+
+.subtitle {
+  margin: 6px 0 0;
+  color: #5c6b8a;
+  font-size: 0.95rem;
+}
+
+.tableWrap {
+  width: 100%;
+  overflow-x: auto;
+  padding: 0 12px 16px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+.table thead th {
+  text-align: left;
+  padding: 14px 12px;
+  font-size: 0.85rem;
+  color: #4f6185;
+  border-bottom: 1px solid #e8ebf2;
+  font-weight: 600;
+}
+
+.table tbody td {
+  padding: 13px 12px;
+  color: #1d2f56;
+  border-bottom: 1px solid #eff2f8;
+  font-size: 0.92rem;
+}
+
+.companyCell {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.companyInitial {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #dbe7ff;
+  color: #1f4298;
+  font-weight: 700;
+}
+
+.badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.active {
+  background: #e6faef;
+  color: #0f7a3f;
+}
+
+.pending {
+  background: #fff5e6;
+  color: #9d5f00;
+}
+
+.inactive {
+  background: #eef1f7;
+  color: #55627a;
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding: 14px;
+  }
+
+  .header {
+    padding: 18px 16px 8px;
+  }
+
+  .title {
+    font-size: 1.3rem;
+  }
+
+  .subtitle {
+    font-size: 0.88rem;
+  }
+}

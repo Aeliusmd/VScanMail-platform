@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "app/api/ai/**": { "maxDuration": 60 },
+    "app/api/mail/upload/**": { "maxDuration": 60 },
+    "app/api/stripe/webhook/**": { "maxDuration": 30 }
+  }
+}

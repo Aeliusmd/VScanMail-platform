@@ -1,0 +1,52 @@
+{
+  "name": "vscanmail",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3010",
+    "build": "next build",
+    "start": "next start -p 3010",
+    "lint": "next lint",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "stripe:listen": "stripe listen --forward-to localhost:3010/api/stripe/webhook"
+  },
+  "dependencies": {
+    "next": "^15.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "bcryptjs": "^3.0.2",
+    "dotenv": "^16.6.1",
+    "drizzle-orm": "^0.44.4",
+    "jose": "^6.1.0",
+    "mysql2": "^3.14.3",
+    "stripe": "^17.0.0",
+    "@stripe/stripe-js": "^4.0.0",
+    "openai": "^4.70.0",
+    "@aws-sdk/client-textract": "^3.700.0",
+    "@aws-sdk/client-s3": "^3.700.0",
+    "@aws-sdk/s3-request-presigner": "^3.700.0",
+    "resend": "^4.0.0",
+    "zod": "^3.23.0",
+    "sharp": "^0.33.0",
+    "string-similarity-js": "^2.1.0",
+    "words-to-numbers": "^1.5.1",
+    "dayjs": "^1.11.0",
+    "nanoid": "^5.0.0",
+    "otplib": "^12.0.0",
+    "qrcode": "^1.5.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/qrcode": "^1.5.0",
+    "drizzle-kit": "^0.31.4",
+    "tailwindcss": "^3.4.0",
+    "postcss": "^8.4.0",
+    "autoprefixer": "^10.4.0",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "^15.1.0"
+  }
+}

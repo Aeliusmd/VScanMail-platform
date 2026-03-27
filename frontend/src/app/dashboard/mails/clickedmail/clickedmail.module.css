@@ -1,0 +1,203 @@
+@reference "../../../globals.css";
+
+.overlay {
+  @apply fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-3;
+}
+
+.modal {
+  @apply bg-white rounded-2xl shadow-2xl w-full max-w-[580px] overflow-hidden;
+}
+
+.header {
+  @apply flex items-start justify-between px-6 pt-6 pb-4;
+}
+
+.titleGroup {
+  @apply flex items-center gap-3;
+}
+
+.mailIconBox {
+  @apply w-10 h-10 flex items-center justify-center bg-[#DBEAFE] rounded-lg;
+}
+
+.iconMail {
+  @apply text-[#1E40AF] text-lg;
+}
+
+.subject {
+  @apply text-base font-bold text-gray-900 leading-tight;
+}
+
+.metaInfo {
+  @apply text-xs text-gray-400 mt-0.5;
+}
+
+.closeButton {
+  @apply w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition cursor-pointer;
+}
+
+.iconClose {
+  @apply text-lg;
+}
+
+.documentPreviewBox {
+  @apply mx-6 mb-4 rounded-xl border border-gray-200 overflow-hidden bg-gray-50 h-[180px] relative;
+}
+
+.documentPreviewImg {
+  @apply w-full h-full object-cover object-top;
+}
+
+.documentOverlay {
+  @apply absolute inset-0 bg-white/10;
+}
+
+.detailsGrid {
+  @apply mx-6 mb-4 grid grid-cols-2 gap-3;
+}
+
+.detailCard {
+  @apply border border-gray-200 rounded-xl p-4;
+}
+
+.detailLabel {
+  @apply text-xs flex-shrink-0 font-medium mb-2;
+}
+
+.labelPrimary {
+  @apply text-[#1E40AF];
+}
+
+.labelSecondary {
+  @apply text-gray-400;
+}
+
+.companyGroup {
+  @apply flex items-center gap-2;
+}
+
+.companyAvatar {
+  @apply w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0;
+}
+
+.companyName {
+  @apply text-sm font-semibold text-gray-900 leading-tight;
+}
+
+.companyEmail {
+  @apply text-xs text-gray-400;
+}
+
+.senderName {
+  @apply text-sm font-semibold text-gray-900 mb-2;
+}
+
+.tagBase {
+  @apply text-xs font-medium px-2.5 py-1 rounded-full;
+}
+
+.tagInbox {
+  @apply bg-[#DBEAFE] text-[#1E40AF];
+}
+
+.tagDelivered {
+  @apply bg-green-100 text-green-700;
+}
+
+.tagPending {
+  @apply bg-orange-100 text-orange-600;
+}
+
+.aiSummaryBox {
+  @apply mx-6 mb-5 bg-[#EFF6FF] rounded-xl p-4;
+}
+
+.aiHeader {
+  @apply flex items-center gap-2 mb-2;
+}
+
+.aiIconWrapper {
+  @apply w-5 h-5 flex items-center justify-center text-yellow-500;
+}
+
+.iconSparkling {
+  @apply text-base;
+}
+
+.aiTitle {
+  @apply text-sm font-semibold text-gray-800;
+}
+
+.aiPreviewText {
+  @apply text-sm text-gray-600 leading-relaxed;
+}
+
+.aiFooter {
+  @apply flex items-center gap-1.5 mt-3;
+}
+
+.aiShieldWrapper {
+  @apply w-4 h-4 flex items-center justify-center text-gray-400;
+}
+
+.iconShield {
+  @apply text-xs;
+}
+
+.aiFooterText {
+  @apply text-xs text-gray-400;
+}
+
+.actionsGroup {
+  @apply flex items-center gap-3 px-6 pb-6;
+}
+
+.btnPrimary {
+  @apply flex items-center gap-2 bg-[#1E3A8A] hover:bg-[#1E40AF] text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition cursor-pointer whitespace-nowrap;
+}
+
+.btnSecondary {
+  @apply flex items-center gap-2 border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-medium px-5 py-2.5 rounded-lg transition cursor-pointer whitespace-nowrap;
+}
+
+.btnCloseAction {
+  @apply ml-auto border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-medium px-5 py-2.5 rounded-lg transition cursor-pointer whitespace-nowrap;
+}
+
+.actionIconWrapper {
+  @apply w-4 h-4 flex items-center justify-center;
+}
+
+.iconAction {
+  @apply text-sm;
+}
+
+@media (max-width: 768px) {
+  .header {
+    @apply px-4 pt-4 pb-3;
+  }
+
+  .documentPreviewBox,
+  .detailsGrid,
+  .aiSummaryBox {
+    @apply mx-4;
+  }
+
+  .documentPreviewBox {
+    @apply h-[150px];
+  }
+
+  .detailsGrid {
+    @apply grid-cols-1;
+  }
+
+  .actionsGroup {
+    @apply px-4 pb-4 flex-col;
+  }
+
+  .btnPrimary,
+  .btnSecondary,
+  .btnCloseAction {
+    @apply w-full justify-center ml-0;
+  }
+}

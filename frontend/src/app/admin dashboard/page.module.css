@@ -1,0 +1,61 @@
+@reference "../globals.css";
+
+.pageContainer {
+  @apply flex flex-col h-full bg-[#F8FAFC];
+}
+
+.topBar {
+  @apply flex items-center justify-between px-6 py-4 bg-white border-b border-gray-100;
+}
+
+.pageTitle {
+  @apply text-lg font-semibold text-gray-900;
+}
+
+.topBarRight {
+  @apply flex items-center gap-3;
+}
+
+.searchWrapper {
+  @apply relative;
+}
+
+.searchIcon {
+  @apply absolute inset-y-0 left-3 flex items-center pointer-events-none text-gray-400;
+}
+
+.searchInput {
+  @apply pl-9 pr-4 py-2 text-sm rounded-lg border border-gray-200 bg-[#F8FAFC] focus:outline-none w-56;
+}
+
+.tabsBar {
+  @apply flex items-center gap-1 px-6 pt-3 pb-0 bg-white border-b border-gray-100;
+}
+
+.tab {
+  @apply px-4 py-2 text-sm font-medium rounded-t-lg transition flex items-center gap-1.5 text-gray-500 hover:text-gray-700;
+}
+
+.tabActive {
+  @apply px-4 py-2 text-sm font-medium rounded-t-lg transition flex items-center gap-1.5 text-[#1E40AF] border-b-2 border-[#1E40AF] bg-white;
+}
+
+.badge {
+  @apply text-xs px-1.5 py-0.5 rounded-full font-semibold bg-gray-100 text-gray-500;
+}
+
+.badgeActive {
+  @apply text-xs px-1.5 py-0.5 rounded-full font-semibold bg-[#DBEAFE] text-[#1E40AF];
+}
+
+.mailList {
+  @apply flex-1 overflow-y-auto;
+}
+
+.emptyState {
+  @apply flex flex-col items-center justify-center py-20 text-gray-400;
+}
+
+.emptyText {
+  @apply text-sm;
+}

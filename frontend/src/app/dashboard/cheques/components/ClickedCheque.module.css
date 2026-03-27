@@ -1,0 +1,185 @@
+@reference "../../../globals.css";
+
+.overlay {
+  @apply fixed inset-0 z-50 flex items-center justify-center bg-black/40;
+}
+
+.modal {
+  @apply bg-white rounded-2xl shadow-2xl w-full max-w-[580px] mx-4 overflow-hidden;
+}
+
+.header {
+  @apply flex items-start justify-between px-6 pt-6 pb-4;
+}
+
+.titleGroup {
+  @apply flex items-center gap-3;
+}
+
+.iconBox {
+  @apply w-10 h-10 flex items-center justify-center bg-[#DBEAFE] rounded-lg;
+}
+
+.iconCheque {
+  @apply text-[#1E40AF] text-lg;
+}
+
+.titleText {
+  @apply text-base font-bold text-gray-900 leading-tight;
+}
+
+.metaText {
+  @apply text-xs text-gray-400 mt-0.5;
+}
+
+.closeBtn {
+  @apply w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition cursor-pointer;
+}
+
+.iconClose {
+  @apply text-lg;
+}
+
+.previewBox {
+  @apply mx-6 mb-4 rounded-xl border border-gray-200 overflow-hidden bg-gray-50 h-[180px] relative;
+}
+
+.previewImg {
+  @apply w-full h-full object-cover object-top;
+}
+
+.previewOverlay {
+  @apply absolute inset-0 bg-white/10;
+}
+
+.detailsGrid {
+  @apply mx-6 mb-4 grid grid-cols-2 gap-3;
+}
+
+.detailCard {
+  @apply border border-gray-200 rounded-xl p-4;
+}
+
+.labelPrimary {
+  @apply text-xs text-[#1E40AF] font-medium mb-2;
+}
+
+.labelSecondary {
+  @apply text-xs text-gray-400 font-medium mb-2;
+}
+
+.companyGroup {
+  @apply flex items-center gap-2;
+}
+
+.companyAvatar {
+  @apply w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0;
+}
+
+.companyName {
+  @apply text-sm font-semibold text-gray-900 leading-tight;
+}
+
+.industryBadge {
+  @apply text-xs font-medium px-2 py-0.5 rounded-full;
+}
+
+.contactName {
+  @apply text-sm font-semibold text-gray-900 mb-1;
+}
+
+.contactEmail {
+  @apply text-xs text-gray-400 truncate;
+}
+
+.statusActive {
+  @apply inline-block mt-2 text-xs font-medium px-2.5 py-0.5 rounded-full bg-green-100 text-green-700;
+}
+
+.statusPending {
+  @apply inline-block mt-2 text-xs font-medium px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-600;
+}
+
+.statusInactive {
+  @apply inline-block mt-2 text-xs font-medium px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-500;
+}
+
+.statsGrid {
+  @apply mx-6 mb-5 grid grid-cols-2 gap-3;
+}
+
+.statCardBlue {
+  @apply bg-[#EFF6FF] rounded-xl p-4 flex items-center gap-3;
+}
+
+.statCardGreen {
+  @apply bg-green-50 rounded-xl p-4 flex items-center gap-3;
+}
+
+.statIconBlue {
+  @apply w-9 h-9 flex items-center justify-center bg-[#DBEAFE] rounded-lg;
+}
+
+.statIconGreen {
+  @apply w-9 h-9 flex items-center justify-center bg-green-100 rounded-lg;
+}
+
+.statLabel {
+  @apply text-xs text-gray-500 font-medium;
+}
+
+.statValue {
+  @apply text-xl font-bold text-gray-900;
+}
+
+.aiSection {
+  @apply mx-6 mb-5 bg-[#EFF6FF] rounded-xl p-4;
+}
+
+.aiHeader {
+  @apply flex items-center gap-2 mb-2;
+}
+
+.aiStarIcon {
+  @apply w-5 h-5 flex items-center justify-center text-yellow-500;
+}
+
+.aiTitle {
+  @apply text-sm font-semibold text-gray-800;
+}
+
+.aiBody {
+  @apply text-sm text-gray-600 leading-relaxed;
+}
+
+.aiFooter {
+  @apply flex items-center gap-1.5 mt-3;
+}
+
+.aiFooterIcon {
+  @apply w-4 h-4 flex items-center justify-center text-gray-400;
+}
+
+.aiFooterText {
+  @apply text-xs text-gray-400;
+}
+
+.actionsGroup {
+  @apply flex items-center gap-3 px-6 pb-6;
+}
+
+.btnPrimary {
+  @apply flex items-center gap-2 bg-[#1E3A8A] hover:bg-[#1E40AF] text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition cursor-pointer whitespace-nowrap;
+}
+
+.btnSecondary {
+  @apply flex items-center gap-2 border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-medium px-5 py-2.5 rounded-lg transition cursor-pointer whitespace-nowrap;
+}
+
+.btnClose {
+  @apply ml-auto border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-medium px-5 py-2.5 rounded-lg transition cursor-pointer whitespace-nowrap;
+}
+
+.actionIconWrapper {
+  @apply w-4 h-4 flex items-center justify-center;
+}

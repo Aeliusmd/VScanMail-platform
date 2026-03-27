@@ -1,0 +1,114 @@
+@reference "../../../globals.css";
+
+.row {
+  @apply flex items-center px-4 py-2.5 border-b border-gray-100 hover:bg-gray-50 transition cursor-pointer min-w-[980px];
+}
+
+.rowSelected {
+  @apply bg-[#EFF6FF];
+}
+
+.checkboxContainer {
+  @apply flex items-center gap-2 w-[80px] flex-shrink-0;
+}
+
+.checkbox {
+  @apply w-4 h-4 rounded border-gray-300 cursor-pointer;
+}
+
+.starBtn {
+  @apply w-4 h-4 flex items-center justify-center cursor-pointer transition text-gray-300 hover:text-yellow-300;
+}
+
+.starBtnActive {
+  @apply w-4 h-4 flex items-center justify-center cursor-pointer transition text-yellow-400;
+}
+
+.flagBtn {
+  @apply w-4 h-4 flex items-center justify-center cursor-pointer transition text-gray-300 hover:text-red-300;
+}
+
+.flagBtnActive {
+  @apply w-4 h-4 flex items-center justify-center cursor-pointer transition text-red-400;
+}
+
+.avatarContainer {
+  @apply w-[40px] flex-shrink-0 mr-3;
+}
+
+.avatar {
+  @apply w-9 h-9 rounded-full flex items-center justify-center text-white font-semibold text-sm;
+}
+
+.senderContainer {
+  @apply w-[170px] flex-shrink-0 mr-3;
+}
+
+.senderText {
+  @apply text-sm font-medium text-gray-900 truncate block;
+}
+
+.tagContainer {
+  @apply w-[90px] flex-shrink-0 mr-3;
+}
+
+.tag {
+  @apply text-xs font-medium px-2 py-0.5 rounded-full;
+}
+
+.contentContainer {
+  @apply flex-1 min-w-0 mr-3 flex items-center gap-2;
+}
+
+.subjectText {
+  @apply text-sm font-semibold text-gray-800 whitespace-nowrap;
+}
+
+.previewText {
+  @apply text-sm text-gray-400 truncate;
+}
+
+.attachmentIcon {
+  @apply w-4 h-4 flex items-center justify-center text-gray-400 flex-shrink-0;
+}
+
+.companyContainer {
+  @apply w-[140px] flex-shrink-0 mr-3 text-right;
+}
+
+.companyText {
+  @apply text-sm text-gray-500 truncate block;
+}
+
+.timeContainer {
+  @apply w-[70px] flex-shrink-0 text-right;
+}
+
+.timeText {
+  @apply text-sm text-gray-500 whitespace-nowrap;
+}
+
+@media (max-width: 1024px) {
+  .companyContainer {
+    @apply hidden;
+  }
+
+  .senderContainer {
+    @apply w-[150px];
+  }
+}
+
+@media (max-width: 768px) {
+  .checkboxContainer {
+    @apply w-[66px] gap-1.5;
+  }
+
+  .tagContainer,
+  .timeContainer {
+    @apply hidden;
+  }
+
+  .row {
+    @apply min-w-[760px];
+  }
+}
