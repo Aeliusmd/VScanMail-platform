@@ -10,6 +10,7 @@ import { signAccessToken } from "@/lib/auth/jwt";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    console.log("Login attempt for:", body.email);
     const { email, password, totpCode } = loginSchema.parse(body);
 
     const userRows = await db

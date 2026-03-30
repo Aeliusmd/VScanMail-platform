@@ -8,7 +8,7 @@ import { authenticator } from "otplib";
 import QRCode from "qrcode";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db/mysql";
-import { emailVerifications, profiles, users, clients } from "@/lib/db/schema";
+import { emailVerifications, profiles, users, clients, companyDirectory } from "@/lib/db/schema";
 import { and, eq, gt, sql } from "drizzle-orm";
 
 export const authService = {
@@ -71,6 +71,19 @@ export const authService = {
         role: "client",
         clientId: userId,
         createdAt: sql`NOW()`,
+      });
+
+      // 6) Add to company_directory so this company appears in unified lookup
+      await tx.insert(companyDirectory).values({
+        id: crypto.randomUUID(),
+        sourceType: "client",
+        sourceId: userId,
+        companyName: input.companyName,
+        email: input.email,
+        industry: input.industry,
+        phone: input.phone,
+        status: "pending",
+        createdAt: sql`NOW()` as any,
       });
 
       // 6) Create email verification record

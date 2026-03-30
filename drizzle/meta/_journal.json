@@ -8,6 +8,13 @@
       "when": 1774509120625,
       "tag": "0000_bent_rawhide_kid",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1774865067552,
+      "tag": "0001_nostalgic_galactus",
+      "breakpoints": true
     }
   ]
 }

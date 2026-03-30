@@ -257,3 +257,58 @@ export const auditLogs = mysqlTable(
   ]
 );
 
+// --- Company Directory (unified lookup for ALL companies) ---
+export const companyDirectory = mysqlTable(
+  "company_directory",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    sourceType: mysqlEnum("source_type", ["client", "manual"]).notNull(),
+    sourceId: varchar("source_id", { length: 36 }).notNull(),
+    companyName: varchar("company_name", { length: 255 }).notNull(),
+    email: varchar("email", { length: 255 }).notNull(),
+    industry: varchar("industry", { length: 128 }).notNull(),
+    phone: varchar("phone", { length: 64 }).notNull().default(""),
+    status: mysqlEnum("status", ["active", "pending", "suspended"])
+      .notNull()
+      .default("pending"),
+    createdAt: datetime("created_at", { mode: "date" }).notNull(),
+  },
+  (t) => [
+    uniqueIndex("cd_email_uq").on(t.email),
+    index("cd_source_idx").on(t.sourceType, t.sourceId),
+    index("cd_status_idx").on(t.status),
+  ]
+);
+
+// --- Manually Added Clients (admin-added, offline payers) ---
+export const manuallyAddedClients = mysqlTable(
+  "manually_added_clients",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    directoryId: varchar("directory_id", { length: 36 }).notNull(),
+    addedBy: varchar("added_by", { length: 36 }).notNull(),
+    contactPerson: varchar("contact_person", { length: 255 }),
+    website: varchar("website", { length: 255 }),
+    addressText: varchar("address_text", { length: 500 }),
+    notes: text("notes"),
+    paymentType: mysqlEnum("payment_type", [
+      "cash", "bank_transfer", "cheque", "other",
+    ]).notNull().default("other"),
+    subscriptionPlan: mysqlEnum("subscription_plan", [
+      "starter", "professional", "enterprise", "custom", "none",
+    ]).notNull().default("none"),
+    subscriptionAmount: decimal("subscription_amount", {
+      precision: 12, scale: 2,
+    }).notNull().default("0"),
+    subscriptionStatus: mysqlEnum("subscription_status", [
+      "active", "pending", "suspended",
+    ]).notNull().default("pending"),
+    linkedClientId: varchar("linked_client_id", { length: 36 }),
+    addedAt: datetime("added_at", { mode: "date" }).notNull(),
+  },
+  (t) => [
+    index("mac_directory_idx").on(t.directoryId),
+    index("mac_added_by_idx").on(t.addedBy),
+    index("mac_linked_client_idx").on(t.linkedClientId),
+  ]
+);
