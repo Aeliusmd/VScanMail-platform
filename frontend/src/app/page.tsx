@@ -34,6 +34,15 @@ export default function Home() {
             <div className="text-sm font-semibold">Admin</div>
             <div className="text-xs text-white/80 mt-1">Open admin login</div>
           </button>
+
+          <button
+            type="button"
+            onClick={() => router.push("/superadmin")}
+            className="w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-left hover:bg-slate-50 transition-colors"
+          >
+            <div className="text-sm font-semibold text-slate-900">Super Admin</div>
+            <div className="text-xs text-slate-500 mt-1">Open super admin dashboard</div>
+          </button>
         </div>
       </div>
     </div>
