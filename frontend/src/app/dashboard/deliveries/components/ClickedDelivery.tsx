@@ -1,9 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { Icon } from '@iconify/react';
 import type { DeliveryRequest } from '../../../../mocks/deliveries';
-import { mailApi } from "@/lib/api/mail";
 
 interface ClickedDeliveryProps {
   request: DeliveryRequest;
@@ -27,19 +25,6 @@ export default function ClickedDelivery({
   onMarkDelivered,
   onResend,
 }: ClickedDeliveryProps) {
-  const [downloading, setDownloading] = useState(false);
-
-  const handleDownload = async () => {
-    try {
-      setDownloading(true);
-      const res = await mailApi.download(request.id);
-      const url = res?.frontUrl || res?.backUrl || res?.contentUrls?.[0];
-      if (url) window.open(url, "_blank", "noopener,noreferrer");
-    } finally {
-      setDownloading(false);
-    }
-  };
-
   return (
     <div
       className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-6"
@@ -183,12 +168,9 @@ export default function ClickedDelivery({
                 {actionFeedback[request.id] === 'resent' ? 'Sent!' : 'Resend Email'}
               </button>
 
-              <button
-                onClick={handleDownload}
-                className="flex-1 py-3 bg-white border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-colors text-sm whitespace-nowrap cursor-pointer disabled:opacity-60"
-              >
+              <button className="flex-1 py-3 bg-white border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-colors text-sm whitespace-nowrap cursor-pointer">
                 <Icon icon="ri-download-line" className="inline-block mr-2" />
-                {downloading ? "Preparing..." : "Download"}
+                Download
               </button>
 
               <button

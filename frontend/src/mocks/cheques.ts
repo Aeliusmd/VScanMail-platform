@@ -1,6 +1,5 @@
 export interface Cheque {
   id: number;
-  backendId?: string;
   starred: boolean;
   flagged: boolean;
   companyColor: string;

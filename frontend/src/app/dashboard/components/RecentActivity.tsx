@@ -1,88 +1,17 @@
-"use client";
-
-import { useEffect, useMemo, useState } from "react";
 import { Icon } from '@iconify/react';
 import Link from 'next/link';
-import { authApi } from "@/lib/api/auth";
-import { mailApi, type MailStatus, type MailItem } from "@/lib/api/mail";
 
-function formatTime(iso: string | null | undefined) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString("en-US", { hour: "2-digit", minute: "2-digit" });
-}
-
-function mapStatus(status: MailStatus): { label: string; color: string } {
-  switch (status) {
-    case "delivered":
-      return { label: "Delivered", color: "bg-green-100 text-green-700" };
-    case "processed":
-      return { label: "Processed", color: "bg-[#DBEAFE] text-[#1E40AF]" };
-    case "scanned":
-    case "received":
-    default:
-      return { label: "Pending", color: "bg-yellow-100 text-yellow-700" };
-  }
-}
+const activities = [
+  { id: 1, company: 'Tech Solutions Inc', type: 'Mail', time: '5 mins ago', status: 'Processed', statusColor: 'bg-[#DBEAFE] text-[#1E40AF]', icon: 'ri:mail-line' },
+  { id: 2, company: 'Global Enterprises', type: 'Cheque', time: '12 mins ago', status: 'Pending', statusColor: 'bg-yellow-100 text-yellow-700', icon: 'iconamoon:cheque' },
+  { id: 3, company: 'Innovate Corp', type: 'Mail', time: '25 mins ago', status: 'Delivered', statusColor: 'bg-green-100 text-green-700', icon: 'ri:mail-line' },
+  { id: 4, company: 'Prime Industries', type: 'Cheque', time: '1 hour ago', status: 'Deposited', statusColor: 'bg-purple-100 text-purple-700', icon: 'iconamoon:cheque' },
+  { id: 5, company: 'Summit LLC', type: 'Mail', time: '2 hours ago', status: 'Processed', statusColor: 'bg-[#DBEAFE] text-[#1E40AF]', icon: 'ri:mail-line' },
+  { id: 6, company: 'Apex Holdings', type: 'Mail', time: '3 hours ago', status: 'Pending', statusColor: 'bg-yellow-100 text-yellow-700', icon: 'ri:mail-line' },
+  { id: 7, company: 'Nexus Corp', type: 'Cheque', time: '4 hours ago', status: 'Deposited', statusColor: 'bg-purple-100 text-purple-700', icon: 'iconamoon:cheque' },
+];
 
 export default function RecentActivity() {
-  const [companyName, setCompanyName] = useState<string>("");
-  const [activities, setActivities] = useState<
-    Array<{
-      id: string;
-      company: string;
-      type: "Mail" | "Cheque";
-      time: string;
-      status: string;
-      statusColor: string;
-      icon: string;
-    }>
-  >([]);
-
-  useEffect(() => {
-    authApi
-      .me()
-      .then((res) => setCompanyName(res?.client?.company_name || ""))
-      .catch(() => {
-        // ignore - dashboard can still render without company name
-      });
-
-    mailApi
-      .list({ limit: 7, page: 1 })
-      .then((res) => {
-        const items: MailItem[] = res.items || [];
-        setActivities(
-          items.map((item) => {
-            const mapped = mapStatus(item.status);
-            const type = item.type === "cheque" ? "Cheque" : "Mail";
-            return {
-              id: item.id,
-              company: companyName,
-              type,
-              time: formatTime(item.scanned_at || item.created_at),
-              status: mapped.label,
-              statusColor: mapped.color,
-              icon: type === "Cheque" ? "iconamoon:cheque" : "ri:mail-line",
-            };
-          })
-        );
-      })
-      .catch(() => {
-        // ignore
-      });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const resolvedActivities = useMemo(
-    () =>
-      activities.map((a) => ({
-        ...a,
-        company: a.company || companyName,
-      })),
-    [activities, companyName]
-  );
-
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 flex-1 min-w-0">
       <div className="flex items-center justify-between mb-5">
@@ -91,10 +20,10 @@ export default function RecentActivity() {
       </div>
 
       <div className="space-y-1">
-        {resolvedActivities.map((item) => (
+        {activities.map((item) => (
           <Link
             key={item.id}
-            href={item.type === "Cheque" ? "/dashboard/cheques" : "/dashboard/mails"}
+            href={item.type === 'Cheque' ? '/dashboard/cheques' : '/dashboard/mails'}
             className="flex items-center justify-between py-3 border-b border-gray-50 hover:bg-gray-50/60 rounded-lg px-2 transition cursor-pointer"
           >
             <div className="flex items-center gap-3">

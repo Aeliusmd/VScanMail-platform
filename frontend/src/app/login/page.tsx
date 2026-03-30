@@ -5,9 +5,6 @@ import Link from "next/link"
 import Image from "next/image"
 import styles from "./login.module.css"
 import { HiOutlineEnvelope, HiOutlineLockClosed, HiOutlineEye, HiOutlineEyeSlash } from "react-icons/hi2"
-import { useRouter } from "next/navigation"
-import { authApi } from "@/lib/api/auth"
-import { setSessionToken } from "@/lib/auth/token"
 
 export default function LoginPage() {
 
@@ -15,28 +12,10 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [remember, setRemember] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const router = useRouter()
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-
-    setError(null)
-    try {
-      const { session, user } = await authApi.login(email, password)
-
-      const token = session.access_token || session.accessToken
-      if (!token) throw new Error("Access token missing from login response")
-
-      setSessionToken(token)
-      window.localStorage.setItem("vscanmail_user", JSON.stringify(user))
-
-      void remember // cookie expiry customization can be added later
-      router.push("/dashboard")
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Login failed"
-      setError(msg)
-    }
+    console.log(email, password, remember)
   }
 
   return (
@@ -193,17 +172,11 @@ export default function LoginPage() {
                 Sign In
               </button>
 
-              {error && (
-                <p style={{ marginTop: 12, color: "#b91c1c", fontSize: 14 }}>
-                  {error}
-                </p>
-              )}
-
 
               {/* REGISTER */}
 
               <p className={styles.registerText}>
-                Don't have an account?
+                Don&apos;t have an account?
                 <Link
                   href="/register1"
                   className={styles.registerLink}

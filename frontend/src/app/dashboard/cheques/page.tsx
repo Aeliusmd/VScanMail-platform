@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
-import type { Cheque } from '../../../mocks/cheques';
+import { cheques, type Cheque } from '../../../mocks/cheques';
 import ChequeToolbar from './components/ChequeToolbar';
 import ChequeRow from './components/ChequeRow';
 import ClickedCheque from './components/ClickedCheque';
 import styles from './page.module.css';
-import { authApi } from '@/lib/api/auth';
-import { chequeApi } from '@/lib/api/cheques';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 
 type TabType = 'All' | 'Pending Deposit' | 'Deposited' | 'Rejected' | 'On Hold';
 
@@ -23,15 +23,35 @@ const TABS: { label: TabType }[] = [
 const PER_PAGE = 10;
 
 export default function AllChequesPage() {
+  return (
+    <Suspense fallback={null}>
+      <AllChequesPageContent />
+    </Suspense>
+  );
+}
+
+function AllChequesPageContent() {
   const [activeTab, setActiveTab] = useState<TabType>('All');
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
-  const [companyName, setCompanyName] = useState<string>('');
-  const [remoteCheques, setRemoteCheques] = useState<Cheque[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [openedCheque, setOpenedCheque] = useState<Cheque | null>(null);
+
+  const searchParams = useSearchParams();
+  const tabFromUrl = searchParams.get('tab');
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (!tabFromUrl) return;
+    const nextTab = TABS.find((t) => t.label === tabFromUrl)?.label;
+    if (nextTab && nextTab !== activeTab) {
+      setActiveTab(nextTab);
+      setPage(1);
+    }
+  }, [tabFromUrl, activeTab]);
 
   const notifications = [
     { id: 1, text: 'Cheque deposited for Global Enterprises', time: '5 mins ago', unread: true },
@@ -39,71 +59,7 @@ export default function AllChequesPage() {
     { id: 3, text: 'Rejected cheque requires review', time: '25 mins ago', unread: false },
   ];
 
-  useEffect(() => {
-    authApi
-      .me()
-      .then((res) => setCompanyName(res?.client?.company_name || ''))
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    chequeApi
-      .list()
-      .then((res) => {
-        const mapped: Cheque[] = (res.cheques || []).map((c: any, idx: number) => {
-          const clientDecision = c.client_decision as "pending" | "approved" | "rejected";
-          const statusUI: Cheque["status"] =
-            clientDecision === "approved"
-              ? "Deposited"
-              : clientDecision === "rejected"
-                ? "Rejected"
-                : c.status === "flagged"
-                  ? "On Hold"
-                  : "Pending Deposit";
-
-          const createdAt = c.created_at || c.date_on_cheque;
-          const time = createdAt
-            ? new Date(createdAt).toLocaleTimeString("en-US", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })
-            : "";
-
-          return {
-            id: idx + 1,
-            backendId: c.id,
-            starred: false,
-            flagged: false,
-            companyColor: "bg-[#0A3D8F]",
-            companyInitial: (companyName || "C").charAt(0).toUpperCase(),
-            company: companyName || "",
-            industryColor: "bg-blue-100 text-blue-700",
-            industry: "—",
-            contact: "—",
-            email: "—",
-            mails: 0,
-            cheques: 0,
-            status: statusUI,
-            bankName: "Bank",
-            chequeNumber: `#${String(idx + 1).padStart(6, "0")}`,
-            amount: Number(c.amount_figures || 0),
-            description:
-              c.ai_raw_result?.checks
-                ? `AI validation: ${c.ai_raw_result.status} (confidence ${Math.round((c.ai_raw_result.confidence || 0) * 100)}%).`
-                : `AI validation: ${c.status} (confidence ${Math.round((c.ai_confidence || 0) * 100)}%).`,
-            recipient: c.beneficiary || "—",
-            time,
-          };
-        });
-        setRemoteCheques(mapped);
-      })
-      .catch(() => {
-        setRemoteCheques([]);
-      });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyName]);
-
-  const filtered = remoteCheques.filter((c) => {
+  const filtered = cheques.filter((c) => {
     const matchTab = activeTab === 'All' || c.status === activeTab;
     const q = search.toLowerCase();
     const matchSearch =
@@ -120,8 +76,8 @@ export default function AllChequesPage() {
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   const getTabCount = (status: TabType) => {
-    if (status === 'All') return remoteCheques.length;
-    return remoteCheques.filter((c) => c.status === status).length;
+    if (status === 'All') return cheques.length;
+    return cheques.filter((c) => c.status === status).length;
   };
 
   const handleSelect = (id: number) => {
@@ -150,12 +106,14 @@ export default function AllChequesPage() {
         </div>
 
         <div className={styles.topActions}>
-          <button className={styles.addBtn}>
-            <div className={styles.addBtnIcon}>
-              <Icon icon="ri:scan-2-line" className="text-sm" />
-            </div>
-            New Scan
-          </button>
+          <Link href="/dashboard/scan">
+            <button className={styles.addBtn}>
+              <div className={styles.addBtnIcon}>
+                <Icon icon="ri:scan-2-line" className="text-sm" />
+              </div>
+              New Scan
+            </button>
+          </Link>
 
           <div className="relative">
             <button
@@ -212,14 +170,18 @@ export default function AllChequesPage() {
 
             {showUserMenu && (
               <div className="absolute right-0 top-12 w-[180px] bg-white rounded-xl shadow-lg border border-gray-100 z-50 py-1">
-                <a href="#" className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
-                  <Icon icon="ri:user-line" className="text-sm" />
+                <Link href="/dashboard/settings/profile" className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
+                  <div className="w-4 h-4 flex items-center justify-center"><Icon icon="ri:user-line" className="text-sm" /></div>
                   My Profile
-                </a>
-                <a href="#" className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
-                  <Icon icon="ri:settings-3-line" className="text-sm" />
+                </Link>
+                <Link
+                  href="/dashboard/settings"
+                  onClick={() => setShowUserMenu(false)}
+                  className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
+                >
+                  <div className="w-4 h-4 flex items-center justify-center"><Icon icon="ri:settings-3-line" className="text-sm" /></div>
                   Settings
-                </a>
+                </Link>
                 <div className="border-t border-gray-100 my-1"></div>
                 <a href="/login" className="flex items-center gap-2 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 cursor-pointer">
                   <Icon icon="ri:logout-box-r-line" className="text-sm" />
@@ -251,6 +213,7 @@ export default function AllChequesPage() {
               onClick={() => {
                 setActiveTab(tab.label);
                 setPage(1);
+                router.replace(`${pathname}?tab=${encodeURIComponent(tab.label)}`);
               }}
               className={activeTab === tab.label ? styles.tabActive : styles.tab}
             >
@@ -268,24 +231,24 @@ export default function AllChequesPage() {
       {/* Cheque List */}
       <div className={styles.listContainer}>
         <div className={styles.listInner}>
-        {paginated.length === 0 ? (
-          <div className={styles.emptyState}>
-            <div className={styles.emptyIcon}>
-              <Icon icon="ri:bank-card-line" className="text-3xl" />
+          {paginated.length === 0 ? (
+            <div className={styles.emptyState}>
+              <div className={styles.emptyIcon}>
+                <Icon icon="ri:bank-card-line" className="text-3xl" />
+              </div>
+              <p className={styles.emptyText}>No cheques found</p>
             </div>
-            <p className={styles.emptyText}>No cheques found</p>
-          </div>
-        ) : (
-          paginated.map((cheque) => (
-            <ChequeRow
-              key={cheque.id}
-              cheque={cheque}
-              selected={selectedIds.includes(cheque.id)}
-              onSelect={handleSelect}
-              onOpen={() => setOpenedCheque(cheque)}
-            />
-          ))
-        )}
+          ) : (
+            paginated.map((cheque) => (
+              <ChequeRow
+                key={cheque.id}
+                cheque={cheque}
+                selected={selectedIds.includes(cheque.id)}
+                onSelect={handleSelect}
+                onOpen={() => setOpenedCheque(cheque)}
+              />
+            ))
+          )}
         </div>
       </div>
 

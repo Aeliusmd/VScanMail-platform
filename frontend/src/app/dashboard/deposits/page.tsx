@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
-import type { Deposit } from '../../../mocks/deposits';
+import { deposits, type Deposit } from '../../../mocks/deposits';
 import DepositToolbar from './components/DepositToolbar';
 import DepositRow from './components/DepositRow';
 import ClickedDeposit from './components/ClickedDeposit';
 import depositStyles from './page.module.css';
 import mailStyles from '../mails/page.module.css';
-import { depositApi } from "@/lib/api/deposits";
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 
 type TabType = 'All' | 'Pending' | 'Approved' | 'Rejected' ;
 
@@ -23,6 +24,14 @@ const TABS: { label: TabType }[] = [
 const PER_PAGE = 10;
 
 export default function DepositsPage() {
+  return (
+    <Suspense fallback={null}>
+      <DepositsPageContent />
+    </Suspense>
+  );
+}
+
+function DepositsPageContent() {
   const [activeTab, setActiveTab] = useState<TabType>('All');
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [page, setPage] = useState(1);
@@ -30,7 +39,20 @@ export default function DepositsPage() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [openedDeposit, setOpenedDeposit] = useState<Deposit | null>(null);
-  const [remoteDeposits, setRemoteDeposits] = useState<Deposit[]>([]);
+
+  const searchParams = useSearchParams();
+  const tabFromUrl = searchParams.get('tab');
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (!tabFromUrl) return;
+    const nextTab = (TABS.map((t) => t.label) as string[]).includes(tabFromUrl) ? (tabFromUrl as TabType) : null;
+    if (nextTab && nextTab !== activeTab) {
+      setActiveTab(nextTab);
+      setPage(1);
+    }
+  }, [tabFromUrl, activeTab]);
 
   const notifications = [
     { id: 1, text: 'Deposit approved for Tech Solutions Inc', time: '5 mins ago', unread: true },
@@ -38,43 +60,7 @@ export default function DepositsPage() {
     { id: 3, text: 'Rejected deposit requires action', time: '25 mins ago', unread: false },
   ];
 
-  useEffect(() => {
-    depositApi
-      .listBatches()
-      .then((res) => {
-        const items = res.batches || [];
-        const mapped: Deposit[] = items.map((b: any, idx: number) => {
-          const statusUI: Deposit["status"] =
-            b.status === "pending" ? "Pending" : "Approved";
-
-          const company = b.company_name || "Company";
-          const createdAt = b.batch_date || b.created_at;
-          const time = createdAt ? new Date(createdAt).toLocaleDateString("en-US") : "";
-
-          return {
-            id: idx + 1,
-            backendId: b.id,
-            starred: false,
-            flagged: false,
-            companyColor: "bg-[#0A3D8F]",
-            companyInitial: company.charAt(0).toUpperCase(),
-            company,
-            slipUrl: b.deposit_slip_url,
-            bankName: "Bank",
-            bankCode: b.bank_reference || "-",
-            amount: Number(b.total_amount || 0),
-            status: statusUI,
-            priority: "Normal",
-            requestedBy: b.created_by || "—",
-            time,
-          };
-        });
-        setRemoteDeposits(mapped);
-      })
-      .catch(() => setRemoteDeposits([]));
-  }, []);
-
-  const filtered = remoteDeposits.filter((d) => {
+  const filtered = deposits.filter((d) => {
     const matchTab = activeTab === 'All' || d.status === activeTab;
     const q = search.toLowerCase();
     const matchSearch =
@@ -90,8 +76,8 @@ export default function DepositsPage() {
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   const getTabCount = (status: TabType) => {
-    if (status === 'All') return remoteDeposits.length;
-    return remoteDeposits.filter((d) => d.status === status).length;
+    if (status === 'All') return deposits.length;
+    return deposits.filter((d) => d.status === status).length;
   };
 
   const handleSelect = (id: number) => {
@@ -121,12 +107,14 @@ export default function DepositsPage() {
         </div>
 
         <div className={mailStyles.topActions}>
-          <button className={mailStyles.newScanBtn}>
-            <div className={mailStyles.newScanIcon}>
-              <Icon icon="ri:scan-2-line" className="text-sm" />
-            </div>
-            New Scan
-          </button>
+          <Link href="/dashboard/scan">         
+            <button className={mailStyles.newScanBtn}>
+              <div className={mailStyles.newScanIcon}>
+                <Icon icon="ri:scan-2-line" className="text-sm" />
+              </div>
+              New Scan
+            </button>
+          </Link>
 
           {/* Notifications */}
           <div className="relative">
@@ -200,14 +188,18 @@ export default function DepositsPage() {
 
             {showUserMenu && (
               <div className="absolute right-0 top-12 w-[180px] bg-white rounded-xl shadow-lg border border-gray-100 z-50 py-1">
-                <a href="#" className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
+                <Link href="/dashboard/settings/profile" className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
                   <div className="w-4 h-4 flex items-center justify-center"><Icon icon="ri:user-line" className="text-sm" /></div>
                   My Profile
-                </a>
-                <a href="#" className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
+                </Link>
+                <Link
+                  href="/dashboard/settings"
+                  onClick={() => setShowUserMenu(false)}
+                  className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
+                >
                   <div className="w-4 h-4 flex items-center justify-center"><Icon icon="ri:settings-3-line" className="text-sm" /></div>
                   Settings
-                </a>
+                </Link>
                 <div className="border-t border-gray-100 my-1"></div>
                 <a href="/login" className="flex items-center gap-2 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 cursor-pointer">
                   <div className="w-4 h-4 flex items-center justify-center"><Icon icon="ri:logout-box-r-line" className="text-sm" /></div>
@@ -237,6 +229,7 @@ export default function DepositsPage() {
             onClick={() => {
               setActiveTab(tab.label);
               setPage(1);
+              router.replace(`${pathname}?tab=${encodeURIComponent(tab.label)}`);
             }}
             className={`${depositStyles.tab} ${activeTab === tab.label ? depositStyles.active : ''}`}
           >

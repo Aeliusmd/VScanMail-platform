@@ -1,10 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import type { Mail } from '../../../../mocks/mails';
 import { Icon } from '@iconify/react';
 import styles from './clickedmail.module.css';
-import { mailApi } from "@/lib/api/mail";
 
 interface ClickedMailProps {
   mail: Mail;
@@ -24,34 +22,6 @@ const tagLabel: Record<string, string> = {
 };
 
 export default function ClickedMail({ mail, onClose }: ClickedMailProps) {
-  const [actionFeedback, setActionFeedback] = useState<string>("");
-
-  const handleResend = async () => {
-    if (!mail.backendId) return;
-    try {
-      setActionFeedback("resent");
-      await mailApi.resend(mail.backendId);
-    } catch {
-      setActionFeedback("failed");
-    } finally {
-      window.setTimeout(() => setActionFeedback(""), 2500);
-    }
-  };
-
-  const handleDownload = async () => {
-    if (!mail.backendId) return;
-    try {
-      setActionFeedback("downloading");
-      const res = await mailApi.download(mail.backendId);
-      const url = res?.frontUrl || res?.backUrl || res?.contentUrls?.[0];
-      if (url) window.open(url, "_blank", "noopener,noreferrer");
-    } catch {
-      setActionFeedback("failed");
-    } finally {
-      window.setTimeout(() => setActionFeedback(""), 2500);
-    }
-  };
-
   return (
     <div
       className={styles.overlay}
@@ -133,25 +103,17 @@ export default function ClickedMail({ mail, onClose }: ClickedMailProps) {
 
         {/* Actions */}
         <div className={styles.actionsGroup}>
-          <button
-            className={styles.btnPrimary}
-            onClick={handleResend}
-            disabled={!mail.backendId}
-          >
+          <button className={styles.btnPrimary}>
             <div className={styles.actionIconWrapper}>
               <Icon icon="ri:send-plane-line" className={styles.iconAction} />
             </div>
-            {actionFeedback === "resent" ? "Email Resent" : "Resend Email"}
+            Resend Email
           </button>
-          <button
-            className={styles.btnSecondary}
-            onClick={handleDownload}
-            disabled={!mail.backendId}
-          >
+          <button className={styles.btnSecondary}>
             <div className={styles.actionIconWrapper}>
               <Icon icon="ri:download-line" className={styles.iconAction} />
             </div>
-            {actionFeedback === "downloading" ? "Preparing..." : "Download"}
+            Download
           </button>
           <button
             onClick={onClose}

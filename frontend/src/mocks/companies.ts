@@ -1,6 +1,5 @@
 export interface Company {
   id: number;
-  backendId?: string;
   starred: boolean;
   flagged: boolean;
   name: string;

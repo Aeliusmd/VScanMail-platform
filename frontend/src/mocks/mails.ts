@@ -1,6 +1,5 @@
 export interface Mail {
   id: number;
-  backendId?: string;
   starred: boolean;
   flagged: boolean;
   senderColor: string;

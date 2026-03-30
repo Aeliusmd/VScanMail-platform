@@ -2,12 +2,16 @@
 
 import { useState } from 'react';
 import { Icon } from '@iconify/react';
+import Link from 'next/link';
 
 interface TopBarProps {
   title: string;
+  subtitle?: string;
+  /** Omit search field (e.g. on Settings). */
+  hideSearch?: boolean;
 }
 
-export default function TopBar({ title }: TopBarProps) {
+export default function TopBar({ title, subtitle, hideSearch }: TopBarProps) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
 
@@ -19,23 +23,33 @@ export default function TopBar({ title }: TopBarProps) {
   ];
 
   return (
-    <header className="h-[64px] bg-white border-b border-gray-200 flex items-center justify-between px-4 sm:px-6 flex-shrink-0">
+    <header
+      className={`bg-white border-b border-gray-200 flex items-center justify-between px-4 sm:px-6 flex-shrink-0 ${
+        subtitle ? 'min-h-[64px] py-2' : 'h-[64px]'
+      }`}
+    >
       {/* Title */}
-      <h1 className="text-lg sm:text-xl font-bold text-gray-900 font-roboto pl-11 md:pl-0">{title}</h1>
+      <div className="pl-11 md:pl-0 flex flex-col justify-center min-w-0">
+        <h1 className="text-lg sm:text-xl font-bold text-gray-900 font-roboto leading-tight">{title}</h1>
+        {subtitle ? (
+          <p className="text-xs sm:text-sm text-gray-500 mt-0.5 font-roboto">{subtitle}</p>
+        ) : null}
+      </div>
 
       {/* Right side */}
       <div className="flex items-center gap-2 sm:gap-4">
-        {/* Search */}
-        <div className="relative hidden md:block">
-          <div className="w-5 h-5 flex items-center justify-center absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-            <Icon icon="ri:search-line" className="text-sm" />
+        {!hideSearch && (
+          <div className="relative hidden md:block">
+            <div className="w-5 h-5 flex items-center justify-center absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+              <Icon icon="ri:search-line" className="text-sm" />
+            </div>
+            <input
+              type="text"
+              placeholder="Search..."
+              className="pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 outline-none focus:ring-2 focus:ring-[#1E40AF]/20 focus:border-[#1E40AF] w-[220px] transition"
+            />
           </div>
-          <input
-            type="text"
-            placeholder="Search..."
-            className="pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 outline-none focus:ring-2 focus:ring-[#1E40AF]/20 focus:border-[#1E40AF] w-[220px] transition"
-          />
-        </div>
+        )}
 
         {/* Notifications */}
         <div className="relative">
@@ -96,14 +110,18 @@ export default function TopBar({ title }: TopBarProps) {
 
           {showUserMenu && (
             <div className="absolute right-0 top-12 w-[180px] bg-white rounded-xl shadow-lg border border-gray-100 z-50 py-1">
-              <a href="#" className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
+              <Link href="/dashboard/settings/profile" className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
                 <div className="w-4 h-4 flex items-center justify-center"><Icon icon="ri:user-line" className="text-sm" /></div>
                 My Profile
-              </a>
-              <a href="#" className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
+              </Link>
+              <Link
+                href="/dashboard/settings"
+                onClick={() => setShowUserMenu(false)}
+                className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
+              >
                 <div className="w-4 h-4 flex items-center justify-center"><Icon icon="ri:settings-3-line" className="text-sm" /></div>
                 Settings
-              </a>
+              </Link>
               <div className="border-t border-gray-100 my-1"></div>
               <a href="/login" className="flex items-center gap-2 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 cursor-pointer">
                 <div className="w-4 h-4 flex items-center justify-center"><Icon icon="ri:logout-box-r-line" className="text-sm" /></div>

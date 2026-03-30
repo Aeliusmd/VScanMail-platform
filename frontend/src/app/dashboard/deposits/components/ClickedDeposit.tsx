@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import type { Deposit } from '../../../../mocks/deposits';
-import { depositApi } from '@/lib/api/deposits';
 
 interface ClickedDepositProps {
   deposit: Deposit;
@@ -42,43 +41,20 @@ export default function ClickedDeposit({ deposit, onClose }: ClickedDepositProps
     </svg>
   `);
 
-  const [actionFeedback, setActionFeedback] = useState<Record<number, string | undefined>>({});
+  const [actionFeedback, setActionFeedback] = useState<
+    Record<number, 'approved' | 'rejected' | 'resent' | undefined>
+  >({});
 
-  const handleApprove = async () => {
-    if (!deposit.backendId) return;
-    try {
-      setActionFeedback((prev) => ({ ...prev, [deposit.id]: 'approving' }));
-      await depositApi.updateBatchStatus(deposit.backendId, 'deposited');
-      window.location.reload();
-    } catch {
-      setActionFeedback((prev) => ({ ...prev, [deposit.id]: 'failed' }));
-    }
+  const handleApprove = (id: number) => {
+    setActionFeedback((prev) => ({ ...prev, [id]: 'approved' }));
   };
 
-  const handleConfirm = async () => {
-    if (!deposit.backendId) return;
-    try {
-      setActionFeedback((prev) => ({ ...prev, [deposit.id]: 'confirming' }));
-      await depositApi.updateBatchStatus(deposit.backendId, 'confirmed');
-      window.location.reload();
-    } catch {
-      setActionFeedback((prev) => ({ ...prev, [deposit.id]: 'failed' }));
-    }
+  const handleReject = (id: number) => {
+    setActionFeedback((prev) => ({ ...prev, [id]: 'rejected' }));
   };
 
-  const handleResend = async () => {
-    if (!deposit.backendId) return;
-    try {
-      setActionFeedback((prev) => ({ ...prev, [deposit.id]: 'resent' }));
-      await depositApi.resendBatch(deposit.backendId);
-      window.location.reload();
-    } catch {
-      setActionFeedback((prev) => ({ ...prev, [deposit.id]: 'failed' }));
-    }
-  };
-
-  const handleDownload = () => {
-    if (deposit.slipUrl) window.open(deposit.slipUrl, '_blank', 'noopener,noreferrer');
+  const handleResend = (id: number) => {
+    setActionFeedback((prev) => ({ ...prev, [id]: 'resent' }));
   };
 
   return (
@@ -87,7 +63,7 @@ export default function ClickedDeposit({ deposit, onClose }: ClickedDepositProps
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="max-h-[90vh] overflow-y-auto">
@@ -170,38 +146,34 @@ export default function ClickedDeposit({ deposit, onClose }: ClickedDepositProps
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 pt-1">
+            <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2 lg:gap-3 pt-1">
               {deposit.status === 'Pending' && (
                 <>
                   <button
-                    onClick={handleApprove}
-                    className="w-full sm:flex-1 py-3 bg-[#2F8F3A] text-white font-semibold rounded-lg hover:bg-[#267a30] transition-colors text-sm whitespace-nowrap cursor-pointer"
+                    onClick={() => handleApprove(deposit.id)}
+                    className="w-full sm:flex-1 min-w-[170px] py-3.5 px-4 bg-[#2F8F3A] text-white font-semibold rounded-lg hover:bg-[#267a30] transition-colors text-xs whitespace-nowrap cursor-pointer"
                   >
                     <i className="ri-check-line mr-2"></i>
-                    {actionFeedback[deposit.id] === 'approving' ? 'Approving...' : 'Approve Deposit'}
+                    {actionFeedback[deposit.id] === 'approved' ? 'Approved!' : 'Approve Request'}
                   </button>
                   <button
-                    onClick={handleConfirm}
-                    className="w-full sm:flex-1 py-3 bg-[#0A3D8F] text-white font-semibold rounded-lg hover:bg-[#083170] transition-colors text-sm whitespace-nowrap cursor-pointer"
+                    onClick={() => handleReject(deposit.id)}
+                    className="w-full sm:flex-1 min-w-[170px] py-3.5 px-4 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors text-xs whitespace-nowrap cursor-pointer"
                   >
-                    <i className="ri-check-double-line mr-2"></i>
-                    {actionFeedback[deposit.id] === 'confirming' ? 'Confirming...' : 'Confirm Batch'}
+                    <i className="ri-close-line mr-2"></i>
+                    {actionFeedback[deposit.id] === 'rejected' ? 'Rejected!' : 'Reject Request'}
                   </button>
                 </>
               )}
 
               <button
-                onClick={handleResend}
-                className="w-full sm:flex-1 py-3 bg-[#0A3D8F] text-white font-semibold rounded-lg hover:bg-[#083170] transition-colors text-sm whitespace-nowrap cursor-pointer"
+                onClick={() => handleResend(deposit.id)}
+                className="w-full sm:flex-1 min-w-[170px] py-3.5 px-4 bg-[#0A3D8F] text-white font-semibold rounded-lg hover:bg-[#083170] transition-colors text-xs whitespace-nowrap cursor-pointer"
               >
                 <i className="ri-send-plane-line mr-2"></i>
                 {actionFeedback[deposit.id] === 'resent' ? 'Sent!' : 'Resend Email'}
               </button>
-              <button
-                onClick={handleDownload}
-                disabled={!deposit.slipUrl}
-                className="w-full sm:flex-1 py-3 bg-white border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-colors text-sm whitespace-nowrap cursor-pointer disabled:opacity-60"
-              >
+              <button className="w-full sm:flex-1 min-w-[170px] py-3.5 px-4 bg-white border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-colors text-xs whitespace-nowrap cursor-pointer">
                 <i className="ri-download-line mr-2"></i>Download
               </button>
               <button

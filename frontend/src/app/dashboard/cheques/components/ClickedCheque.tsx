@@ -1,9 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { Icon } from '@iconify/react';
 import type { Cheque } from '../../../../mocks/cheques';
-import { chequeApi } from "@/lib/api/cheques";
 
 interface ClickedChequeProps {
   cheque: Cheque;
@@ -21,8 +19,6 @@ const statusStyles: Record<string, string> = {
 };
 
 export default function ClickedCheque({ cheque, onClose }: ClickedChequeProps) {
-  const [actionFeedback, setActionFeedback] = useState<string>("");
-
   const formattedAmount = new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
@@ -30,59 +26,6 @@ export default function ClickedCheque({ cheque, onClose }: ClickedChequeProps) {
   }).format(cheque.amount);
 
   const scanLabel = `CHQ-${String(cheque.id).padStart(3, '0')} • ${cheque.chequeNumber} • ${cheque.time}`;
-
-  const canDecide =
-    cheque.status === "Pending Deposit" || cheque.status === "On Hold";
-
-  const handleApprove = async () => {
-    if (!cheque.backendId) return;
-    try {
-      setActionFeedback("approving");
-      await chequeApi.approve(cheque.backendId, "Client approved");
-      window.location.reload();
-    } catch {
-      setActionFeedback("failed");
-      window.setTimeout(() => setActionFeedback(""), 2500);
-    }
-  };
-
-  const handleReject = async () => {
-    if (!cheque.backendId) return;
-    try {
-      setActionFeedback("rejecting");
-      await chequeApi.reject(cheque.backendId, "Client rejected");
-      window.location.reload();
-    } catch {
-      setActionFeedback("failed");
-      window.setTimeout(() => setActionFeedback(""), 2500);
-    }
-  };
-
-  const handleResend = async () => {
-    if (!cheque.backendId) return;
-    try {
-      setActionFeedback("resent");
-      await chequeApi.resend(cheque.backendId);
-    } catch {
-      setActionFeedback("failed");
-    } finally {
-      window.setTimeout(() => setActionFeedback(""), 2500);
-    }
-  };
-
-  const handleDownload = async () => {
-    if (!cheque.backendId) return;
-    try {
-      setActionFeedback("downloading");
-      const res = await chequeApi.download(cheque.backendId);
-      const url = res?.frontUrl || res?.backUrl || res?.contentUrls?.[0];
-      if (url) window.open(url, "_blank", "noopener,noreferrer");
-    } catch {
-      setActionFeedback("failed");
-    } finally {
-      window.setTimeout(() => setActionFeedback(""), 2500);
-    }
-  };
 
   return (
     <div
@@ -116,7 +59,7 @@ export default function ClickedCheque({ cheque, onClose }: ClickedChequeProps) {
         <div className="p-3 sm:p-5">
           <div className="rounded-xl border border-[#E2E8F0] bg-[#F1F5F9] p-2 mb-4">
             <img
-              src="https://images.unsplash.com/photo-1609834941319-4604f777d95b?q=80&w=1200&auto=format&fit=crop"
+              src="https://readdy.ai/api/search-image?query=business%20cheque%20document%20on%20white%20background%20with%20bank%20details%20amount%20and%20signature%20lines%20professional%20financial%20instrument%20scanned%20clean&width=160&height=100&seq=chq-thumb-1&orientation=landscape"
               alt="Cheque preview"
               className="w-full h-[140px] sm:h-[180px] object-cover rounded-lg"
             />
@@ -170,45 +113,14 @@ export default function ClickedCheque({ cheque, onClose }: ClickedChequeProps) {
           </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-            {canDecide ? (
-              <>
-                <button
-                  onClick={handleApprove}
-                  className="w-full sm:flex-1 h-11 rounded-lg bg-[#2F8F3A] hover:bg-[#267a30] text-white text-sm font-semibold flex items-center justify-center gap-2 transition disabled:opacity-60"
-                  disabled={!cheque.backendId}
-                >
-                  <Icon icon="ri:check-line" className="text-sm" />
-                  {actionFeedback === "approving" ? "Approving..." : "Approve"}
-                </button>
-                <button
-                  onClick={handleReject}
-                  className="w-full sm:flex-1 h-11 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold flex items-center justify-center gap-2 transition disabled:opacity-60"
-                  disabled={!cheque.backendId}
-                >
-                  <Icon icon="ri:close-line" className="text-sm" />
-                  {actionFeedback === "rejecting" ? "Rejecting..." : "Reject"}
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={handleResend}
-                className="w-full sm:flex-1 h-11 rounded-lg bg-[#0A3D8F] hover:bg-[#083170] text-white text-sm font-semibold flex items-center justify-center gap-2 transition disabled:opacity-60"
-                disabled={!cheque.backendId}
-              >
-                <Icon icon="ri:send-plane-line" className="text-sm" />
-                {actionFeedback === "resent" ? "Email Resent" : "Resend Email"}
-              </button>
-            )}
-
-            <button
-              onClick={handleDownload}
-              className="w-full sm:flex-1 h-11 rounded-lg border border-[#CBD5E1] hover:bg-[#F8FAFC] text-[#475569] text-sm font-semibold flex items-center justify-center gap-2 transition disabled:opacity-60"
-              disabled={!cheque.backendId}
-            >
-              <Icon icon="ri:download-line" className="text-sm" />
-              {actionFeedback === "downloading" ? "Preparing..." : "Download"}
+            <button className="w-full sm:flex-1 h-11 rounded-lg bg-[#0A3D8F] hover:bg-[#083170] text-white text-sm font-semibold flex items-center justify-center gap-2 transition">
+              <Icon icon="ri:send-plane-line" className="text-sm" />
+              Resend Email
             </button>
-
+            <button className="w-full sm:flex-1 h-11 rounded-lg border border-[#CBD5E1] hover:bg-[#F8FAFC] text-[#475569] text-sm font-semibold flex items-center justify-center gap-2 transition">
+              <Icon icon="ri:download-line" className="text-sm" />
+              Download
+            </button>
             <button
               onClick={onClose}
               className="w-full sm:w-20 h-11 rounded-lg bg-[#E2E8F0] hover:bg-[#CBD5E1] text-[#475569] text-sm font-semibold transition"

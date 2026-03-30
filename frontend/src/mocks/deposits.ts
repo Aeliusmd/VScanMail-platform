@@ -1,12 +1,10 @@
 export interface Deposit {
   id: number;
-  backendId?: string;
   starred: boolean;
   flagged: boolean;
   companyColor: string;
   companyInitial: string;
   company: string;
-  slipUrl?: string | null;
   bankName: string;
   bankCode: string;
   amount: number;

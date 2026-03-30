@@ -34,10 +34,11 @@
 
 .leftCard {
   background-color: #ffffff;
-  width: calc(50vw - 350px);
+  width: clamp(280px, calc(50vw - 350px), 520px);
   height: 100%;
   border-radius: 0 30px 30px 0;
   position: relative;
+  overflow: hidden;
 }
 
 .leftTitle {
@@ -75,13 +76,14 @@
 
 .leftImage {
   position: absolute;
-  top: 180px;
+  bottom: 0;
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
-  max-height: calc(100vh - 185px);
+  max-height: calc(100vh - 240px);
   height: auto;
   object-fit: contain;
+  object-position: bottom center;
 }
 
 
@@ -94,7 +96,7 @@
   justify-content: center;
   align-items: center;
   background: #BAD9F5;
-  padding-right: 350px;
+  padding: 0 40px 0 40px;
   box-sizing: border-box;
 }
 
@@ -102,10 +104,11 @@
   display: flex;
   justify-content: center;
   align-items: center;
+  width: 100%;
 }
 
 .formCard {
-  width: 448px;
+  width: min(448px, 100%);
   height: 577px;
   opacity: 1;
   padding: 32px;
@@ -282,13 +285,20 @@
   position: absolute;
   width: 28.67px;
   height: 50px;
-  left: 355.33px;
+  right: 0px;
+  left: auto;
   top: 0px;
   background: none;
   border: none;
   cursor: pointer;
   color: #9CA3AF;
   box-sizing: border-box;
+}
+
+/* Prevent long text from forcing overflow */
+.registerText {
+  flex-wrap: wrap;
+  row-gap: 6px;
 }
 
 .eyeIcon {

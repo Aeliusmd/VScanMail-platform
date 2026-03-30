@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { Icon } from '@iconify/react';
 import Sidebar from './components/Sidebar';
@@ -10,14 +10,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [collapsed, setCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const pathname = usePathname();
+  const isSettingsRoute =
+    pathname === '/dashboard/settings' || pathname.startsWith('/dashboard/settings/');
+  const isScanRoute = pathname === '/dashboard/scan';
+
   const hideTopBar =
     pathname === '/dashboard/mails' ||
     pathname === '/dashboard/cheques' ||
     pathname === '/dashboard/companies' ||
     pathname === '/dashboard/deposits' ||
-    pathname === '/dashboard/deliveries' ||
-    pathname === '/dashboard/settings' ||
-    pathname.startsWith('/dashboard/settings/');
+    pathname === '/dashboard/deliveries';
 
   return (
     <div className="flex h-screen w-full bg-gray-50 overflow-hidden">
@@ -30,7 +32,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       )}
 
       <div className={`fixed md:static inset-y-0 left-0 z-40 md:z-auto transition-transform duration-300 ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
-        <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
+        <Suspense fallback={null}>
+          <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
+        </Suspense>
       </div>
 
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
@@ -42,10 +46,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Icon icon={mobileSidebarOpen ? 'ri:close-line' : 'ri:menu-line'} className="text-lg" />
         </button>
 
-        {!hideTopBar && (
-          <TopBar title="Dashboard Overview" />
+        {isSettingsRoute && (
+          <TopBar
+            title="Settings"
+            subtitle="Manage your account and system preferences"
+            hideSearch
+          />
         )}
-        <main className="flex-1 overflow-y-auto">
+        {isScanRoute && !isSettingsRoute && (
+          <TopBar
+            title="Scan Document"
+            subtitle="Step-by-step envelope scanning process"
+            hideSearch
+          />
+        )}
+        {!isSettingsRoute && !isScanRoute && !hideTopBar && <TopBar title="Dashboard Overview" />}
+        <main
+          className={
+            isSettingsRoute
+              ? 'flex flex-1 min-h-0 min-w-0 flex-col overflow-hidden'
+              : 'flex-1 overflow-y-auto'
+          }
+        >
           {children}
         </main>
       </div>

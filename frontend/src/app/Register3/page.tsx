@@ -7,7 +7,6 @@ import { useRouter } from 'next/navigation'
 import { HiArrowLeft, HiCheck, HiShieldCheck } from 'react-icons/hi2'
 import { HiOutlineEye, HiOutlineEyeSlash } from 'react-icons/hi2'
 import styles from './register3.module.css'
-import { authApi } from '@/lib/api/auth'
 
 const passwordRequirements = [
   { label: 'At least 8 characters long', test: (p: string) => p.length >= 8 },
@@ -54,47 +53,16 @@ export default function RegisterStep3() {
     return newErrors
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const newErrors = validate()
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors)
-      return
-    }
-
+    if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return }
     const step1 = JSON.parse(localStorage.getItem('registerStep1') || '{}')
     const step2 = JSON.parse(localStorage.getItem('registerStep2') || '{}')
-
-    try {
-      const payload = {
-        companyName: step1.companyName,
-        registrationNo: step1.registrationNumber || undefined,
-        industry: step1.industry,
-        email: step2.emailAddress,
-        phone: step2.phoneNumber,
-        password: formData.password,
-        address: {
-          street: step1.streetAddress,
-          city: step1.city,
-          state: step1.state,
-          zip: step1.zipCode,
-          country: step1.country,
-        },
-        // This UI doesn't include a plan selector yet; default to starter subscription.
-        planType: 'subscription',
-        planTier: 'starter',
-      }
-
-      await authApi.register(payload)
-
-      localStorage.removeItem('registerStep1')
-      localStorage.removeItem('registerStep2')
-
-      router.push(`/verify-email?email=${encodeURIComponent(step2.emailAddress)}`)
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to register'
-      setErrors({ password: msg })
-    }
+    console.log('Registration complete:', { ...step1, ...step2, password: formData.password })
+    localStorage.removeItem('registerStep1')
+    localStorage.removeItem('registerStep2')
+    router.push('/login')
   }
 
   return (
