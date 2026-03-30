@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { verifyAccessToken } from "@/lib/auth/jwt";
 import { db } from "@/lib/db/mysql";
-import { profiles, users } from "@/lib/db/schema";
+import { clients, profiles, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
 export type AuthUser = {
@@ -53,11 +53,25 @@ export async function withAuth(req: NextRequest): Promise<AuthUser> {
 
   const profile = profileRows[0];
 
+  let role = (profile?.role as AuthUser["role"]) || "client";
+  let clientId = profile?.clientId || undefined;
+
+  // Company signups use clients.id === users.id. If profiles.client_id is missing
+  // (migration / partial signup), still resolve client context for API + scan UI.
+  if (!clientId) {
+    const clientRows = await db
+      .select({ id: clients.id })
+      .from(clients)
+      .where(eq(clients.id, userRows[0].id))
+      .limit(1);
+    if (clientRows[0]) clientId = clientRows[0].id;
+  }
+
   return {
     id: userRows[0].id,
     email: userRows[0].email,
-    role: (profile?.role as any) || "client",
-    clientId: profile?.clientId || undefined,
+    role,
+    clientId,
   };
 }
 

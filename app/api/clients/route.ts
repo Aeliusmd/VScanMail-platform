@@ -6,7 +6,7 @@ import { clientModel } from "@/lib/models/client.model";
 export async function GET(req: NextRequest) {
   try {
     const user = await withAuth(req);
-    withRole(user, ["admin"]);
+    withRole(user, ["admin", "operator"]);
 
     const page = parseInt(req.nextUrl.searchParams.get("page") || "1");
     const limit = parseInt(req.nextUrl.searchParams.get("limit") || "20");

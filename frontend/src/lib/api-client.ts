@@ -43,10 +43,21 @@ export async function apiClient<T>(
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  const url = `${API_BASE}${endpoint}`;
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...options,
+      headers,
+    });
+  } catch {
+    throw new ApiError(
+      0,
+      API_BASE
+        ? `Cannot reach API at ${API_BASE}. Is the backend running?`
+        : "Cannot reach API (proxy). Start the backend on port 3010 and restart the frontend dev server."
+    );
+  }
 
   if (!res.ok) {
     const body = await res
@@ -81,11 +92,22 @@ export async function apiUpload<T>(
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_BASE}${endpoint}`, {
-    method: "POST",
-    headers,
-    body: formData,
-  });
+  const url = `${API_BASE}${endpoint}`;
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+  } catch {
+    throw new ApiError(
+      0,
+      API_BASE
+        ? `Cannot reach API at ${API_BASE}. Is the backend running?`
+        : "Cannot reach API (proxy). Start the backend on port 3010 and restart the frontend dev server."
+    );
+  }
 
   if (!res.ok) {
     const body = await res

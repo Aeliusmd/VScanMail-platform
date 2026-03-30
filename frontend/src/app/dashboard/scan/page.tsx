@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { authApi } from "@/lib/api/auth";
 import { mailApi, type MailType } from "@/lib/api/mail";
+import { companyApi, type Client } from "@/lib/api/companies";
 
 export default function ScanDocumentPage() {
   const router = useRouter();
@@ -16,27 +17,69 @@ export default function ScanDocumentPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [initialized, setInitialized] = useState(false);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [isOperator, setIsOperator] = useState(false);
+  const [initDone, setInitDone] = useState(false);
+  const [bootstrapLoading, setBootstrapLoading] = useState(true);
+  const [bootstrapError, setBootstrapError] = useState<string | null>(null);
 
   const init = async () => {
-    if (initialized) return;
-    setInitialized(true);
+    setBootstrapLoading(true);
+    setBootstrapError(null);
     try {
       const me = await authApi.me();
-      setClientId(me?.clientId ?? null);
-    } catch {
+      const role = me?.role;
+      const resolvedClientId: string | null =
+        me?.clientId ?? me?.client?.id ?? null;
+
+      // Admins and operators should see the full client dropdown
+      if (role === "admin" || role === "operator") {
+        setIsOperator(true);
+        const res = await companyApi.list({ limit: 100 });
+        setClients(res.clients || []);
+        if (res.clients?.length > 0) {
+          setClientId(res.clients[0].id);
+        } else {
+          setClientId(null);
+        }
+      } else if (resolvedClientId) {
+        setClientId(resolvedClientId);
+        setIsOperator(false);
+      } else {
+        setClientId(null);
+        setIsOperator(false);
+        setBootstrapError(
+          "Your account has no company linked. Complete registration or ask an admin to fix your profile. " +
+            "The header label \"Admin User\" is only demo text — your real role comes from the server."
+        );
+      }
+    } catch (e) {
       setClientId(null);
+      setIsOperator(false);
+      setBootstrapError(
+        e instanceof Error ? e.message : "Could not load your account. Check that the API is running and you are signed in."
+      );
+    } finally {
+      setBootstrapLoading(false);
+      setInitDone(true);
     }
   };
+
+  // Load client data on page mount, not just on submit
+  useEffect(() => {
+    void init();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    await init();
-
     if (!clientId) {
-      setError("Missing client context. Please sign in as an operator.");
+      setError(
+        isOperator
+          ? "Select a client company from the list (or register a company first)."
+          : "Missing client context. Sign in with a company account or use an admin/operator account to choose a client."
+      );
       return;
     }
     if (!frontFile || !backFile) {
@@ -71,6 +114,12 @@ export default function ScanDocumentPage() {
           will run tamper detection + AI summary.
         </p>
 
+        {bootstrapError && (
+          <p className="mt-4 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            {bootstrapError}
+          </p>
+        )}
+
         <form onSubmit={handleSubmit} className="mt-6 space-y-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -89,11 +138,40 @@ export default function ScanDocumentPage() {
 
             <div>
               <label className="text-sm font-medium text-slate-700">Client</label>
-              <input
-                value={clientId || ""}
-                readOnly
-                className="mt-2 w-full border border-slate-200 rounded-lg px-3 py-2 bg-slate-50 text-slate-500"
-              />
+              {bootstrapLoading ? (
+                <div className="mt-2 w-full border border-slate-200 rounded-lg px-3 py-2 bg-slate-50 text-slate-500 text-sm">
+                  Loading account…
+                </div>
+              ) : isOperator ? (
+                <>
+                  <select
+                    value={clientId || ""}
+                    onChange={(e) => setClientId(e.target.value)}
+                    className="mt-2 w-full border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#0A3D8F]/20"
+                  >
+                    <option value="" disabled>
+                      {clients.length === 0 ? "No companies yet — register a client first" : "Select a client…"}
+                    </option>
+                    {clients.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.company_name} ({c.client_code})
+                      </option>
+                    ))}
+                  </select>
+                  {clients.length === 0 && initDone && (
+                    <p className="mt-1 text-xs text-slate-500">
+                      Operators need at least one registered company in the database.
+                    </p>
+                  )}
+                </>
+              ) : (
+                <input
+                  value={clientId || ""}
+                  readOnly
+                  placeholder={bootstrapLoading ? "Loading…" : "No company linked"}
+                  className="mt-2 w-full border border-slate-200 rounded-lg px-3 py-2 bg-slate-50 text-slate-700"
+                />
+              )}
             </div>
           </div>
 

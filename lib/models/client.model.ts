@@ -44,7 +44,7 @@ function rowToClient(row: typeof clients.$inferSelect): Client {
     status: row.status as any,
     two_fa_enabled: Boolean(row.twoFaEnabled),
     two_fa_secret: row.twoFaSecret ?? null,
-    created_at: (row.createdAt as Date).toISOString(),
+    created_at: new Date(row.createdAt as any).toISOString(),
   };
 }
 
