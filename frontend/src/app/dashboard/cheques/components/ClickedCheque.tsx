@@ -33,9 +33,10 @@ export default function ClickedCheque({ cheque, onClose }: ClickedChequeProps) {
       onClick={onClose}
     >
       <div
-        className="bg-[#F8FAFC] rounded-2xl w-full max-w-[640px] max-h-[90vh] overflow-y-auto border border-[#E2E8F0] shadow-2xl"
+        className="bg-[#F8FAFC] rounded-2xl w-full max-w-[640px] max-h-[90vh] overflow-hidden border border-[#E2E8F0] shadow-2xl flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
+        <div className="overflow-y-auto flex-1 min-h-0">
         <div className="bg-white px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4 border-b border-[#E2E8F0] sticky top-0 z-10">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
@@ -128,6 +129,7 @@ export default function ClickedCheque({ cheque, onClose }: ClickedChequeProps) {
               Close
             </button>
           </div>
+        </div>
         </div>
       </div>
     </div>

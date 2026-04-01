@@ -205,7 +205,7 @@ export default function BillingTab() {
         {/* Edit plan modal */}
         {editPlan && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-            <div className="bg-white rounded-xl w-96 p-6 space-y-4">
+            <div className="bg-white rounded-2xl overflow-hidden w-96 p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="font-bold text-slate-900 text-sm">Edit {editPlan.name} Plan</h3>
                 <button onClick={() => setEditPlan(null)} className="p-1.5 hover:bg-slate-100 rounded-lg cursor-pointer">
@@ -349,7 +349,7 @@ export default function BillingTab() {
         {showManualForm && (
           <div className="fixed inset-0 z-50 flex">
             <div className="flex-1 bg-black/30" onClick={() => setShowManualForm(false)}></div>
-            <div className="w-full sm:w-[400px] bg-white h-full overflow-y-auto flex flex-col animate-[slideInRight_0.3s_ease]">
+            <div className="w-full sm:w-[400px] bg-white h-full overflow-y-auto flex flex-col animate-[slideInRight_0.3s_ease] rounded-l-2xl">
               <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
                 <div className="flex items-center space-x-2">
                   <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
@@ -429,7 +429,7 @@ export default function BillingTab() {
 
         {deleteConfirm !== null && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-            <div className="bg-white rounded-xl p-6 w-80 space-y-4">
+            <div className="bg-white rounded-2xl overflow-hidden p-6 w-80 space-y-4">
               <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto">
                 <i className="ri-delete-bin-line text-red-500 text-xl"></i>
               </div>

@@ -388,10 +388,10 @@ export default function CustomerDeliveryRequestsPage() {
           }}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-[#0A3D8F]/10 rounded-xl flex items-center justify-center">
                   <i className="ri-truck-line text-[#0A3D8F] text-xl"></i>
@@ -414,7 +414,7 @@ export default function CustomerDeliveryRequestsPage() {
               </button>
             </div>
 
-            <div className="p-6 space-y-5">
+            <div className="p-6 space-y-5 overflow-y-auto flex-1 min-h-0">
               <div className="w-full h-52 rounded-xl overflow-hidden border border-gray-200">
                 <img
                   src={selectedRequest.thumbnail}

@@ -17,7 +17,8 @@ export default function ClickedCompany({ company, onClose }: ClickedCompanyProps
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-3" onClick={onClose}>
-      <div className="w-full max-w-[640px] max-h-[90vh] bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl shadow-2xl overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-[640px] max-h-[90vh] bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl shadow-2xl overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="overflow-y-auto flex-1 min-h-0">
         <div className="bg-white px-4 sm:px-6 py-4 sm:py-5 border-b border-[#E2E8F0] sticky top-0 z-10">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
@@ -102,6 +103,7 @@ export default function ClickedCompany({ company, onClose }: ClickedCompanyProps
               Close
             </button>
           </div>
+        </div>
         </div>
       </div>
     </div>

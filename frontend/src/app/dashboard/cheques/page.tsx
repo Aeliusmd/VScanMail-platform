@@ -132,7 +132,7 @@ function AllChequesPageContent() {
             </button>
 
             {showNotifications && (
-              <div className="absolute right-0 top-12 w-[320px] bg-white rounded-xl shadow-lg border border-gray-100 z-50">
+              <div className="absolute right-0 top-12 w-[320px] bg-white rounded-2xl shadow-lg border border-gray-100 z-50 overflow-hidden">
                 <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
                   <span className="font-semibold text-sm text-gray-900">Notifications</span>
                   <span className="text-xs text-[#1E40AF] cursor-pointer hover:underline">Mark all read</span>
@@ -173,7 +173,7 @@ function AllChequesPageContent() {
             </button>
 
             {showUserMenu && (
-              <div className="absolute right-0 top-12 w-[180px] bg-white rounded-xl shadow-lg border border-gray-100 z-50 py-1">
+              <div className="absolute right-0 top-12 w-[180px] bg-white rounded-2xl shadow-lg border border-gray-100 z-50 py-1 overflow-hidden">
                 <Link href="/dashboard/settings/profile" className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
                   <div className="w-4 h-4 flex items-center justify-center"><Icon icon="ri:user-line" className="text-sm" /></div>
                   My Profile
