@@ -104,6 +104,7 @@ const navItems = [
 
 export default function SuperAdminDashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [requestFilter, setRequestFilter] = useState<"All" | "Deposit" | "Delivery">("All");
   const getRecentRequestPath = (type: string) =>
     type === "Delivery" ? "/superadmin/deliveries" : "/superadmin/deposits";
@@ -124,9 +125,20 @@ export default function SuperAdminDashboardPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="min-h-screen min-h-[100dvh] bg-slate-50 flex relative">
+      {mobileMenuOpen && (
+        <button
+          type="button"
+          className="fixed inset-0 bg-black/40 z-30 lg:hidden"
+          aria-label="Close menu"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
       <aside
-        className={`${sidebarOpen ? "w-64" : "w-20"} bg-slate-900 transition-all duration-300 flex flex-col flex-shrink-0`}
+        className={`fixed lg:static inset-y-0 left-0 z-40 flex flex-col flex-shrink-0 bg-slate-900 shadow-xl lg:shadow-none transition-all duration-300 ease-out ${
+          mobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        } ${sidebarOpen ? "w-64" : "w-20"}`}
       >
         <div className="p-5 border-b border-slate-700/60">
           <div className="flex items-center justify-between">
@@ -167,31 +179,34 @@ export default function SuperAdminDashboardPage() {
           )}
         </div>
 
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto overscroll-contain">
           {navItems.map((item) => (
             <Link
               key={item.path}
               href={item.path}
+              onClick={() => setMobileMenuOpen(false)}
               className={`flex items-center gap-3 px-3 py-3 rounded-lg font-medium text-sm transition-colors cursor-pointer ${
                 item.active ? "bg-[#0A3D8F] text-white" : "text-slate-400 hover:bg-slate-700/60 hover:text-white"
               }`}
             >
               <i className={`${item.icon} text-lg flex-shrink-0`}></i>
-              {sidebarOpen && <span>{item.label}</span>}
+              {sidebarOpen && <span className="truncate">{item.label}</span>}
             </Link>
           ))}
         </nav>
 
-        <div className="p-4 border-t border-slate-700/60 space-y-1">
+        <div className="p-4 border-t border-slate-700/60 space-y-1 shrink-0">
           <Link
             href="/superadmin/settings/profile"
+            onClick={() => setMobileMenuOpen(false)}
             className="flex items-center gap-3 px-3 py-3 text-slate-400 hover:bg-slate-700/60 hover:text-white rounded-lg font-medium text-sm transition-colors cursor-pointer"
           >
             <i className="ri-settings-3-line text-lg flex-shrink-0"></i>
-            {sidebarOpen && <span>Settings</span>}
+            {sidebarOpen && <span className="truncate">Settings</span>}
           </Link>
           <Link
             href="/super-admin-login"
+            onClick={() => setMobileMenuOpen(false)}
             className="flex items-center gap-3 px-3 py-3 text-slate-400 hover:bg-red-900/40 hover:text-red-400 rounded-lg font-medium text-sm transition-colors cursor-pointer"
           >
             <i className="ri-logout-box-line text-lg flex-shrink-0"></i>
@@ -200,13 +215,23 @@ export default function SuperAdminDashboardPage() {
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-white border-b border-gray-200 px-4 sm:px-6 py-2 min-h-[64px] flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="pl-11 md:pl-0">
-              <h1 className="text-xl font-bold text-gray-900 leading-tight">Super Admin Dashboard</h1>
-              <p className="text-sm text-gray-500 mt-0.5">
-                Full system overview -{" "}
+      <div className="flex-1 flex flex-col min-w-0 lg:min-h-0">
+        <header className="bg-white border-b border-gray-200 px-3 sm:px-6 py-2.5 sm:py-2 min-h-[56px] sm:min-h-[64px] flex items-center justify-between gap-3 flex-shrink-0">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(true)}
+              className="lg:hidden shrink-0 w-10 h-10 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
+              aria-label="Open menu"
+            >
+              <i className="ri-menu-line text-xl"></i>
+            </button>
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-xl font-bold text-gray-900 leading-tight truncate">
+                Super Admin Dashboard
+              </h1>
+              <p className="text-xs sm:text-sm text-gray-500 mt-0.5 line-clamp-2 sm:line-clamp-none">
+                <span className="hidden sm:inline">Full system overview - </span>
                 {new Date().toLocaleDateString("en-GB", {
                   weekday: "long",
                   day: "numeric",
@@ -241,15 +266,18 @@ export default function SuperAdminDashboardPage() {
           </div>
         </header>
 
-        <main className="flex-1 p-8 overflow-y-auto">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto overflow-x-hidden">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
             {stats.map((stat, i) => (
-              <div key={i} className="bg-white rounded-xl p-5 border border-slate-200 hover:border-[#0A3D8F]/30 transition-colors">
-                <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center mb-4">
-                  <i className={`${stat.icon} text-slate-600 text-xl`}></i>
+              <div
+                key={i}
+                className="bg-white rounded-xl p-4 sm:p-5 border border-slate-200 hover:border-[#0A3D8F]/30 transition-colors min-w-0"
+              >
+                <div className="w-9 h-9 sm:w-10 sm:h-10 bg-slate-100 rounded-lg flex items-center justify-center mb-3 sm:mb-4">
+                  <i className={`${stat.icon} text-slate-600 text-lg sm:text-xl`}></i>
                 </div>
-                <p className="text-2xl font-bold text-slate-900 mb-1">{stat.value}</p>
-                <p className="text-xs text-slate-500 mb-2 leading-tight">{stat.label}</p>
+                <p className="text-xl sm:text-2xl font-bold text-slate-900 mb-1 tabular-nums">{stat.value}</p>
+                <p className="text-[11px] sm:text-xs text-slate-500 mb-2 leading-snug">{stat.label}</p>
                 <p className={`text-xs font-medium flex items-center gap-1 ${stat.up ? "text-[#0A3D8F]" : "text-orange-600"}`}>
                   <i className={stat.up ? "ri-arrow-up-line" : "ri-arrow-right-line"}></i>
                   {stat.change}
@@ -258,14 +286,14 @@ export default function SuperAdminDashboardPage() {
             ))}
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-8 mb-8">
-            <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200">
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                <div>
-                  <h2 className="font-bold text-slate-900 text-base">Recent Requests</h2>
+          <div className="grid lg:grid-cols-3 gap-6 lg:gap-8 mb-6 sm:mb-8">
+            <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 min-w-0">
+              <div className="p-4 sm:p-6 border-b border-slate-100 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <h2 className="font-bold text-slate-900 text-sm sm:text-base">Recent Requests</h2>
                   <p className="text-xs text-slate-500 mt-0.5">Deposit & delivery activity</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2 shrink-0">
                   <button
                     type="button"
                     onClick={() => setRequestFilter("Deposit")}
@@ -306,9 +334,9 @@ export default function SuperAdminDashboardPage() {
                   <Link
                     key={i}
                     href={getRecentRequestPath(req.type)}
-                    className="flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-colors cursor-pointer"
+                    className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-4 sm:px-6 py-4 hover:bg-slate-50 transition-colors cursor-pointer min-w-0"
                   >
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0 flex-1">
                       <div
                         className={`w-9 h-9 rounded-lg flex items-center justify-center ${
                           req.color === "orange" ? "bg-orange-100" : req.color === "sky" ? "bg-sky-100" : "bg-blue-100"
@@ -320,16 +348,16 @@ export default function SuperAdminDashboardPage() {
                           }`}
                         ></i>
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold text-slate-800">{req.company}</p>
-                        <p className="text-xs text-slate-400">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 break-words">{req.company}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">
                           {req.type}
                           {req.amount ? ` · ${req.amount}` : ""} · {req.time}
                         </p>
                       </div>
                     </div>
                     <span
-                      className={`text-xs font-medium px-3 py-1 rounded-full whitespace-nowrap ${
+                      className={`text-xs font-medium px-3 py-1 rounded-full whitespace-nowrap self-start sm:self-auto shrink-0 ${
                         req.status === "Open"
                           ? "bg-orange-100 text-orange-700"
                           : req.status === "Processing"
@@ -344,39 +372,41 @@ export default function SuperAdminDashboardPage() {
                   </Link>
                 ))}
                 {filteredRecentRequests.length === 0 && (
-                  <div className="px-6 py-10 text-center text-sm text-slate-400">No requests for this filter.</div>
+                  <div className="px-4 sm:px-6 py-10 text-center text-sm text-slate-400">
+                    No requests for this filter.
+                  </div>
                 )}
               </div>
             </div>
 
-            <div className="space-y-6">
-              <div className="bg-white rounded-xl border border-slate-200 p-6">
-                <h2 className="font-bold text-slate-900 text-base mb-4">Quick Actions</h2>
+            <div className="space-y-4 sm:space-y-6 min-w-0">
+              <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-6">
+                <h2 className="font-bold text-slate-900 text-sm sm:text-base mb-3 sm:mb-4">Quick Actions</h2>
                 <div className="space-y-3">
                   <Link
                     href="/superadmin/companies"
-                    className="flex items-center gap-3 w-full px-4 py-3 bg-slate-900 text-white font-semibold rounded-lg hover:bg-slate-800 transition-all text-sm whitespace-nowrap"
+                    className="flex items-center gap-3 w-full px-4 py-3 bg-slate-900 text-white font-semibold rounded-lg hover:bg-slate-800 transition-all text-sm text-left min-h-[44px]"
                   >
                     <i className="ri-building-4-line text-lg"></i>
                     Manage Companies
                   </Link>
                   <Link
                     href="/superadmin/deposits"
-                    className="flex items-center gap-3 w-full px-4 py-3 bg-[#0A3D8F] text-white font-semibold rounded-lg hover:bg-[#083170] transition-all text-sm whitespace-nowrap"
+                    className="flex items-center gap-3 w-full px-4 py-3 bg-[#0A3D8F] text-white font-semibold rounded-lg hover:bg-[#083170] transition-all text-sm text-left min-h-[44px]"
                   >
                     <i className="ri-exchange-dollar-line text-lg"></i>
                     Deposit Requests
                   </Link>
                   <Link
                     href="/superadmin/deliveries"
-                    className="flex items-center gap-3 w-full px-4 py-3 border-2 border-slate-200 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-all text-sm whitespace-nowrap"
+                    className="flex items-center gap-3 w-full px-4 py-3 border-2 border-slate-200 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-all text-sm text-left min-h-[44px]"
                   >
-                    <i className="ri-truck-line text-lg"></i>
+                    <i className="ri-truck-line text-lg shrink-0"></i>
                     Delivery Requests
                   </Link>
                   <Link
                     href="/superadmin/settings/profile"
-                    className="flex items-center gap-3 w-full px-4 py-3 border-2 border-slate-200 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-all text-sm whitespace-nowrap"
+                    className="flex items-center gap-3 w-full px-4 py-3 border-2 border-slate-200 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-all text-sm text-left min-h-[44px]"
                   >
                     <i className="ri-settings-3-line text-lg"></i>
                     Settings
@@ -384,8 +414,8 @@ export default function SuperAdminDashboardPage() {
                 </div>
               </div>
 
-              <div className="bg-white rounded-xl border border-slate-200 p-6">
-                <h2 className="font-bold text-slate-900 text-base mb-4">System Health</h2>
+              <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-6">
+                <h2 className="font-bold text-slate-900 text-sm sm:text-base mb-3 sm:mb-4">System Health</h2>
                 <div className="space-y-3">
                   {[
                     { label: "Scanner Service", status: "Online" },
@@ -406,25 +436,28 @@ export default function SuperAdminDashboardPage() {
             </div>
           </div>
 
-          <div className="grid lg:grid-cols-2 gap-8">
-            <div className="bg-white rounded-xl border border-slate-200">
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                <div>
-                  <h2 className="font-bold text-slate-900 text-base">Admin Team</h2>
+          <div className="grid lg:grid-cols-2 gap-6 lg:gap-8">
+            <div className="bg-white rounded-xl border border-slate-200 min-w-0">
+              <div className="p-4 sm:p-6 border-b border-slate-100 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <h2 className="font-bold text-slate-900 text-sm sm:text-base">Admin Team</h2>
                   <p className="text-xs text-slate-500 mt-0.5">Monitor admin activity</p>
                 </div>
                 <Link
                   href="/superadmin/settings/manage-admins"
-                  className="text-xs text-[#0A3D8F] font-medium whitespace-nowrap border border-[#0A3D8F]/30 px-3 py-1.5 rounded-lg hover:bg-[#0A3D8F]/5 transition-colors"
+                  className="text-xs text-[#0A3D8F] font-medium whitespace-nowrap border border-[#0A3D8F]/30 px-3 py-1.5 rounded-lg hover:bg-[#0A3D8F]/5 transition-colors self-start sm:self-auto shrink-0"
                 >
                   Manage Admins
                 </Link>
               </div>
               <div className="divide-y divide-slate-100">
                 {admins.map((admin, i) => (
-                  <div key={i} className="flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
+                  <div
+                    key={i}
+                    className="flex flex-row items-center justify-between gap-3 px-4 sm:px-6 py-4 hover:bg-slate-50 transition-colors min-w-0"
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="relative shrink-0">
                         <div className="w-9 h-9 bg-gradient-to-br from-slate-700 to-slate-900 rounded-full flex items-center justify-center text-white text-xs font-bold">
                           {admin.avatar}
                         </div>
@@ -434,13 +467,13 @@ export default function SuperAdminDashboardPage() {
                           }`}
                         ></span>
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold text-slate-800">{admin.name}</p>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 truncate">{admin.name}</p>
                         <p className="text-xs text-slate-400">{admin.lastActive}</p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm font-bold text-slate-900">{admin.scansToday}</p>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-bold text-slate-900 tabular-nums">{admin.scansToday}</p>
                       <p className="text-xs text-slate-400">scans today</p>
                     </div>
                   </div>
@@ -448,34 +481,37 @@ export default function SuperAdminDashboardPage() {
               </div>
             </div>
 
-            <div className="bg-white rounded-xl border border-slate-200">
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                <div>
-                  <h2 className="font-bold text-slate-900 text-base">Recent Companies</h2>
+            <div className="bg-white rounded-xl border border-slate-200 min-w-0">
+              <div className="p-4 sm:p-6 border-b border-slate-100 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <h2 className="font-bold text-slate-900 text-sm sm:text-base">Recent Companies</h2>
                   <p className="text-xs text-slate-500 mt-0.5">Newly registered or updated</p>
                 </div>
                 <Link
                   href="/superadmin/companies"
-                  className="text-xs text-[#0A3D8F] font-medium whitespace-nowrap border border-[#0A3D8F]/30 px-3 py-1.5 rounded-lg hover:bg-[#0A3D8F]/5 transition-colors"
+                  className="text-xs text-[#0A3D8F] font-medium whitespace-nowrap border border-[#0A3D8F]/30 px-3 py-1.5 rounded-lg hover:bg-[#0A3D8F]/5 transition-colors self-start sm:self-auto shrink-0"
                 >
                   View All
                 </Link>
               </div>
               <div className="divide-y divide-slate-100">
                 {recentCompanies.map((company, i) => (
-                  <div key={i} className="flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-colors cursor-pointer">
-                    <div className="flex items-center gap-3">
+                  <div
+                    key={i}
+                    className="flex flex-row items-start sm:items-center justify-between gap-3 px-4 sm:px-6 py-4 hover:bg-slate-50 transition-colors cursor-pointer min-w-0"
+                  >
+                    <div className="flex items-start gap-3 min-w-0 flex-1">
                       <div className="w-9 h-9 bg-slate-100 rounded-lg flex items-center justify-center">
                         <i className="ri-building-4-line text-slate-600 text-lg"></i>
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold text-slate-800">{company.name}</p>
-                        <p className="text-xs text-slate-400">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 break-words">{company.name}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">
                           {company.plan} · Joined {company.joined}
                         </p>
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-left sm:text-right shrink-0 sm:pl-2">
                       <span
                         className={`text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap ${
                           company.status === "Active" ? "bg-blue-100 text-[#0A3D8F]" : "bg-red-100 text-red-600"

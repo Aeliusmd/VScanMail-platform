@@ -21,7 +21,26 @@ export default function SuperAdminLoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen min-h-[100dvh] flex flex-col lg:flex-row">
+      {/* Mobile / tablet: compact brand strip */}
+      <div className="lg:hidden shrink-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-4 py-5 sm:py-6 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_1px_1px,_#4a6fa5_1px,_transparent_0)] bg-[length:40px_40px]"></div>
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <Link href="/" className="flex items-center gap-3">
+            <img src="/images/A-4.png" alt="VScan Mail" className="h-9 sm:h-10 object-contain brightness-0 invert max-w-[140px]" />
+          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center px-2.5 py-1 bg-[#0A3D8F]/25 border border-[#0A3D8F]/35 rounded-full text-blue-200 text-[10px] sm:text-xs font-semibold tracking-wider uppercase">
+              <i className="ri-shield-star-line mr-1.5 sm:mr-2"></i>
+              Super Admin Portal
+            </span>
+          </div>
+        </div>
+        <p className="relative z-10 mt-3 text-slate-300 text-xs sm:text-sm leading-relaxed max-w-xl">
+          Highest-level access to manage companies, admins, and all system requests.
+        </p>
+      </div>
+
       <div className="hidden lg:flex lg:w-2/5 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-12 flex-col justify-between relative overflow-hidden">
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_1px_1px,_#4a6fa5_1px,_transparent_0)] bg-[length:40px_40px]"></div>
         <div className="absolute top-0 right-0 w-96 h-96 bg-[#0A3D8F]/15 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
@@ -79,15 +98,15 @@ export default function SuperAdminLoginPage() {
         </div>
       </div>
 
-      <div className="flex-1 flex items-center justify-center p-8 bg-slate-50">
-        <div className="w-full max-w-md">
-          <div className="bg-white rounded-2xl border border-slate-200 p-8">
-            <div className="mb-8">
-              <div className="w-14 h-14 bg-gradient-to-br from-[#0A3D8F] to-[#083170] rounded-xl flex items-center justify-center mb-5">
-                <i className="ri-shield-star-line text-white text-2xl"></i>
+      <div className="flex-1 flex items-stretch sm:items-center justify-center px-4 py-6 sm:p-8 bg-slate-50">
+        <div className="w-full max-w-md my-auto">
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-8 shadow-sm sm:shadow-none">
+            <div className="mb-6 sm:mb-8">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-[#0A3D8F] to-[#083170] rounded-xl flex items-center justify-center mb-4 sm:mb-5">
+                <i className="ri-shield-star-line text-white text-xl sm:text-2xl"></i>
               </div>
-              <h2 className="text-2xl font-bold text-slate-900 mb-1">Super Admin Login</h2>
-              <p className="text-slate-500 text-sm">Restricted access - authorised personnel only</p>
+              <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-1">Super Admin Login</h2>
+              <p className="text-slate-500 text-xs sm:text-sm">Restricted access - authorised personnel only</p>
             </div>
 
             <form onSubmit={handleLogin} className="space-y-5">
@@ -138,12 +157,12 @@ export default function SuperAdminLoginPage() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between">
-                <label className="flex items-center cursor-pointer">
-                  <input type="checkbox" className="w-4 h-4 border-slate-300 rounded cursor-pointer accent-[#0A3D8F]" />
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <label className="flex items-center cursor-pointer select-none">
+                  <input type="checkbox" className="w-4 h-4 border-slate-300 rounded cursor-pointer accent-[#0A3D8F] shrink-0" />
                   <span className="ml-2 text-sm text-slate-600">Keep me signed in</span>
                 </label>
-                <a href="#" className="text-sm text-[#0A3D8F] hover:text-[#083170] font-medium">
+                <a href="#" className="text-sm text-[#0A3D8F] hover:text-[#083170] font-medium whitespace-nowrap self-start sm:self-auto">
                   Forgot password?
                 </a>
               </div>
@@ -167,14 +186,17 @@ export default function SuperAdminLoginPage() {
               </button>
             </form>
 
-            <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-center gap-6">
-              <Link href="/login" className="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1">
+            <div className="mt-6 sm:mt-8 pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-6">
+              <Link
+                href="/login"
+                className="text-xs text-slate-500 hover:text-slate-700 flex items-center justify-center gap-1 py-1.5 sm:py-0"
+              >
                 <i className="ri-admin-line"></i>
                 Admin Login
               </Link>
               <Link
                 href="/customer-dashboard/login"
-                className="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1"
+                className="text-xs text-slate-500 hover:text-slate-700 flex items-center justify-center gap-1 py-1.5 sm:py-0"
               >
                 <i className="ri-user-line"></i>
                 Customer Portal
