@@ -100,13 +100,12 @@ export default function SuperAdminLoginPage() {
                     <i className="ri-mail-line text-slate-400 text-sm"></i>
                   </div>
                   <input
-                    type="email"
+                    type="text"
                     id="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#0A3D8F] focus:border-transparent outline-none transition-all text-sm"
                     placeholder="superadmin@vscanmail.com"
-                    required
                   />
                 </div>
               </div>
@@ -126,7 +125,6 @@ export default function SuperAdminLoginPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full pl-10 pr-12 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#0A3D8F] focus:border-transparent outline-none transition-all text-sm"
                     placeholder="Enter your password"
-                    required
                   />
                   <button
                     type="button"
