@@ -44,6 +44,8 @@ function DepositsPageContent() {
   const tabFromUrl = searchParams.get('tab');
   const router = useRouter();
   const pathname = usePathname();
+  const isSuperadminRoute = pathname.startsWith('/superadmin');
+  const scanPath = isSuperadminRoute ? '/superadmin/scan' : '/dashboard/scan';
 
   useEffect(() => {
     if (!tabFromUrl) return;
@@ -107,7 +109,7 @@ function DepositsPageContent() {
         </div>
 
         <div className={mailStyles.topActions}>
-          <Link href="/dashboard/scan">         
+          <Link href={scanPath}>         
             <button className={mailStyles.newScanBtn}>
               <div className={mailStyles.newScanIcon}>
                 <Icon icon="ri:scan-2-line" className="text-sm" />
@@ -116,6 +118,8 @@ function DepositsPageContent() {
             </button>
           </Link>
 
+          {!isSuperadminRoute && (
+          <>
           {/* Notifications */}
           <div className="relative">
             <button
@@ -208,6 +212,8 @@ function DepositsPageContent() {
               </div>
             )}
           </div>
+          </>
+          )}
         </div>
       </div>
 

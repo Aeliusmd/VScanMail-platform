@@ -42,6 +42,8 @@ function AllMailsPageContent() {
   const tabFromUrl = searchParams.get('tab');
   const router = useRouter();
   const pathname = usePathname();
+  const isSuperadminRoute = pathname.startsWith('/superadmin');
+  const scanPath = isSuperadminRoute ? '/superadmin/scan' : '/dashboard/scan';
 
   // Keep the tab UI in sync when selecting filters via sidebar labels.
   useEffect(() => {
@@ -100,7 +102,7 @@ function AllMailsPageContent() {
           />
         </div>
         <div className={styles.topActions}>
-          <Link href="/dashboard/scan">
+          <Link href={scanPath}>
             <button className={styles.newScanBtn}>
               <div className={styles.newScanIcon}>
                 <Icon icon="ri:scan-2-line" className="text-sm" />
@@ -109,6 +111,8 @@ function AllMailsPageContent() {
             </button>
           </Link>
 
+          {!isSuperadminRoute && (
+          <>
           {/* Notifications */}
           <div className="relative">
             <button
@@ -188,6 +192,8 @@ function AllMailsPageContent() {
               </div>
             )}
           </div>
+          </>
+          )}
         </div>
       </div>
 

@@ -6,41 +6,61 @@ import { usePathname } from "next/navigation";
 import { Icon } from "@iconify/react";
 
 const items = [
-  { href: "/superadmin/settings/profile", label: "Profile", icon: "ri:user-line" },
-  { href: "/superadmin/settings/manage-admins", label: "Manage Admins", icon: "ri:shield-user-line" },
-  { href: "/superadmin/settings/activity", label: "Activity Log", icon: "ri:history-line" },
-  { href: "/superadmin/settings/billing", label: "Billing", icon: "ri:bank-card-line" },
+  {
+    href: "/superadmin/settings/profile",
+    label: "Profile",
+    icon: "ri:user-settings-line",
+    desc: "Personal info & password",
+  },
+  {
+    href: "/superadmin/settings/manage-admins",
+    label: "Manage Admins",
+    icon: "ri:team-line",
+    desc: "Add, update & remove admins",
+  },
+  {
+    href: "/superadmin/settings/activity",
+    label: "Activity Log",
+    icon: "ri:history-line",
+    desc: "System activity records",
+  },
+  {
+    href: "/superadmin/settings/billing",
+    label: "Billing",
+    icon: "ri:bank-card-line",
+    desc: "Plans & billing management",
+  },
 ];
 
 export default function SuperAdminSettingsLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
-  const linkClass = (href: string, active: boolean) =>
-    `flex items-center gap-3 px-3 py-3 rounded-xl transition cursor-pointer whitespace-nowrap ${
-      active ? "bg-[#EFF6FF] text-[#0A3D8F] font-semibold" : "text-slate-700 hover:bg-slate-50"
-    }`;
-
-  const iconWrapClass = (active: boolean) =>
-    `w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
-      active ? "bg-[#0A3D8F]/10 text-[#0A3D8F]" : "bg-slate-100 text-slate-600"
-    }`;
-
   return (
     <div className="flex flex-1 min-h-0 min-w-0 w-full flex-col md:flex-row">
       {/* Settings sub-sidebar — desktop */}
-      <aside className="hidden md:flex w-[240px] flex-shrink-0 flex-col border-r border-gray-200 bg-white">
-        <div className="px-4 py-4 border-b border-gray-100">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Settings</p>
-        </div>
-        <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
+      <aside className="hidden md:block w-60 bg-white border-r border-slate-200 flex-shrink-0 p-4 space-y-1">
+        <nav>
           {items.map((it) => {
             const active = pathname === it.href || pathname === `${it.href}/`;
             return (
-              <Link key={it.href} href={it.href} className={linkClass(it.href, active)}>
-                <div className={iconWrapClass(active)}>
-                  <Icon icon={it.icon} className="text-xl" />
+              <Link
+                key={it.href}
+                href={it.href}
+                className={`w-full flex items-start space-x-3 px-4 py-3 rounded-lg text-sm transition-colors cursor-pointer text-left ${
+                  active
+                    ? "bg-[#0A3D8F]/10 text-[#0A3D8F]"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                }`}
+              >
+                <Icon icon={it.icon} className="text-base mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className={`font-semibold leading-tight ${active ? "text-[#0A3D8F]" : "text-slate-700"}`}>
+                    {it.label}
+                  </p>
+                  <p className={`text-xs mt-0.5 leading-tight ${active ? "text-[#0A3D8F]/70" : "text-slate-400"}`}>
+                    {it.desc}
+                  </p>
                 </div>
-                <span>{it.label}</span>
               </Link>
             );
           })}

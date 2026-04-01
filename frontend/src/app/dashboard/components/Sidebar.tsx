@@ -7,13 +7,13 @@ import { useState } from 'react';
 import { Icon } from '@iconify/react';
 
 const navItems = [
-  { icon: 'ri:dashboard-line', label: 'Dashboard', path: '/dashboard' },
-  { icon: 'ri:scan-2-line', label: 'Scan Document', path: '/dashboard/scan' },
-  { icon: 'ri:mail-line', label: 'All Mails', path: '/dashboard/mails' },
-  { icon: 'ri:bank-card-line', label: 'All Cheques', path: '/dashboard/cheques' },
-  { icon: 'ri:building-line', label: 'Companies', path: '/dashboard/companies' },
-  { icon: 'ri:exchange-dollar-line', label: 'Deposit Requests', path: '/dashboard/deposits' },
-  { icon: 'ri:truck-line', label: 'Delivery Requests', path: '/dashboard/deliveries' },
+  { icon: 'ri:dashboard-line', label: 'Dashboard', slug: '' },
+  { icon: 'ri:scan-2-line', label: 'Scan Document', slug: '/scan' },
+  { icon: 'ri:mail-line', label: 'All Mails', slug: '/mails' },
+  { icon: 'ri:bank-card-line', label: 'All Cheques', slug: '/cheques' },
+  { icon: 'ri:building-line', label: 'Companies', slug: '/companies' },
+  { icon: 'ri:exchange-dollar-line', label: 'Deposit Requests', slug: '/deposits' },
+  { icon: 'ri:truck-line', label: 'Delivery Requests', slug: '/deliveries' },
 ];
 
 interface SidebarProps {
@@ -25,13 +25,20 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const tabFromUrl = searchParams.get('tab');
+  const isSuperadminArea = pathname.startsWith('/superadmin');
+  const basePath = isSuperadminArea ? '/superadmin' : '/dashboard';
+  const settingsPath = isSuperadminArea ? '/superadmin/settings/profile' : '/dashboard/settings';
+  const resolvedNavItems = navItems.map((item) => ({ ...item, path: `${basePath}${item.slug}` }));
   const isSettingsRoute =
-    pathname === '/dashboard/settings' || pathname.startsWith('/dashboard/settings/');
-  const isMailsPage = pathname === '/dashboard/mails';
-  const isChequesPage = pathname === '/dashboard/cheques';
-  const isCompaniesPage = pathname === '/dashboard/companies';
-  const isDepositsPage = pathname === '/dashboard/deposits';
-  const isDeliveriesPage = pathname === '/dashboard/deliveries';
+    pathname === '/dashboard/settings' ||
+    pathname.startsWith('/dashboard/settings/') ||
+    pathname === '/superadmin/settings' ||
+    pathname.startsWith('/superadmin/settings/');
+  const isMailsPage = pathname === `${basePath}/mails`;
+  const isChequesPage = pathname === `${basePath}/cheques`;
+  const isCompaniesPage = pathname === `${basePath}/companies`;
+  const isDepositsPage = pathname === `${basePath}/deposits`;
+  const isDeliveriesPage = pathname === `${basePath}/deliveries`;
 
   const getTabValueForLabel = (pagePath: string, label: string): string | null => {
     // Mail page tabs: All | Processed | Delivered | Pending Delivery
@@ -85,15 +92,15 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   };
 
   const labelsPagePath = isMailsPage
-    ? '/dashboard/mails'
+    ? `${basePath}/mails`
     : isChequesPage
-      ? '/dashboard/cheques'
+      ? `${basePath}/cheques`
       : isCompaniesPage
-        ? '/dashboard/companies'
+        ? `${basePath}/companies`
         : isDepositsPage
-          ? '/dashboard/deposits'
+          ? `${basePath}/deposits`
           : isDeliveriesPage
-            ? '/dashboard/deliveries'
+            ? `${basePath}/deliveries`
             : null;
 
   const mailLabels = [
@@ -190,7 +197,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* Nav Items */}
       <nav className="flex-1 py-4 overflow-y-auto">
-        {navItems.map((item) => {
+        {resolvedNavItems.map((item) => {
           const isActive = pathname === item.path;
           return (
             <Link
@@ -272,7 +279,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       {/* Settings */}
       <div className="border-t border-gray-100 py-4">
         <Link
-          href="/dashboard/settings"
+          href={settingsPath}
           className={`relative flex items-center transition cursor-pointer font-roboto pt-[12px] pb-[12px] pl-[20px] pr-[16px] h-[52px] ${
             isSettingsRoute
               ? 'bg-[#EFF6FF] text-[#0A3D8F] font-medium rounded-lg mx-2'

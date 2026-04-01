@@ -50,6 +50,7 @@ function CompaniesPageContent() {
   const tabFromUrl = searchParams.get('tab');
   const router = useRouter();
   const pathname = usePathname();
+  const isSuperadminRoute = pathname.startsWith('/superadmin');
 
   useEffect(() => {
     if (!tabFromUrl) return;
@@ -178,6 +179,8 @@ function CompaniesPageContent() {
             Add Company
           </button>
 
+          {!isSuperadminRoute && (
+          <>
           <div className="relative">
             <button
               onClick={() => {
@@ -235,6 +238,8 @@ function CompaniesPageContent() {
               </div>
             )}
           </div>
+          </>
+          )}
         </div>
       </div>
 
@@ -330,7 +335,7 @@ function CompaniesPageContent() {
                   <div className="space-y-4">
                     <div>
                       <label className="block text-xs font-semibold text-slate-600 mb-1.5">Company Name <span className="text-red-500">*</span></label>
-                      <input type="text" value={newCompany.name} onChange={(e) => setNewCompany((p) => ({ ...p, name: e.target.value }))} placeholder="e.g. Acme Corporation" className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all" />
+                      <input type="text" value={newCompany.name} onChange={(e) => setNewCompany((p) => ({ ...p, name: e.target.value }))} placeholder="e.g. Acme Corporation" className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -354,12 +359,12 @@ function CompaniesPageContent() {
                       <label className="block text-xs font-semibold text-slate-600 mb-1.5">Website</label>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-medium">https://</span>
-                        <input type="text" value={newCompany.website} onChange={(e) => setNewCompany((p) => ({ ...p, website: e.target.value }))} placeholder="www.company.com" className="w-full pl-16 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all" />
+                        <input type="text" value={newCompany.website} onChange={(e) => setNewCompany((p) => ({ ...p, website: e.target.value }))} placeholder="www.company.com" className="w-full pl-16 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all" />
                       </div>
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-slate-600 mb-1.5">Address</label>
-                      <input type="text" value={newCompany.address} onChange={(e) => setNewCompany((p) => ({ ...p, address: e.target.value }))} placeholder="Street, City, State, ZIP" className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all" />
+                      <input type="text" value={newCompany.address} onChange={(e) => setNewCompany((p) => ({ ...p, address: e.target.value }))} placeholder="Street, City, State, ZIP" className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all" />
                     </div>
                   </div>
                 </div>
@@ -378,19 +383,19 @@ function CompaniesPageContent() {
                       <label className="block text-xs font-semibold text-slate-600 mb-1.5">Email Address <span className="text-red-500">*</span></label>
                       <div className="relative">
                         <i className="ri-mail-line absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-base"></i>
-                        <input type="email" value={newCompany.email} onChange={(e) => setNewCompany((p) => ({ ...p, email: e.target.value }))} placeholder="info@company.com" className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all" />
+                        <input type="email" value={newCompany.email} onChange={(e) => setNewCompany((p) => ({ ...p, email: e.target.value }))} placeholder="info@company.com" className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all" />
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-xs font-semibold text-slate-600 mb-1.5">Contact Person</label>
-                        <input type="text" value={newCompany.contactPerson} onChange={(e) => setNewCompany((p) => ({ ...p, contactPerson: e.target.value }))} placeholder="Full name" className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all" />
+                        <input type="text" value={newCompany.contactPerson} onChange={(e) => setNewCompany((p) => ({ ...p, contactPerson: e.target.value }))} placeholder="Full name" className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all" />
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-slate-600 mb-1.5">Phone</label>
                         <div className="relative">
                           <i className="ri-phone-line absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-base"></i>
-                          <input type="text" value={newCompany.phone} onChange={(e) => setNewCompany((p) => ({ ...p, phone: e.target.value }))} placeholder="+1 (000) 000-0000" className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all" />
+                          <input type="text" value={newCompany.phone} onChange={(e) => setNewCompany((p) => ({ ...p, phone: e.target.value }))} placeholder="+1 (000) 000-0000" className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all" />
                         </div>
                       </div>
                     </div>
@@ -406,7 +411,7 @@ function CompaniesPageContent() {
                     </div>
                     <h3 className="text-sm font-bold text-slate-800">Notes & Instructions</h3>
                   </div>
-                  <textarea value={newCompany.notes} onChange={(e) => setNewCompany((p) => ({ ...p, notes: e.target.value }))} placeholder="Any special handling instructions, preferences, or important notes about this company..." rows={4} maxLength={500} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all resize-none" />
+                  <textarea value={newCompany.notes} onChange={(e) => setNewCompany((p) => ({ ...p, notes: e.target.value }))} placeholder="Any special handling instructions, preferences, or important notes about this company..." rows={4} maxLength={500} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all resize-none" />
                   <p className="text-xs text-slate-400 mt-1 text-right">{newCompany.notes.length}/500</p>
                 </div>
               </div>
