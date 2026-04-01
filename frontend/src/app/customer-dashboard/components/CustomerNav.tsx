@@ -45,6 +45,8 @@ const navLinks = [
   { label: "Dashboard", href: "/customer-dashboard/dashboard", icon: "ri-dashboard-line" },
   { label: "Mails", href: "/customer-dashboard/mails", icon: "ri-mail-line" },
   { label: "Cheques", href: "/customer-dashboard/cheques", icon: "ri-bank-card-line" },
+  { label: "Deposits", href: "/customer-dashboard/deposits", icon: "ri-exchange-dollar-line" },
+  { label: "Deliveries", href: "/customer-dashboard/deliveries", icon: "ri-truck-line" },
   { label: "Account", href: "/customer-dashboard/account", icon: "ri-user-settings-line" },
 ] as const;
 
