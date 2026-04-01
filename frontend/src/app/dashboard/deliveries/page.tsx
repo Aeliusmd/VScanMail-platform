@@ -40,6 +40,8 @@ function DeliveriesPageContent() {
   const tabFromUrl = searchParams.get('tab');
   const router = useRouter();
   const pathname = usePathname();
+  const isSuperadminRoute = pathname.startsWith('/superadmin');
+  const scanPath = isSuperadminRoute ? '/superadmin/scan' : '/dashboard/scan';
 
   useEffect(() => {
     if (!tabFromUrl) return;
@@ -163,7 +165,7 @@ function DeliveriesPageContent() {
         </div>
 
         <div className={mailStyles.topActions}>
-        <Link href="/dashboard/scan">
+        <Link href={scanPath}>
           <button className={mailStyles.newScanBtn} onClick={() => {}}>
             <div className={mailStyles.newScanIcon}>
               <Icon icon="ri:scan-2-line" className="text-sm" />
@@ -172,6 +174,8 @@ function DeliveriesPageContent() {
           </button>
           </Link>
 
+          {!isSuperadminRoute && (
+          <>
           <div className="relative">
             <button
               onClick={() => {
@@ -262,6 +266,8 @@ function DeliveriesPageContent() {
               </div>
             )}
           </div>
+          </>
+          )}
         </div>
       </div>
 

@@ -43,6 +43,8 @@ function AllChequesPageContent() {
   const tabFromUrl = searchParams.get('tab');
   const router = useRouter();
   const pathname = usePathname();
+  const isSuperadminRoute = pathname.startsWith('/superadmin');
+  const scanPath = isSuperadminRoute ? '/superadmin/scan' : '/dashboard/scan';
 
   useEffect(() => {
     if (!tabFromUrl) return;
@@ -106,7 +108,7 @@ function AllChequesPageContent() {
         </div>
 
         <div className={styles.topActions}>
-          <Link href="/dashboard/scan">
+          <Link href={scanPath}>
             <button className={styles.addBtn}>
               <div className={styles.addBtnIcon}>
                 <Icon icon="ri:scan-2-line" className="text-sm" />
@@ -115,6 +117,8 @@ function AllChequesPageContent() {
             </button>
           </Link>
 
+          {!isSuperadminRoute && (
+          <>
           <div className="relative">
             <button
               onClick={() => {
@@ -190,6 +194,8 @@ function AllChequesPageContent() {
               </div>
             )}
           </div>
+          </>
+          )}
         </div>
       </div>
 
