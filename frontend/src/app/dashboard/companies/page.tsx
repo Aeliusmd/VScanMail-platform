@@ -194,7 +194,7 @@ function CompaniesPageContent() {
             </button>
 
             {showNotifications && (
-              <div className="absolute right-0 top-12 w-[320px] bg-white rounded-xl shadow-lg border border-gray-100 z-50">
+              <div className="absolute right-0 top-12 w-[320px] bg-white rounded-2xl shadow-lg border border-gray-100 z-50 overflow-hidden">
                 <div className="px-4 py-3 border-b border-gray-100 font-semibold text-sm text-gray-900">Notifications</div>
                 <div className="px-4 py-3 text-xs text-gray-600">No new notifications</div>
               </div>
@@ -217,7 +217,7 @@ function CompaniesPageContent() {
             </button>
 
             {showUserMenu && (
-              <div className="absolute right-0 top-12 w-[180px] bg-white rounded-xl shadow-lg border border-gray-100 z-50 py-1">
+              <div className="absolute right-0 top-12 w-[180px] bg-white rounded-2xl shadow-lg border border-gray-100 z-50 py-1 overflow-hidden">
                 <Link href="/dashboard/settings/profile" className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
                   <div className="w-4 h-4 flex items-center justify-center"><Icon icon="ri:user-line" className="text-sm" /></div>
                   My Profile
@@ -297,7 +297,7 @@ function CompaniesPageContent() {
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-end" onClick={() => setShowAddModal(false)}>
           <div
-            className="bg-white h-full w-full max-w-xl flex flex-col shadow-2xl animate-[slideInRight_0.25s_ease-out]"
+            className="bg-white h-full w-full max-w-xl flex flex-col shadow-2xl animate-[slideInRight_0.25s_ease-out] rounded-l-2xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-7 py-5 border-b border-slate-200 flex-shrink-0">
