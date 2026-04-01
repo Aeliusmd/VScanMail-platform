@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import SuperAdminHeader from "../superadmin/components/SuperAdminHeader";
 
 const admins = [
   {
@@ -106,6 +107,7 @@ export default function SuperAdminDashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [requestFilter, setRequestFilter] = useState<"All" | "Deposit" | "Delivery">("All");
+
   const getRecentRequestPath = (type: string) =>
     type === "Delivery" ? "/superadmin/deliveries" : "/superadmin/deposits";
   const filteredRecentRequests =
@@ -216,55 +218,21 @@ export default function SuperAdminDashboardPage() {
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 lg:min-h-0">
-        <header className="bg-white border-b border-gray-200 px-3 sm:px-6 py-2.5 sm:py-2 min-h-[56px] sm:min-h-[64px] flex items-center justify-between gap-3 flex-shrink-0">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen(true)}
-              className="lg:hidden shrink-0 w-10 h-10 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
-              aria-label="Open menu"
-            >
-              <i className="ri-menu-line text-xl"></i>
-            </button>
-            <div className="min-w-0">
-              <h1 className="text-base sm:text-xl font-bold text-gray-900 leading-tight truncate">
-                Super Admin Dashboard
-              </h1>
-              <p className="text-xs sm:text-sm text-gray-500 mt-0.5 line-clamp-2 sm:line-clamp-none">
-                <span className="hidden sm:inline">Full system overview - </span>
-                {new Date().toLocaleDateString("en-GB", {
-                  weekday: "long",
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                })}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 sm:gap-4">
-            <button
-              type="button"
-              className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition cursor-pointer relative text-slate-600"
-              aria-label="Notifications"
-            >
-              <i className="ri-notification-3-line text-[20px] leading-none"></i>
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-            </button>
-
-            <div className="h-8 w-px bg-gray-200 hidden sm:block"></div>
-
-            <Link href="/superadmin/settings/profile" className="flex items-center gap-2 hover:bg-gray-50 rounded-lg px-2 py-1.5 transition">
-              <div className="w-8 h-8 rounded-full bg-[#1E40AF] flex items-center justify-center text-white font-bold text-xs">
-                JM
-              </div>
-              <div className="text-left hidden sm:block">
-                <p className="text-sm font-semibold text-gray-900 leading-4">James Mitchell</p>
-                <p className="text-xs text-gray-500">Super Admin</p>
-              </div>
-            </Link>
-          </div>
-        </header>
+        <SuperAdminHeader
+          title="Super Admin Dashboard"
+          subtitle={
+            <>
+              <span className="hidden sm:inline">Full system overview — </span>
+              {new Date().toLocaleDateString("en-GB", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </>
+          }
+          onMobileNavOpen={() => setMobileMenuOpen(true)}
+        />
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto overflow-x-hidden">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
