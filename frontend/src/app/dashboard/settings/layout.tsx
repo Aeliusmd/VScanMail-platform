@@ -16,11 +16,6 @@ const items = [
     label: 'Notifications',
     icon: 'ri:notification-3-line',
   },
-  {
-    href: '/dashboard/settings/billing',
-    label: 'Billing',
-    icon: 'ri:bank-card-line',
-  },
 ];
 
 export default function SettingsLayout({ children }: { children: ReactNode }) {

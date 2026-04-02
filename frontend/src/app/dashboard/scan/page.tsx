@@ -670,7 +670,7 @@ export default function AdminScanPage() {
       {/* Send Popup */}
       {showPopup && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-6" onClick={() => setShowPopup(false)}>
-          <div className="bg-white rounded-2xl p-8 w-full max-w-[448px]" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl overflow-hidden p-8 w-full max-w-[448px]" onClick={(e) => e.stopPropagation()}>
             <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-5">
               <i className="ri-mail-send-line text-[#0A3D8F] text-[30px]"></i>
             </div>
@@ -760,7 +760,7 @@ export default function AdminScanPage() {
       {/* Success Modal */}
       {showSuccess && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-6">
-          <div className="bg-white rounded-2xl p-6 sm:p-8 max-w-md w-full text-center">
+          <div className="bg-white rounded-2xl overflow-hidden p-6 sm:p-8 max-w-md w-full text-center">
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <i className="ri-checkbox-circle-fill text-[#2F8F3A] text-5xl"></i>
             </div>

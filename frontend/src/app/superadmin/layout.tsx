@@ -1,18 +1,40 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Icon } from "@iconify/react";
 import Sidebar from "../dashboard/components/Sidebar";
-import TopBar from "../dashboard/components/TopBar";
+import SuperAdminHeader from "./components/SuperAdminHeader";
 
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const pathname = usePathname();
 
-  // For now superadmin only has settings pages, but keep this flexible.
-  const isSuperadminSettings = pathname?.startsWith("/superadmin/");
+  const isSuperadminArea = pathname?.startsWith("/superadmin");
+  const isSuperadminSettings = pathname?.startsWith("/superadmin/settings");
+
+  const { headerTitle, headerSubtitle } = useMemo(() => {
+    if (isSuperadminSettings) {
+      return {
+        headerTitle: "Settings",
+        headerSubtitle: "Manage your account, admins, and billing preferences",
+      };
+    }
+    return {
+      headerTitle: "Super Admin Dashboard",
+      headerSubtitle: (
+        <>
+          <span className="hidden sm:inline">Full system overview — </span>
+          {new Date().toLocaleDateString("en-GB", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })}
+        </>
+      ),
+    };
+  }, [isSuperadminSettings]);
 
   return (
     <div className="flex h-screen w-full bg-gray-50 overflow-hidden">
@@ -35,22 +57,12 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
       </div>
 
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        <button
-          onClick={() => setMobileSidebarOpen((prev) => !prev)}
-          className="md:hidden fixed top-3 left-3 z-20 w-9 h-9 bg-white border border-gray-200 rounded-lg shadow-sm text-gray-600 flex items-center justify-center"
-          aria-label="Toggle sidebar"
-        >
-          <Icon
-            icon={mobileSidebarOpen ? "ri:close-line" : "ri:menu-line"}
-            className="text-lg"
-          />
-        </button>
-
-        {isSuperadminSettings && (
-          <TopBar
-            title="Settings"
-            subtitle="Manage your account and system preferences"
-            hideSearch
+        {isSuperadminArea && (
+          <SuperAdminHeader
+            title={headerTitle}
+            subtitle={headerSubtitle}
+            onMobileNavOpen={() => setMobileSidebarOpen(true)}
+            mobileNavBreakpoint="md"
           />
         )}
 

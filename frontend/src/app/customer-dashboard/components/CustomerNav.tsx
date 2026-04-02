@@ -45,6 +45,8 @@ const navLinks = [
   { label: "Dashboard", href: "/customer-dashboard/dashboard", icon: "ri-dashboard-line" },
   { label: "Mails", href: "/customer-dashboard/mails", icon: "ri-mail-line" },
   { label: "Cheques", href: "/customer-dashboard/cheques", icon: "ri-bank-card-line" },
+  { label: "Deposits", href: "/customer-dashboard/deposits", icon: "ri-exchange-dollar-line" },
+  { label: "Deliveries", href: "/customer-dashboard/deliveries", icon: "ri-truck-line" },
   { label: "Account", href: "/customer-dashboard/account", icon: "ri-user-settings-line" },
 ] as const;
 
@@ -162,7 +164,7 @@ export default function CustomerNav() {
 
               {showNotifications && (
                 <div
-                  className="absolute right-0 mt-2 w-[min(20rem,calc(100vw-2rem))] bg-white rounded-xl border border-gray-200 py-2 z-50 shadow-lg"
+                  className="absolute right-0 mt-2 w-[min(20rem,calc(100vw-2rem))] bg-white rounded-2xl border border-gray-200 py-2 z-50 shadow-lg overflow-hidden"
                   role="region"
                   aria-label="Notifications list"
                 >
@@ -223,7 +225,7 @@ export default function CustomerNav() {
               </button>
 
               {showUserMenu && (
-                <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl border border-gray-200 py-2 z-50 shadow-lg">
+                <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl border border-gray-200 py-2 z-50 shadow-lg overflow-hidden">
                   <div className="px-4 py-3 border-b border-gray-200">
                     <p className="text-sm font-semibold text-gray-900">Acme Corporation</p>
                     <p className="text-xs text-gray-500">acme@company.com</p>
