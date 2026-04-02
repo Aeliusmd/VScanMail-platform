@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { loginSchema } from "@/lib/validators/auth.schema";
-import { authService } from "@/lib/services/auth.service";
+import { loginSchema } from "@/lib/modules/auth/auth.schema";
+import { authService } from "@/lib/modules/auth/auth.service";
 import bcrypt from "bcryptjs";
-import { db } from "@/lib/db/mysql";
-import { users } from "@/lib/db/schema";
+import { db } from "@/lib/modules/core/db/mysql";
+import { users, profiles } from "@/lib/modules/core/db/schema";
 import { eq } from "drizzle-orm";
-import { signAccessToken } from "@/lib/auth/jwt";
+import { signAccessToken } from "@/lib/modules/auth/jwt";
 
 export async function POST(req: NextRequest) {
   try {
@@ -32,11 +32,21 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // 3. Obtain Role from Profiles
+    const profileRows = await db
+      .select({ role: profiles.role, clientId: profiles.clientId })
+      .from(profiles)
+      .where(eq(profiles.userId, user.id))
+      .limit(1);
+
+    const role = profileRows[0]?.role || "client";
+    const clientId = profileRows[0]?.clientId;
+
     const access_token = await signAccessToken({ sub: user.id, email: user.email });
 
     return NextResponse.json({
       session: { access_token },
-      user: { id: user.id, email: user.email },
+      user: { id: user.id, email: user.email, role, clientId },
     });
   } catch (error: any) {
     return NextResponse.json(

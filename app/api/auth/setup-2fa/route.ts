@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { withAuth } from "@/lib/middleware/auth";
-import { authService } from "@/lib/services/auth.service";
-import { setup2faSchema } from "@/lib/validators/auth.schema";
+import { withAuth } from "@/lib/modules/auth/auth.middleware";
+import { authService } from "@/lib/modules/auth/auth.service";
+import { setup2faSchema } from "@/lib/modules/auth/auth.schema";
 
 // GET — generate QR code + secret
 export async function GET(req: NextRequest) {

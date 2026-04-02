@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { withAuth, withRole } from "@/lib/middleware/auth";
-import { topupSchema } from "@/lib/validators/billing.schema";
-import { stripeService } from "@/lib/services/stripe.service";
+import { withAuth, withRole } from "@/lib/modules/auth/auth.middleware";
+import { topupSchema } from "@/lib/modules/billing/billing.schema";
+import { stripeService } from "@/lib/modules/billing/stripe.service";
 
 export async function POST(req: NextRequest) {
   try {

@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import { useState } from "react"
 import Link from "next/link"
@@ -6,6 +6,7 @@ import Image from "next/image"
 import { useRouter } from "next/navigation"
 import styles from "./login.module.css"
 import { HiOutlineEnvelope, HiOutlineLockClosed, HiOutlineEye, HiOutlineEyeSlash } from "react-icons/hi2"
+import { authApi } from "@/lib/api/auth"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -15,164 +16,102 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [remember, setRemember] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    router.push("/dashboard")
+    setError(null)
+
+    if (!email || !password) {
+      setError("Please enter both email and password")
+      return
+    }
+
+    try {
+      setIsLoading(true)
+      const res = await authApi.login(email, password)
+      
+      // Store session and user info
+      if (res.session?.access_token) {
+        window.localStorage.setItem("vscanmail_token", res.session.access_token)
+      } else if (res.session?.accessToken) {
+        window.localStorage.setItem("vscanmail_token", res.session.accessToken)
+      }
+      
+      window.localStorage.setItem("vscanmail_user", JSON.stringify(res.user))
+
+      // Dynamic Role-Based Routing
+      const role = res.user.role
+      if (role === "super_admin") {
+        router.push("/super-admin-dashboard")
+      } else if (role === "admin") {
+        router.push("/superadmin/dashboard")
+      } else {
+        router.push("/customer-dashboard/dashboard")
+      }
+    } catch (err: any) {
+      setError(err?.details?.error || err.message || "Invalid email or password")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
-
     <div className={styles.page}>
-
-      {/* MOBILE TOP IMAGE */}
       <div className={styles.mobileTopImage}>
-        <Image
-          src="/images/Mask group.png"
-          alt="VScan Mail"
-          width={500}
-          height={300}
-          className="w-full h-auto md:hidden"
-        />
+        <Image src="/images/Mask group.png" alt="VScan Mail" width={500} height={300} className="w-full h-auto md:hidden" />
       </div>
-
-      {/* LEFT SIDE */}
-
       <div className={styles.leftSide}>
-
         <div className={styles.leftCard}>
-
-          <h1 className={styles.leftTitle}>
-            Sign in Account
-          </h1>
-
-          <p className={styles.leftSubtitle}>
-            Fill the details to sign in the account
-          </p>
-
-          <img
-            src="/images/signin.png"
-            alt="VScan Mail Illustration"
-            className={styles.leftImage}
-          />
-
+          <h1 className={styles.leftTitle}>Sign in Account</h1>
+          <p className={styles.leftSubtitle}>Fill the details to sign in the account</p>
+          <img src="/images/signin.png" alt="Illustration" className={styles.leftImage} />
         </div>
-
       </div>
-
-
-      {/* RIGHT SIDE */}
-
       <div className={styles.rightSide}>
-
         <div className={styles.formContainer}>
-
           <div className={styles.formCard}>
-
-            {/* Header */}
-
             <div className={styles.header}>
-
-              <h2 className={styles.heading}>
-                Company Login
-              </h2>
-
-              <p className={styles.subheading}>
-                Access your digital mailroom dashboard
-              </p>
-
+              <h2 className={styles.heading}>Company Login</h2>
+              <p className={styles.subheading}>Access your digital mailroom dashboard</p>
             </div>
-
-
             <form onSubmit={handleSubmit} className={styles.form}>
-
-              {/* EMAIL */}
-
               <div className={styles.fieldGroup}>
-
-                <label className={styles.label}>
-                  Company Email
-                </label>
-
+                <label className={styles.label}>Email</label>
                 <div className={styles.inputWrapper}>
-
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="company@example.com"
-                    className={styles.input}
-                  />
-
+                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="hello@vscanmail.com" className={styles.input} />
                   <span className={styles.inputIcon}><span className={styles.inputIconGlyph}><HiOutlineEnvelope /></span></span>
-
                 </div>
-
               </div>
-
-
-              {/* PASSWORD */}
-
               <div className={styles.fieldGroup}>
-
-                <label className={styles.label}>
-                  Password
-                </label>
-
+                <label className={styles.label}>Password</label>
                 <div className={styles.inputWrapper}>
-
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
-                    className={`${styles.input} ${styles.inputPasswordPad}`}
-                  />
-
+                  <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="password" className={`${styles.input} ${styles.inputPasswordPad}`} />
                   <span className={styles.inputIcon}><span className={styles.inputIconGlyph}><HiOutlineLockClosed /></span></span>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className={styles.eyeButton}
-                  >
-                    <span className={styles.eyeIcon}>
-                      {showPassword ? <HiOutlineEyeSlash /> : <HiOutlineEye />}
-                    </span>
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className={styles.eyeButton}>
+                    <span className={styles.eyeIcon}>{showPassword ? <HiOutlineEyeSlash /> : <HiOutlineEye />}</span>
                   </button>
-
                 </div>
-
               </div>
-
-
-              {/* REMEMBER */}
+              
+              {error && (
+                <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-4 border border-red-200">
+                  {error}
+                </div>
+              )}
 
               <div className={styles.rememberRow}>
-
                 <label className={styles.rememberLabel}>
-                  <input
-                    type="checkbox"
-                    checked={remember}
-                    onChange={(e) => setRemember(e.target.checked)}
-                  />
-                  Remember me
+                  <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> Remember me
                 </label>
-
-                <a className={styles.forgotLink}>
-                  Forgot password?
-                </a>
-
+                <a className={styles.forgotLink}>Forgot password?</a>
               </div>
-
-
-              {/* BUTTON */}
-
-              <button
-                type="submit"
-                className={styles.submitButton}
-              >
-                Sign In
+              
+              <button type="submit" disabled={isLoading} className={styles.submitButton}>
+                {isLoading ? "Signing in..." : "Sign In"}
               </button>
+
 
 
               {/* REGISTER */}

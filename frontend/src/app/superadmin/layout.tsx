@@ -14,27 +14,44 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   const isSuperadminSettings = pathname?.startsWith("/superadmin/settings");
 
   const { headerTitle, headerSubtitle } = useMemo(() => {
+    let role = "super_admin";
+    if (typeof window !== "undefined") {
+      const userStr = window.localStorage.getItem("vscanmail_user");
+      if (userStr) {
+        try {
+          role = JSON.parse(userStr).role;
+        } catch {}
+      }
+    }
+
     if (isSuperadminSettings) {
       return {
         headerTitle: "Settings",
         headerSubtitle: "Manage your account, admins, and billing preferences",
       };
     }
+    
+    const displayTitle = role === "super_admin" ? "Super Admin Dashboard" : "Admin Dashboard";
+    
     return {
-      headerTitle: "Super Admin Dashboard",
+      headerTitle: displayTitle,
       headerSubtitle: (
         <>
-          <span className="hidden sm:inline">Full system overview — </span>
-          {new Date().toLocaleDateString("en-GB", {
-            weekday: "long",
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })}
+          <span className="hidden sm:inline">
+            {role === "super_admin" ? "Full system overview" : "Regional mailroom overview"} —{" "}
+          </span>
+          <span suppressHydrationWarning>
+            {new Date().toLocaleDateString("en-GB", {
+              weekday: "long",
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </span>
         </>
       ),
     };
-  }, [isSuperadminSettings]);
+  }, [isSuperadminSettings, pathname]);
 
   return (
     <div className="flex h-screen w-full bg-gray-50 overflow-hidden">

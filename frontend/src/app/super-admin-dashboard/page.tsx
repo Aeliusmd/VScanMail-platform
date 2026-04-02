@@ -223,12 +223,14 @@ export default function SuperAdminDashboardPage() {
           subtitle={
             <>
               <span className="hidden sm:inline">Full system overview — </span>
-              {new Date().toLocaleDateString("en-GB", {
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
+              <span suppressHydrationWarning>
+                {new Date().toLocaleDateString("en-GB", {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </span>
             </>
           }
           onMobileNavOpen={() => setMobileMenuOpen(true)}

@@ -40,7 +40,7 @@ export const mailApi = {
     clientId?: string; // ignored by backend for non-admin
   }) =>
     apiClient<MailListResponse>(
-      `/api/mail?${new URLSearchParams(
+      `/api/records/mail?${new URLSearchParams(
         Object.entries(params || {}).reduce((acc, [k, v]) => {
           if (v === undefined || v === null) return acc;
           acc[k] = String(v);
@@ -49,25 +49,25 @@ export const mailApi = {
       )}`
     ),
 
-  getById: (id: string) => apiClient<MailItem>(`/api/mail/${id}`),
+  getById: (id: string) => apiClient<MailItem>(`/api/records/mail/${id}`),
 
   upload: (formData: FormData) =>
-    apiUpload<{ id: string }>(`/api/mail/upload`, formData),
+    apiUpload<{ id: string }>(`/api/records/mail/upload`, formData),
 
   annotate: (id: string, body: { annotations: any; tamperDetected: boolean; tamperNotes?: string }) =>
-    apiClient<any>(`/api/mail/${id}/annotate`, {
+    apiClient<any>(`/api/records/mail/${id}/annotate`, {
       method: "POST",
       body: JSON.stringify(body),
     }),
 
-  resend: (id: string) => apiClient<any>(`/api/mail/${id}/resend`, { method: "POST" }),
+  resend: (id: string) => apiClient<any>(`/api/records/mail/${id}/resend`, { method: "POST" }),
 
   setStatus: (id: string, status: MailStatus) =>
-    apiClient<any>(`/api/mail/${id}`, {
+    apiClient<any>(`/api/records/mail/${id}`, {
       method: "PATCH",
       body: JSON.stringify({ status }),
     }),
 
-  download: (id: string) => apiClient<any>(`/api/mail/${id}/download`, { method: "GET" }),
+  download: (id: string) => apiClient<any>(`/api/records/mail/${id}/download`, { method: "GET" }),
 };
 

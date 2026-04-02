@@ -1,7 +1,7 @@
 // app/api/auth/register/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { registerSchema } from "@/lib/validators/auth.schema";
-import { authService } from "@/lib/services/auth.service";
+import { registerSchema } from "@/lib/modules/auth/auth.schema";
+import { authService } from "@/lib/modules/auth/auth.service";
 
 export async function POST(req: NextRequest) {
   try {

@@ -1,8 +1,8 @@
 // ---- app/api/reports/intake/route.ts ----
 import { NextRequest, NextResponse } from "next/server";
-import { withAuth, withRole } from "@/lib/middleware/auth";
-import { db, sql } from "@/lib/db/mysql";
-import { mailItems, clients, cheques } from "@/lib/db/schema";
+import { withAuth, withRole } from "@/lib/modules/auth/auth.middleware";
+import { db, sql } from "@/lib/modules/core/db/mysql";
+import { clients } from "@/lib/modules/core/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
@@ -11,36 +11,48 @@ export async function GET(req: NextRequest) {
     // Dashboard cards are shown for both admin and client roles.
     withRole(user, ["admin", "client"]);
 
-    const from = req.nextUrl.searchParams.get("from");
-    const to = req.nextUrl.searchParams.get("to");
+    const fromDate = req.nextUrl.searchParams.get("from");
+    const toDate = req.nextUrl.searchParams.get("to");
     const clientId = user.role === "admin" ? null : user.clientId!;
 
-    // Mail aggregates.
-    const mailConditions = [];
-    if (from) mailConditions.push(sql`${mailItems.scannedAt} >= ${from}`);
-    if (to) mailConditions.push(sql`${mailItems.scannedAt} <= ${to}`);
-    if (clientId) mailConditions.push(eq(mailItems.clientId, clientId));
+    let targetClients = [];
+    if (clientId) {
+      const dbClient = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
+      if (dbClient[0]) targetClients.push(dbClient[0]);
+    } else {
+      targetClients = await db.select({ id: clients.id, tableName: clients.tableName }).from(clients);
+    }
 
-    const data = await db
-      .select({
-        type: mailItems.type,
-        status: mailItems.status,
-        client_id: mailItems.clientId,
-        scanned_at: mailItems.scannedAt,
-      })
-      .from(mailItems)
-      .where(mailConditions.length > 0 ? and(...mailConditions) : undefined)
-      .orderBy(desc(mailItems.scannedAt));
-
-    const count = data.length;
+    let allRecords: any[] = [];
+    if (targetClients.length > 0) {
+      const queries = targetClients.map(c => {
+        let q = `SELECT record_type as type, mail_status as status, cheque_decision, scanned_at FROM \`${c.tableName}\``;
+        const conds = [];
+        if (fromDate) conds.push(`scanned_at >= '${fromDate}'`);
+        if (toDate) conds.push(`scanned_at <= '${toDate}'`);
+        if (conds.length > 0) {
+          q += ` WHERE ` + conds.join(' AND ');
+        }
+        return sql.raw(q);
+      });
+      const unionQuery = sql.join(queries, sql` UNION ALL `);
+      const [rows] = await db.execute(unionQuery) as any;
+      allRecords = rows;
+    }
 
     const byType: Record<string, number> = {};
     const byStatus: Record<string, number> = {};
-    for (const item of data || []) {
+    let pendingRequests = 0;
+
+    for (const item of allRecords) {
       const typeStr = item.type as string;
       const statusStr = item.status as string;
       byType[typeStr] = (byType[typeStr] || 0) + 1;
       byStatus[statusStr] = (byStatus[statusStr] || 0) + 1;
+
+      if (typeStr === 'cheque' && item.cheque_decision === 'pending') {
+        pendingRequests++;
+      }
     }
 
     const totalCheques = byType["cheque"] || 0;
@@ -49,6 +61,7 @@ export async function GET(req: NextRequest) {
 
     // Active companies.
     let activeCompanies = 0;
+    const count = allRecords.length;
     if (user.role === "admin") {
       const res = await db
         .select({ count: sql<number>`count(*)` })
@@ -62,23 +75,6 @@ export async function GET(req: NextRequest) {
         .where(eq(clients.id, clientId!))
         .limit(1);
       activeCompanies = me[0]?.status === "active" ? 1 : 0;
-    }
-
-    // Pending cheque requests (clientDecision='pending').
-    let pendingRequests = 0;
-    if (user.role === "admin") {
-      const pendingRes = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(cheques)
-        .where(eq(cheques.clientDecision, "pending"));
-      pendingRequests = Number(pendingRes[0]?.count || 0);
-    } else {
-      const pendingRes = await db
-        .select({ id: cheques.id })
-        .from(cheques)
-        .innerJoin(mailItems, eq(cheques.mailItemId, mailItems.id))
-        .where(and(eq(cheques.clientDecision, "pending"), eq(mailItems.clientId, clientId!)));
-      pendingRequests = pendingRes.length;
     }
 
     return NextResponse.json({

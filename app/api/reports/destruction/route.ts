@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { withAuth, withRole } from "@/lib/middleware/auth";
-import { mailItemModel } from "@/lib/models/mail-item.model";
+import { withAuth, withRole } from "@/lib/modules/auth/auth.middleware";
+import { mailItemModel } from "@/lib/modules/records/mail.model";
 import dayjs from "dayjs";
 
 export async function GET(req: NextRequest) {

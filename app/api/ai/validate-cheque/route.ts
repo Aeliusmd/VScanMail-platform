@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { withAuth, withRole } from "@/lib/middleware/auth";
-import { chequeService } from "@/lib/services/cheque.service";
+import { withAuth, withRole } from "@/lib/modules/auth/auth.middleware";
+import { chequeService } from "@/lib/modules/records/cheque.service";
 
 export const maxDuration = 60;
 

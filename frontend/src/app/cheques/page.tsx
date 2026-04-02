@@ -1,4 +1,4 @@
-import { cheques } from "@/mocks/cheques";
+const cheques: any[] = [];
 import styles from "./page.module.css";
 
 export default function ChequesPage() {

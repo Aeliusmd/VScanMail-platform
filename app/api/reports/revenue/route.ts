@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { withAuth, withRole } from "@/lib/middleware/auth";
-import { db } from "@/lib/db/mysql";
-import { usageEvents } from "@/lib/db/schema";
+import { withAuth, withRole } from "@/lib/modules/auth/auth.middleware";
+import { db } from "@/lib/modules/core/db/mysql";
+import { usageEvents } from "@/lib/modules/core/db/schema";
 
 export async function GET(req: NextRequest) {
   try {

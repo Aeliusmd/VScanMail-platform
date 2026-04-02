@@ -1,0 +1,171 @@
+import { db, sql } from "@/lib/modules/core/db/mysql";
+import { getClientTableName } from "@/lib/modules/core/db/dynamic-table";
+import { clients } from "@/lib/modules/core/db/schema";
+
+export type MailItem = {
+  id: string;
+  client_id: string;
+  irn: string;
+  type: "letter" | "cheque" | "package" | "legal";
+  envelope_front_url: string;
+  envelope_back_url: string;
+  content_scan_urls: string[];
+  tamper_detected: boolean;
+  tamper_annotations: any;
+  ocr_text: string | null;
+  ai_summary: string | null;
+  ai_actions: { action: string; deadline: string; priority: string }[] | null;
+  ai_risk_level: "low" | "medium" | "high" | "critical" | null;
+  retention_until: string;
+  scanned_by: string;
+  scanned_at: string;
+  status: "received" | "scanned" | "processed" | "delivered";
+  created_at: string;
+};
+
+// Helper: map MySQL raw row to MailItem
+function rowToMailItem(row: any, clientId: string): MailItem {
+  return {
+    id: row.id,
+    client_id: clientId,
+    irn: row.irn,
+    type: row.record_type,
+    envelope_front_url: row.envelope_front_url,
+    envelope_back_url: row.envelope_back_url,
+    content_scan_urls: typeof row.content_scan_urls === 'string' ? JSON.parse(row.content_scan_urls) : row.content_scan_urls || [],
+    tamper_detected: Boolean(row.tamper_detected),
+    tamper_annotations: typeof row.tamper_annotations === 'string' ? JSON.parse(row.tamper_annotations) : row.tamper_annotations,
+    ocr_text: row.ocr_text,
+    ai_summary: row.ai_summary,
+    ai_actions: typeof row.ai_actions === 'string' ? JSON.parse(row.ai_actions) : row.ai_actions,
+    ai_risk_level: row.ai_risk_level,
+    retention_until: new Date(row.retention_until).toISOString(),
+    scanned_by: row.scanned_by,
+    scanned_at: new Date(row.scanned_at).toISOString(),
+    status: row.mail_status,
+    created_at: new Date(row.created_at).toISOString(),
+  };
+}
+
+async function locateRecordById(id: string) {
+  const allClients = await db.select({ id: clients.id, tableName: clients.tableName }).from(clients);
+  if (!allClients.length) return null;
+
+  const queries = allClients.map(c => 
+    sql`SELECT *, ${c.id} AS _client_id FROM ${sql.raw(`\`${c.tableName}\``)} WHERE id = ${id}`
+  );
+  const unionQuery = sql.join(queries, sql` UNION ALL `);
+  
+  const [rows] = await db.execute(unionQuery) as any;
+  return rows[0] || null;
+}
+
+export const mailItemModel = {
+  async create(data: Partial<MailItem>) {
+    if (!data.client_id) throw new Error("client_id is required");
+    const tableName = await getClientTableName(data.client_id);
+    
+    const id = data.id || crypto.randomUUID();
+    const created = data.created_at ? new Date(data.created_at) : new Date();
+
+    const query = sql`
+      INSERT INTO ${sql.raw(`\`${tableName}\``)} (
+        id, irn, record_type, envelope_front_url, envelope_back_url, content_scan_urls,
+        tamper_detected, tamper_annotations, ocr_text, ai_summary, ai_actions, ai_risk_level,
+        retention_until, scanned_by, scanned_at, mail_status, created_at
+      ) VALUES (
+        ${id}, ${data.irn}, ${data.type}, ${data.envelope_front_url}, ${data.envelope_back_url}, ${JSON.stringify(data.content_scan_urls || [])},
+        ${data.tamper_detected ? 1 : 0}, ${data.tamper_annotations ? JSON.stringify(data.tamper_annotations) : null},
+        ${data.ocr_text || null}, ${data.ai_summary || null}, ${data.ai_actions ? JSON.stringify(data.ai_actions) : null},
+        ${data.ai_risk_level || null}, ${new Date(data.retention_until!)}, ${data.scanned_by}, ${new Date(data.scanned_at!)}, ${data.status || 'received'}, ${created}
+      )
+    `;
+
+    await db.execute(query);
+    return await this.findById(id);
+  },
+
+  async findById(id: string) {
+    const row = await locateRecordById(id);
+    if (!row) throw new Error("Mail item not found");
+    return rowToMailItem(row, row._client_id);
+  },
+
+  async listByClient(
+    clientId: string,
+    opts: { page?: number; limit?: number; type?: string; status?: string } = {}
+  ) {
+    const { page = 1, limit = 20, type, status } = opts;
+    const from = (page - 1) * limit;
+    const tableName = await getClientTableName(clientId);
+
+    const conditions = [];
+    if (type) conditions.push(sql`record_type = ${type}`);
+    if (status) conditions.push(sql`mail_status = ${status}`);
+
+    const whereClause = conditions.length > 0 
+      ? sql`WHERE ${sql.join(conditions, sql` AND `)}` 
+      : sql``;
+
+    const query = sql`
+      SELECT * FROM ${sql.raw(`\`${tableName}\``)}
+      ${whereClause}
+      ORDER BY scanned_at DESC
+      LIMIT ${limit} OFFSET ${from}
+    `;
+    const [rows] = await db.execute(query) as any;
+
+    const countQuery = sql`SELECT COUNT(*) as count FROM ${sql.raw(`\`${tableName}\``)} ${whereClause}`;
+    const [countRows] = await db.execute(countQuery) as any;
+    
+    return {
+      items: rows.map((r: any) => rowToMailItem(r, clientId)),
+      total: Number(countRows[0]?.count || 0),
+    };
+  },
+
+  async update(id: string, data: Partial<MailItem>) {
+    const row = await locateRecordById(id);
+    if (!row) throw new Error("Mail item not found");
+    
+    const clientId = row._client_id;
+    const tableName = await getClientTableName(clientId);
+
+    const updates = [];
+    if (data.irn !== undefined) updates.push(sql`irn = ${data.irn}`);
+    if (data.type !== undefined) updates.push(sql`record_type = ${data.type}`);
+    if (data.envelope_front_url !== undefined) updates.push(sql`envelope_front_url = ${data.envelope_front_url}`);
+    if (data.envelope_back_url !== undefined) updates.push(sql`envelope_back_url = ${data.envelope_back_url}`);
+    if (data.content_scan_urls !== undefined) updates.push(sql`content_scan_urls = ${JSON.stringify(data.content_scan_urls)}`);
+    if (data.tamper_detected !== undefined) updates.push(sql`tamper_detected = ${data.tamper_detected ? 1 : 0}`);
+    if (data.tamper_annotations !== undefined) updates.push(sql`tamper_annotations = ${data.tamper_annotations ? JSON.stringify(data.tamper_annotations) : null}`);
+    if (data.ocr_text !== undefined) updates.push(sql`ocr_text = ${data.ocr_text}`);
+    if (data.ai_summary !== undefined) updates.push(sql`ai_summary = ${data.ai_summary}`);
+    if (data.ai_actions !== undefined) updates.push(sql`ai_actions = ${data.ai_actions ? JSON.stringify(data.ai_actions) : null}`);
+    if (data.ai_risk_level !== undefined) updates.push(sql`ai_risk_level = ${data.ai_risk_level}`);
+    if (data.retention_until !== undefined) updates.push(sql`retention_until = ${new Date(data.retention_until)}`);
+    if (data.scanned_by !== undefined) updates.push(sql`scanned_by = ${data.scanned_by}`);
+    if (data.scanned_at !== undefined) updates.push(sql`scanned_at = ${new Date(data.scanned_at)}`);
+    if (data.status !== undefined) updates.push(sql`mail_status = ${data.status}`);
+
+    if (updates.length > 0) {
+      const query = sql`UPDATE ${sql.raw(`\`${tableName}\``)} SET ${sql.join(updates, sql`, `)} WHERE id = ${id}`;
+      await db.execute(query);
+    }
+    
+    return await this.findById(id);
+  },
+
+  async getDestructionDue(beforeDate: string) {
+    const allClients = await db.select({ id: clients.id, tableName: clients.tableName }).from(clients);
+    if (!allClients.length) return [];
+
+    const queries = allClients.map(c => 
+      sql`SELECT *, ${c.id} AS _client_id FROM ${sql.raw(`\`${c.tableName}\``)} WHERE mail_status = 'delivered' AND retention_until <= ${new Date(beforeDate)}`
+    );
+    const unionQuery = sql.join(queries, sql` UNION ALL `);
+    
+    const [rows] = await db.execute(unionQuery) as any;
+    return rows.map((r: any) => rowToMailItem(r, r._client_id));
+  },
+};

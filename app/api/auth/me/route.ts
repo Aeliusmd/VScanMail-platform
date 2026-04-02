@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { withAuth } from "@/lib/middleware/auth";
-import { clientModel } from "@/lib/models/client.model";
+import { withAuth } from "@/lib/modules/auth/auth.middleware";
+import { clientModel } from "@/lib/modules/clients/client.model";
 
 export async function GET(req: NextRequest) {
   try {

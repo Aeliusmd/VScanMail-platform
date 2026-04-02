@@ -1,6 +1,6 @@
 // ---- app/api/quickbooks/sync/route.ts ----
 import { NextRequest, NextResponse } from "next/server";
-import { withAuth, withRole } from "@/lib/middleware/auth";
+import { withAuth, withRole } from "@/lib/modules/auth/auth.middleware";
 
 export async function POST(req: NextRequest) {
   try {

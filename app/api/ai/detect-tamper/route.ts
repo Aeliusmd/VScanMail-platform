@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { withAuth, withRole } from "@/lib/middleware/auth";
-import { aiService } from "@/lib/services/ai.service";
+import { withAuth, withRole } from "@/lib/modules/auth/auth.middleware";
+import { aiService } from "@/lib/modules/ai/ai.service";
 
 export const maxDuration = 60;
 

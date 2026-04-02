@@ -9,6 +9,8 @@ export interface LoginResponse {
   user: {
     id: string;
     email: string;
+    role: "super_admin" | "admin" | "client";
+    clientId?: string;
   };
 }
 

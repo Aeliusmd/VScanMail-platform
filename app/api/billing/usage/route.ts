@@ -1,8 +1,8 @@
 // ---- app/api/billing/usage/route.ts ----
 import { NextRequest, NextResponse } from "next/server";
-import { withAuth, withRole } from "@/lib/middleware/auth";
-import { billingService } from "@/lib/services/supporting.services";
-import { usageQuerySchema } from "@/lib/validators/billing.schema";
+import { withAuth, withRole } from "@/lib/modules/auth/auth.middleware";
+import { billingService } from "@/lib/modules/billing/billing.service";
+import { usageQuerySchema } from "@/lib/modules/billing/billing.schema";
 
 export async function GET(req: NextRequest) {
   try {

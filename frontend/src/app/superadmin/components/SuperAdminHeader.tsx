@@ -168,42 +168,69 @@ export default function SuperAdminHeader({
                 aria-haspopup="true"
                 aria-label="Account menu"
               >
-                <div className="w-9 h-9 bg-gradient-to-br from-[#0A3D8F] to-[#083170] rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">
-                  SA
-                </div>
-                <div className="text-left hidden sm:block min-w-0">
-                  <p className="text-sm font-semibold text-slate-900 leading-none truncate">Super Admin</p>
-                  <p className="text-xs text-[#0A3D8F] mt-0.5">Full Access</p>
-                </div>
-                <i className="ri-arrow-down-s-line text-slate-400 hidden sm:block shrink-0"></i>
-              </button>
+                {(() => {
+                  let role = "super_admin";
+                  let email = "superadmin@vscanmail.com";
+                  if (typeof window !== "undefined") {
+                    const userStr = window.localStorage.getItem("vscanmail_user");
+                    if (userStr) {
+                      try {
+                        const user = JSON.parse(userStr);
+                        role = user.role;
+                        email = user.email;
+                      } catch {}
+                    }
+                  }
+                  
+                  const isSA = role === "super_admin";
+                  const initials = isSA ? "SA" : "AD";
+                  const roleLabel = isSA ? "Super Admin" : "Admin";
+                  const subLabel = isSA ? "Full Access" : "Operator";
 
-              {showProfile && (
-                <div className="absolute right-0 mt-2 w-52 max-w-[calc(100vw-2rem)] bg-white rounded-xl border border-slate-200 shadow-lg z-50">
-                  <div className="p-4 border-b border-slate-100">
-                    <p className="font-semibold text-slate-900 text-sm">Super Admin</p>
-                    <p className="text-xs text-slate-500 mt-0.5 truncate">superadmin@vscanmail.com</p>
-                  </div>
-                  <div className="p-2">
-                    <Link
-                      href="/superadmin/settings/profile"
-                      className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg cursor-pointer"
-                      onClick={() => setShowProfile(false)}
-                    >
-                      <i className="ri-settings-3-line text-slate-500"></i>
-                      Settings
-                    </Link>
-                    <Link
-                      href="/super-admin-login"
-                      className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg cursor-pointer"
-                      onClick={() => setShowProfile(false)}
-                    >
-                      <i className="ri-logout-box-line"></i>
-                      Sign Out
-                    </Link>
-                  </div>
-                </div>
-              )}
+                  return (
+                    <>
+                      <div className="w-9 h-9 bg-gradient-to-br from-[#0A3D8F] to-[#083170] rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">
+                        {initials}
+                      </div>
+                      <div className="text-left hidden sm:block min-w-0">
+                        <p className="text-sm font-semibold text-slate-900 leading-none truncate">{roleLabel}</p>
+                        <p className="text-xs text-[#0A3D8F] mt-0.5">{subLabel}</p>
+                      </div>
+                      <i className="ri-arrow-down-s-line text-slate-400 hidden sm:block shrink-0"></i>
+
+                      {showProfile && (
+                        <div className="absolute right-0 mt-2 w-52 max-w-[calc(100vw-2rem)] bg-white rounded-xl border border-slate-200 shadow-lg z-50">
+                          <div className="p-4 border-b border-slate-100">
+                            <p className="font-semibold text-slate-900 text-sm">{roleLabel}</p>
+                            <p className="text-xs text-slate-500 mt-0.5 truncate">{email}</p>
+                          </div>
+                          <div className="p-2">
+                             <Link
+                              href="/superadmin/settings/profile"
+                              className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg cursor-pointer"
+                              onClick={() => setShowProfile(false)}
+                            >
+                              <i className="ri-settings-3-line text-slate-500"></i>
+                              Settings
+                            </Link>
+                            <button
+                              onClick={() => {
+                                window.localStorage.removeItem("vscanmail_token");
+                                window.localStorage.removeItem("vscanmail_user");
+                                window.location.href = "/login";
+                              }}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg cursor-pointer"
+                            >
+                              <i className="ri-logout-box-line"></i>
+                              Sign Out
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </button>
             </div>
           </div>
         </div>

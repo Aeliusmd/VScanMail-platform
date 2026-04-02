@@ -30,15 +30,15 @@ export interface ChequeListResponse {
 }
 
 export const chequeApi = {
-  list: () => apiClient<ChequeListResponse>(`/api/cheques`),
-  getById: (id: string) => apiClient<any>(`/api/cheques/${id}`),
+  list: () => apiClient<ChequeListResponse>(`/api/records/cheques`),
+  getById: (id: string) => apiClient<any>(`/api/records/cheques/${id}`),
   approve: (id: string, reason?: string) =>
-    apiClient<any>(`/api/cheques/${id}/approve`, {
+    apiClient<any>(`/api/records/cheques/${id}/approve`, {
       method: "POST",
       body: JSON.stringify({ reason }),
     }),
   reject: (id: string, reason: string) =>
-    apiClient<any>(`/api/cheques/${id}/reject`, {
+    apiClient<any>(`/api/records/cheques/${id}/reject`, {
       method: "POST",
       body: JSON.stringify({ reason }),
     }),
@@ -48,8 +48,8 @@ export const chequeApi = {
       body: formData as any,
     }),
   resend: (id: string) =>
-    apiClient<any>(`/api/cheques/${id}/resend`, { method: "POST" }),
+    apiClient<any>(`/api/records/cheques/${id}/resend`, { method: "POST" }),
   download: (id: string) =>
-    apiClient<any>(`/api/cheques/${id}/download`, { method: "GET" }),
+    apiClient<any>(`/api/records/cheques/${id}/download`, { method: "GET" }),
 };
 
