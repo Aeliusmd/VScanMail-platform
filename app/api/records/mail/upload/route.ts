@@ -36,8 +36,10 @@ export async function POST(req: NextRequest) {
       type,
       frontBuffer,
       backBuffer,
-      contentBuffers
+      contentBuffers,
+      req
     );
+
 
     return NextResponse.json(result, { status: 201 });
   } catch (error: any) {

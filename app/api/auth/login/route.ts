@@ -7,11 +7,15 @@ import { users, profiles } from "@/lib/modules/core/db/schema";
 import { eq } from "drizzle-orm";
 import { signAccessToken } from "@/lib/modules/auth/jwt";
 
+import { auditService } from "@/lib/modules/audit/audit.service";
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    console.log("Login attempt for:", body.email);
     const { email, password, totpCode } = loginSchema.parse(body);
+    console.log("Login attempt for:", email);
+
+
 
     const userRows = await db
       .select()
@@ -44,14 +48,43 @@ export async function POST(req: NextRequest) {
 
     const access_token = await signAccessToken({ sub: user.id, email: user.email });
 
+    // Update last login timestamp
+    await db.update(users)
+      .set({ lastLoginAt: new Date() })
+      .where(eq(users.id, user.id));
+
+    // Log successful login
+    await auditService.log({
+      actor: user.id,
+      actor_role: role as any,
+      action: "auth.login",
+      entity: user.id,
+      after: { email: user.email, role },
+      req,
+    });
+
+
     return NextResponse.json({
       session: { access_token },
       user: { id: user.id, email: user.email, role, clientId },
     });
+
   } catch (error: any) {
+    // Log failed login attempt
+    const body = await req.clone().json().catch(() => ({}));
+    await auditService.log({
+      actor: "system",
+      actor_role: "admin",
+      action: "auth.login_failed",
+      entity: body.email || "unknown",
+      after: { error: error.message, email: body.email },
+      req,
+    });
+
     return NextResponse.json(
       { error: error.message || "Login failed" },
       { status: 401 }
     );
   }
 }
+

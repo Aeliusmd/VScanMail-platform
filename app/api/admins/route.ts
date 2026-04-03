@@ -5,9 +5,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth, withRole } from "@/lib/modules/auth/auth.middleware";
 import { db } from "@/lib/modules/core/db/mysql";
 import { users, profiles } from "@/lib/modules/core/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { auditService } from "@/lib/modules/audit/audit.service";
 
 const createAdminSchema = z.object({
   fullName: z.string().min(2).max(100),
@@ -51,6 +52,9 @@ function toFrontendAdmin(row: any, index: number) {
     joined: row.createdAt
       ? new Date(row.createdAt).toISOString().split("T")[0]
       : "",
+    lastLogin: row.lastLoginAt
+      ? new Date(row.lastLoginAt).toISOString()
+      : null,
     initials,
     avatarColor: avatarColors[index % avatarColors.length],
   };
@@ -68,35 +72,17 @@ export async function GET(req: NextRequest) {
         email: users.email,
         isActive: users.isActive,
         createdAt: users.createdAt,
-        // We'll get the fullName from a metadata column that doesn't exist yet,
-        // so we fall back to email prefix. Phone doesn't exist on users table either.
-        // For now surface what we have; the frontend will handle display.
-        fullName: users.email, // placeholder — will be overridden with metadata join later
-        phone: users.email,    // placeholder
+        fullName: users.fullName,
+        phone: users.phone,
+        lastLoginAt: users.lastLoginAt,
       })
       .from(profiles)
       .innerJoin(users, eq(profiles.userId, users.id))
       .where(eq(profiles.role, "admin"))
       .orderBy(desc(users.createdAt));
 
-    // The schema doesn't have a separate admin_profiles / metadata table yet.
-    // We'll store fullName in a separate lightweight lookup after creation.
-    // For now, retrieve from admin_meta if it exists.
-    const adminMeta = await getAdminMeta(rows.map((r) => r.id));
-
     const admins = rows.map((row, i) => {
-      const meta = adminMeta[row.id] || {};
-      return toFrontendAdmin(
-        {
-          id: row.id,
-          email: row.email,
-          isActive: row.isActive,
-          createdAt: row.createdAt,
-          fullName: meta.fullName || null,
-          phone: meta.phone || "",
-        },
-        i
-      );
+      return toFrontendAdmin(row, i);
     });
 
     return NextResponse.json({ admins, total: admins.length });
@@ -135,6 +121,8 @@ export async function POST(req: NextRequest) {
       await tx.insert(users).values({
         id: userId,
         email: data.email,
+        fullName: data.fullName,
+        phone: data.phone,
         passwordHash,
         isActive: data.status === "active",
         emailVerifiedAt: new Date(), // Admin accounts are pre-verified
@@ -151,9 +139,6 @@ export async function POST(req: NextRequest) {
       });
     });
 
-    // Store extended metadata (fullName, phone)
-    await setAdminMeta(userId, { fullName: data.fullName, phone: data.phone });
-
     const admin = toFrontendAdmin(
       {
         id: userId,
@@ -165,48 +150,20 @@ export async function POST(req: NextRequest) {
       },
       0
     );
+    
+    // Log the action
+    await auditService.log({
+      actor: actor.id,
+      actor_role: actor.role,
+      action: "admin.created",
+      entity: userId,
+      after: { email: data.email, fullName: data.fullName, status: data.status },
+      req,
+    });
+
 
     return NextResponse.json({ admin }, { status: 201 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 400 });
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Light-weight admin metadata stored in JSON file (no schema migration needed)
-// In production this would be a proper admin_profiles table.
-// ---------------------------------------------------------------------------
-import { readFile, writeFile, mkdir } from "fs/promises";
-import { existsSync } from "fs";
-import path from "path";
-
-const META_DIR = path.join(process.cwd(), ".data");
-const META_FILE = path.join(META_DIR, "admin_meta.json");
-
-async function getAdminMeta(ids: string[]): Promise<Record<string, { fullName?: string; phone?: string }>> {
-  try {
-    if (!existsSync(META_FILE)) return {};
-    const raw = await readFile(META_FILE, "utf-8");
-    const all = JSON.parse(raw) as Record<string, { fullName?: string; phone?: string }>;
-    const result: Record<string, { fullName?: string; phone?: string }> = {};
-    for (const id of ids) result[id] = all[id] || {};
-    return result;
-  } catch {
-    return {};
-  }
-}
-
-async function setAdminMeta(id: string, meta: { fullName?: string; phone?: string }) {
-  try {
-    if (!existsSync(META_DIR)) await mkdir(META_DIR, { recursive: true });
-    let all: Record<string, any> = {};
-    if (existsSync(META_FILE)) {
-      const raw = await readFile(META_FILE, "utf-8");
-      all = JSON.parse(raw);
-    }
-    all[id] = { ...all[id], ...meta };
-    await writeFile(META_FILE, JSON.stringify(all, null, 2), "utf-8");
-  } catch (e) {
-    console.error("Failed to write admin meta:", e);
   }
 }

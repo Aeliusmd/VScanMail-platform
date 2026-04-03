@@ -15,7 +15,8 @@ export async function POST(
     const body = await req.json();
     const input = rejectSchema.parse(body);
 
-    const result = await chequeService.reject(id, user.id, input.reason);
+    const result = await chequeService.reject(id, user.id, input.reason, req);
+
     return NextResponse.json(result);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 400 });

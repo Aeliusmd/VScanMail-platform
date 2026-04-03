@@ -1,4 +1,4 @@
-import ChequesPage from "../../dashboard/cheques/page";
+import ChequesPage from "../../admin/cheques/page";
 
 export default function SuperadminChequesPage() {
   return <ChequesPage />;

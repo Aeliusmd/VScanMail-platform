@@ -1,0 +1,119 @@
+@reference "../../globals.css";
+
+.pageContainer {
+  @apply flex flex-col h-full bg-white;
+}
+
+.topBar {
+  @apply flex items-center justify-between px-6 py-3 border-b border-gray-100;
+}
+
+.searchWrapper {
+  @apply relative flex-1 max-w-[480px];
+}
+
+.searchIcon {
+  @apply w-5 h-5 flex items-center justify-center absolute left-3 top-1/2 -translate-y-1/2 text-gray-400;
+}
+
+.searchInput {
+  @apply w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-full text-sm text-gray-700 outline-none transition;
+}
+
+.searchInput:focus {
+  @apply border-[#1E40AF];
+  ring: 2px solid rgb(30 64 175 / 0.2);
+}
+
+.addBtn {
+  @apply flex items-center gap-2 bg-[#1E3A8A] hover:bg-[#1E40AF] text-white text-sm font-semibold px-4 py-2 rounded-full transition cursor-pointer whitespace-nowrap ml-4;
+}
+
+.addBtnIcon {
+  @apply w-4 h-4 flex items-center justify-center;
+}
+
+.topActions {
+  @apply flex items-center gap-4;
+}
+
+.tabsBar {
+  @apply flex items-center px-4 border-b border-gray-100;
+}
+
+.tab {
+  @apply flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 border-transparent transition cursor-pointer whitespace-nowrap text-gray-500 hover:text-gray-700;
+}
+
+.tabActive {
+  @apply flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 border-[#1E40AF] transition cursor-pointer whitespace-nowrap text-[#1E40AF];
+}
+
+.badge {
+  @apply text-xs px-1.5 py-0.5 rounded-full font-medium bg-gray-100 text-gray-500;
+}
+
+.badgeActive {
+  @apply text-xs px-1.5 py-0.5 rounded-full font-medium bg-[#DBEAFE] text-[#1E40AF];
+}
+
+.listContainer {
+  @apply flex-1 overflow-y-auto overflow-x-auto;
+}
+
+.listInner {
+  @apply min-w-[1180px];
+}
+
+.emptyState {
+  @apply flex flex-col items-center justify-center h-48 text-gray-400;
+}
+
+.emptyIcon {
+  @apply w-10 h-10 flex items-center justify-center mb-2;
+}
+
+.emptyText {
+  @apply text-sm;
+}
+
+@media (max-width: 1024px) {
+  .topBar {
+    @apply px-4 py-3 gap-3;
+  }
+
+  .searchWrapper {
+    @apply max-w-none;
+  }
+
+  .topActions {
+    @apply gap-2;
+  }
+}
+
+@media (max-width: 768px) {
+  .topBar {
+    @apply flex-col items-stretch;
+  }
+
+  .topActions {
+    @apply justify-between w-full;
+  }
+
+  .addBtn {
+    @apply ml-0;
+  }
+
+  .tabsBar {
+    @apply overflow-x-auto;
+  }
+
+  .tab,
+  .tabActive {
+    @apply px-3;
+  }
+
+  .listInner {
+    @apply min-w-[980px];
+  }
+}

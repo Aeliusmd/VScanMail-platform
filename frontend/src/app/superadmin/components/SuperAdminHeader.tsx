@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useSuperAdminToolbarOptional } from "./SuperAdminToolbarContext";
 
 const headerNotifications = [
   {
@@ -37,7 +39,8 @@ const headerNotifications = [
 export type SuperAdminHeaderProps = {
   title: string;
   subtitle: ReactNode;
-  /** Opens the mobile sidebar when set (hamburger hidden from this breakpoint up). Layout sidebar uses `md`; standalone super-admin dashboard shell uses `lg`. */
+  hideTitleBlock?: boolean;
+  hideSearch?: boolean;
   onMobileNavOpen?: () => void;
   mobileNavBreakpoint?: "md" | "lg";
 };
@@ -45,9 +48,20 @@ export type SuperAdminHeaderProps = {
 export default function SuperAdminHeader({
   title,
   subtitle,
+  hideTitleBlock = false,
+  hideSearch = false,
   onMobileNavOpen,
   mobileNavBreakpoint = "lg",
 }: SuperAdminHeaderProps) {
+  const pathname = usePathname() ?? "";
+  const toolbar = useSuperAdminToolbarOptional();
+
+  const isListToolbarPage =
+    pathname === "/superadmin/companies" ||
+    pathname === "/superadmin/deposits" ||
+    pathname === "/superadmin/deliveries";
+  const showListToolbar = Boolean(hideTitleBlock && isListToolbarPage && toolbar);
+
   const menuHiddenFrom = mobileNavBreakpoint === "md" ? "md:hidden" : "lg:hidden";
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -72,167 +86,245 @@ export default function SuperAdminHeader({
     profileBtnRef.current?.setAttribute("aria-expanded", showProfile ? "true" : "false");
   }, [showNotifications, showProfile]);
 
+  const searchPlaceholder =
+    pathname === "/superadmin/companies"
+      ? "Search companies..."
+      : pathname === "/superadmin/deposits"
+        ? "Search deposit requests..."
+        : "Search delivery requests...";
+
+  const searchLabel =
+    pathname === "/superadmin/companies"
+      ? "Search companies"
+      : pathname === "/superadmin/deposits"
+        ? "Search deposit requests"
+        : "Search delivery requests";
+
+  /** HEADER-108: Inter 14px / 500 input; Roboto 14px/600 & 12px/400 profile */
+  const searchFieldClass =
+    "w-full h-[38px] box-border rounded-full bg-[#F1F5F9] border-0 pl-[41px] pr-[17px] py-[9px] text-[14px] leading-5 font-medium text-slate-900 placeholder:text-[#9CA3AF] placeholder:font-medium outline-none focus:ring-2 focus:ring-[#0A3D8F]/25 focus:ring-offset-0 [font-family:Inter,system-ui,sans-serif]";
+
+  const notificationsAndProfile = (
+    <div className="flex items-center gap-3 shrink-0">
+      <div className="relative" ref={notificationsRef}>
+        <button
+          ref={notificationsBtnRef}
+          type="button"
+          onClick={() => {
+            setShowNotifications((v) => !v);
+            setShowProfile(false);
+          }}
+          className="relative flex h-11 w-11 items-center justify-center rounded-full p-2 text-[#475569] hover:bg-slate-100 transition-colors cursor-pointer"
+          aria-haspopup="true"
+          aria-label="Notifications"
+        >
+          <i className="ri-notification-3-line text-[21px] leading-none"></i>
+          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#EF4444]" aria-hidden />
+        </button>
+
+        {showNotifications && (
+          <div className="absolute right-0 mt-2 w-[min(100vw-2rem,20rem)] sm:w-80 bg-white rounded-xl border border-slate-200 shadow-lg z-50">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-2">
+              <h3 className="font-semibold text-slate-900 text-sm [font-family:Roboto,system-ui,sans-serif]">Notifications</h3>
+              <button
+                type="button"
+                className="text-xs text-[#0A3D8F] font-medium whitespace-nowrap cursor-pointer hover:underline [font-family:Roboto,system-ui,sans-serif]"
+              >
+                Mark all read
+              </button>
+            </div>
+            <div className="max-h-72 overflow-y-auto overscroll-contain">
+              {headerNotifications.map((n, i) => (
+                <div key={i} className={`p-4 hover:bg-slate-50 border-l-4 ${n.border} cursor-pointer`}>
+                  <div className="flex items-start gap-3">
+                    <i className={`${n.icon} ${n.color} text-xl mt-0.5 shrink-0`}></i>
+                    <div className="min-w-0">
+                      <p className="text-sm text-slate-800">{n.text}</p>
+                      <p className="text-xs text-slate-400 mt-1">{n.time}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="p-3 border-t border-slate-100 text-center">
+              <button
+                type="button"
+                className="text-sm text-[#0A3D8F] font-medium whitespace-nowrap cursor-pointer hover:underline [font-family:Roboto,system-ui,sans-serif]"
+              >
+                View All
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="relative border-l border-slate-200 pl-[13px]" ref={profileRef}>
+        <button
+          ref={profileBtnRef}
+          type="button"
+          onClick={() => {
+            setShowProfile((v) => !v);
+            setShowNotifications(false);
+          }}
+          className="flex items-center gap-2 cursor-pointer rounded-r-lg hover:bg-slate-50 py-1 min-h-[32px] pr-0"
+          aria-haspopup="true"
+          aria-label="Account menu"
+        >
+          <div className="h-8 w-8 shrink-0 rounded-full bg-gradient-to-br from-[#0A3D8F] to-[#083170] flex items-center justify-center text-white font-semibold text-xs leading-4 [font-family:Roboto,system-ui,sans-serif]">
+            SA
+          </div>
+          <div className="text-left hidden sm:block min-w-0">
+            <p className="text-sm font-semibold leading-[14px] text-[#0F172A] truncate [font-family:Roboto,system-ui,sans-serif]">
+              Super Admin
+            </p>
+            <p className="text-xs font-normal leading-4 text-[#64748B] mt-0.5 [font-family:Roboto,system-ui,sans-serif]">
+              Administrator
+            </p>
+          </div>
+        </button>
+
+        {showProfile && (
+          <div className="absolute right-0 mt-2 w-52 max-w-[calc(100vw-2rem)] bg-white rounded-xl border border-slate-200 shadow-lg z-50">
+            <div className="p-4 border-b border-slate-100">
+              <p className="font-semibold text-slate-900 text-sm [font-family:Roboto,system-ui,sans-serif]">Super Admin</p>
+              <p className="text-xs text-slate-500 mt-0.5 truncate">superadmin@vscanmail.com</p>
+            </div>
+            <div className="p-2">
+              <Link
+                href="/superadmin/settings/profile"
+                className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg cursor-pointer"
+                onClick={() => setShowProfile(false)}
+              >
+                <i className="ri-settings-3-line text-slate-500"></i>
+                Settings
+              </Link>
+              <Link
+                href="/login"
+                className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg cursor-pointer"
+                onClick={() => setShowProfile(false)}
+              >
+                <i className="ri-logout-box-line"></i>
+                Sign Out
+              </Link>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const primaryBtnClass =
+    "inline-flex h-9 shrink-0 items-center gap-2 rounded-full bg-[#0A3D8F] px-4 py-2 text-sm font-semibold text-white transition-colors [font-family:Roboto,system-ui,sans-serif] hover:bg-[#083170]";
+
+  if (showListToolbar && toolbar) {
+    return (
+      <header className="z-20 flex-shrink-0 border-b border-slate-200 bg-white pt-3 pb-[13px] pl-4 pr-4 sm:pl-6 sm:pr-6">
+        <div className="flex min-h-[44px] w-full flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex min-w-0 flex-1 items-center gap-4">
+            {onMobileNavOpen && (
+              <button
+                type="button"
+                onClick={onMobileNavOpen}
+                className={`${menuHiddenFrom} h-10 w-10 shrink-0 flex items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50`}
+                aria-label="Open menu"
+              >
+                <i className="ri-menu-line text-xl"></i>
+              </button>
+            )}
+
+            <div className="relative h-[38px] w-full max-w-[576px]">
+              <input
+                type="search"
+                placeholder={searchPlaceholder}
+                value={toolbar.search}
+                onChange={(e) => toolbar.setSearch(e.target.value)}
+                className={searchFieldClass}
+                aria-label={searchLabel}
+              />
+              <i className="ri-search-line pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-base text-[#94A3B8]"></i>
+            </div>
+          </div>
+
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-3 md:pl-4">
+            {pathname === "/superadmin/companies" && (
+              <button
+                type="button"
+                onClick={() => toolbar.addCompanyHandlerRef.current?.()}
+                className={primaryBtnClass}
+              >
+                <i className="ri-add-line text-[15px] leading-none"></i>
+                <span className="hidden sm:inline">Add Company</span>
+                <span className="sm:hidden">Add</span>
+              </button>
+            )}
+
+            {(pathname === "/superadmin/deposits" || pathname === "/superadmin/deliveries") && (
+              <Link href="/superadmin/scan" className={primaryBtnClass}>
+                <i className="ri-scan-2-line text-[15px] leading-none"></i>
+                <span className="hidden sm:inline">New Scan</span>
+                <span className="sm:hidden">Scan</span>
+              </Link>
+            )}
+
+            {notificationsAndProfile}
+          </div>
+        </div>
+      </header>
+    );
+  }
+
   return (
-    <header className="bg-white border-b border-slate-200 px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex-shrink-0 z-20">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+    <header
+      className={`z-20 flex-shrink-0 border-b border-slate-200 bg-white pl-4 pr-4 sm:pl-6 sm:pr-6 ${
+        hideTitleBlock ? "flex h-[69px] items-center py-0" : "pt-3 pb-[13px]"
+      }`}
+    >
+      <div
+        className={
+          hideTitleBlock
+            ? "flex min-h-[44px] w-full flex-row items-center justify-between gap-4"
+            : "flex min-h-[44px] w-full flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6"
+        }
+      >
+        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
           {onMobileNavOpen && (
             <button
               type="button"
               onClick={onMobileNavOpen}
-              className={`${menuHiddenFrom} shrink-0 w-10 h-10 flex items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50`}
+              className={`${menuHiddenFrom} h-10 w-10 shrink-0 flex items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50`}
               aria-label="Open menu"
             >
               <i className="ri-menu-line text-xl"></i>
             </button>
           )}
-          <div className="min-w-0">
-            <h1 className="text-base sm:text-xl font-bold text-slate-900 leading-tight truncate">{title}</h1>
-            <div className="text-[11px] sm:text-xs text-slate-500 mt-0.5 line-clamp-2 sm:line-clamp-none">{subtitle}</div>
-          </div>
+          {!hideTitleBlock && (
+            <div className="min-w-0">
+              <h1 className="truncate text-base font-bold leading-tight text-slate-900 sm:text-xl">{title}</h1>
+              <div className="mt-0.5 line-clamp-2 text-[11px] text-slate-500 sm:line-clamp-none sm:text-xs">{subtitle}</div>
+            </div>
+          )}
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end sm:gap-4 min-w-0 lg:shrink-0">
-          <div className="relative w-full sm:max-w-xs lg:w-60 min-w-0">
-            <input
-              type="search"
-              placeholder="Search companies, requests..."
-              className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-[#0A3D8F] focus:border-transparent outline-none bg-white"
-              aria-label="Search companies and requests"
-            />
-            <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none"></i>
-          </div>
-
-          <div className="flex items-center justify-end gap-2 sm:gap-4 shrink-0">
-            <div className="relative" ref={notificationsRef}>
-              <button
-                ref={notificationsBtnRef}
-                type="button"
-                onClick={() => {
-                  setShowNotifications((v) => !v);
-                  setShowProfile(false);
-                }}
-                className="relative w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                aria-haspopup="true"
-                aria-label="Notifications"
-              >
-                <i className="ri-notification-3-line text-slate-600 text-lg"></i>
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
-
-              {showNotifications && (
-                <div className="absolute right-0 mt-2 w-[min(100vw-2rem,20rem)] sm:w-80 bg-white rounded-xl border border-slate-200 shadow-lg z-50">
-                  <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-2">
-                    <h3 className="font-semibold text-slate-900 text-sm">Notifications</h3>
-                    <button
-                      type="button"
-                      className="text-xs text-[#0A3D8F] font-medium whitespace-nowrap cursor-pointer hover:underline"
-                    >
-                      Mark all read
-                    </button>
-                  </div>
-                  <div className="max-h-72 overflow-y-auto overscroll-contain">
-                    {headerNotifications.map((n, i) => (
-                      <div key={i} className={`p-4 hover:bg-slate-50 border-l-4 ${n.border} cursor-pointer`}>
-                        <div className="flex items-start gap-3">
-                          <i className={`${n.icon} ${n.color} text-xl mt-0.5 shrink-0`}></i>
-                          <div className="min-w-0">
-                            <p className="text-sm text-slate-800">{n.text}</p>
-                            <p className="text-xs text-slate-400 mt-1">{n.time}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="p-3 border-t border-slate-100 text-center">
-                    <button
-                      type="button"
-                      className="text-sm text-[#0A3D8F] font-medium whitespace-nowrap cursor-pointer hover:underline"
-                    >
-                      View All
-                    </button>
-                  </div>
-                </div>
-              )}
+        <div
+          className={
+            hideTitleBlock
+              ? "flex min-w-0 shrink-0 flex-row items-center justify-end gap-3"
+              : "flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-end sm:gap-3 lg:shrink-0"
+          }
+        >
+          {!hideSearch && (
+            <div className="relative h-[38px] w-full min-w-0 max-w-[576px] sm:w-full lg:w-[576px]">
+              <input
+                type="search"
+                placeholder="Search companies, requests..."
+                className={searchFieldClass}
+                aria-label="Search companies and requests"
+              />
+              <i className="ri-search-line pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-base text-[#94A3B8]"></i>
             </div>
+          )}
 
-            <div className="relative" ref={profileRef}>
-              <button
-                ref={profileBtnRef}
-                type="button"
-                onClick={() => {
-                  setShowProfile((v) => !v);
-                  setShowNotifications(false);
-                }}
-                className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-4 border-l border-slate-200 cursor-pointer rounded-r-lg hover:bg-slate-50 py-1 -my-1 pr-1 min-h-[44px] sm:min-h-0"
-                aria-haspopup="true"
-                aria-label="Account menu"
-              >
-                {(() => {
-                  let role = "super_admin";
-                  let email = "superadmin@vscanmail.com";
-                  if (typeof window !== "undefined") {
-                    const userStr = window.localStorage.getItem("vscanmail_user");
-                    if (userStr) {
-                      try {
-                        const user = JSON.parse(userStr);
-                        role = user.role;
-                        email = user.email;
-                      } catch {}
-                    }
-                  }
-                  
-                  const isSA = role === "super_admin";
-                  const initials = isSA ? "SA" : "AD";
-                  const roleLabel = isSA ? "Super Admin" : "Admin";
-                  const subLabel = isSA ? "Full Access" : "Operator";
-
-                  return (
-                    <>
-                      <div className="w-9 h-9 bg-gradient-to-br from-[#0A3D8F] to-[#083170] rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">
-                        {initials}
-                      </div>
-                      <div className="text-left hidden sm:block min-w-0">
-                        <p className="text-sm font-semibold text-slate-900 leading-none truncate">{roleLabel}</p>
-                        <p className="text-xs text-[#0A3D8F] mt-0.5">{subLabel}</p>
-                      </div>
-                      <i className="ri-arrow-down-s-line text-slate-400 hidden sm:block shrink-0"></i>
-
-                      {showProfile && (
-                        <div className="absolute right-0 mt-2 w-52 max-w-[calc(100vw-2rem)] bg-white rounded-xl border border-slate-200 shadow-lg z-50">
-                          <div className="p-4 border-b border-slate-100">
-                            <p className="font-semibold text-slate-900 text-sm">{roleLabel}</p>
-                            <p className="text-xs text-slate-500 mt-0.5 truncate">{email}</p>
-                          </div>
-                          <div className="p-2">
-                             <Link
-                              href="/superadmin/settings/profile"
-                              className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg cursor-pointer"
-                              onClick={() => setShowProfile(false)}
-                            >
-                              <i className="ri-settings-3-line text-slate-500"></i>
-                              Settings
-                            </Link>
-                            <button
-                              onClick={() => {
-                                window.localStorage.removeItem("vscanmail_token");
-                                window.localStorage.removeItem("vscanmail_user");
-                                window.location.href = "/login";
-                              }}
-                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg cursor-pointer"
-                            >
-                              <i className="ri-logout-box-line"></i>
-                              Sign Out
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
-              </button>
-            </div>
-          </div>
+          {notificationsAndProfile}
         </div>
       </div>
     </header>

@@ -10,7 +10,8 @@ export const chequeService = {
   /**
    * Process a cheque: extract fields, run 6-point validation, store results.
    */
-  async processAndValidate(mailItemId: string, imageBase64: string) {
+  async processAndValidate(mailItemId: string, imageBase64: string, req?: Request) {
+
     const mailItem = await mailItemModel.findById(mailItemId);
     const client = await clientModel.findById(mailItem.client_id);
 
@@ -74,7 +75,7 @@ export const chequeService = {
   /**
    * Client approves a cheque for deposit.
    */
-  async approve(chequeId: string, userId: string, reason?: string) {
+  async approve(chequeId: string, userId: string, reason?: string, req?: Request) {
     const cheque = await chequeModel.updateStatus(
       chequeId,
       "approved",
@@ -85,8 +86,10 @@ export const chequeService = {
       actor: userId,
       action: "cheque.approved",
       entity: chequeId,
-      details: { reason, amount: cheque.amount_figures },
+      after: { reason, amount: cheque.amount_figures },
+      req,
     });
+
 
     await billingService.trackUsage(
       userId, // will resolve to client
@@ -100,7 +103,7 @@ export const chequeService = {
   /**
    * Client rejects a cheque.
    */
-  async reject(chequeId: string, userId: string, reason: string) {
+  async reject(chequeId: string, userId: string, reason: string, req?: Request) {
     const cheque = await chequeModel.updateStatus(
       chequeId,
       "rejected",
@@ -111,8 +114,10 @@ export const chequeService = {
       actor: userId,
       action: "cheque.rejected",
       entity: chequeId,
-      details: { reason, amount: cheque.amount_figures },
+      after: { reason, amount: cheque.amount_figures },
+      req,
     });
+
 
     return cheque;
   },

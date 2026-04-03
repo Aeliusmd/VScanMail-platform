@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     // Only super_admin or admin can view system logs
     withRole(actor, ["super_admin", "admin"]);
 
-    // Fetch latest 100 logs with actor email
+    // Fetch latest logs with all meta-data
     const logs = await db
       .select({
         id: auditLogs.id,
@@ -29,13 +29,17 @@ export async function GET(req: NextRequest) {
         action: auditLogs.action,
         entityType: auditLogs.entityType,
         entityId: auditLogs.entityId,
+        beforeState: auditLogs.beforeState,
+        afterState: auditLogs.afterState,
+        ipAddress: auditLogs.ipAddress,
+        userAgent: auditLogs.userAgent,
         createdAt: auditLogs.createdAt,
         actorEmail: users.email,
       })
       .from(auditLogs)
       .leftJoin(users, eq(auditLogs.actorId, users.id))
       .orderBy(desc(auditLogs.createdAt))
-      .limit(200); // Fetch a decent amount of recent records
+      .limit(200); 
 
     return NextResponse.json({ logs });
   } catch (error: any) {

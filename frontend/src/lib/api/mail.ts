@@ -70,4 +70,3 @@ export const mailApi = {
 
   download: (id: string) => apiClient<any>(`/api/records/mail/${id}/download`, { method: "GET" }),
 };
-

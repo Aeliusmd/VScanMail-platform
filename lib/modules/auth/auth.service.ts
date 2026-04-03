@@ -13,8 +13,9 @@ import { and, eq, gt, sql } from "drizzle-orm";
 import { createClientTable } from "@/lib/modules/core/db/dynamic-table";
 
 export const authService = {
-  async register(input: RegisterInput) {
+  async register(input: RegisterInput, req?: Request) {
     const userId = crypto.randomUUID();
+
     const passwordHash = await bcrypt.hash(input.password, 12);
 
     // 2. Create Stripe customer (dev tolerance)
@@ -108,10 +109,13 @@ export const authService = {
     // 7. Audit log
     await auditService.log({
       actor: userId,
+      actor_role: "client",
       action: "client.registered",
       entity: userId,
-      details: { clientCode, planType: input.planType, tableName },
+      after: { clientCode, planType: input.planType, tableName },
+      req,
     });
+
 
     return { clientId: userId, clientCode };
   },

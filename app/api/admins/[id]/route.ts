@@ -10,30 +10,13 @@ import { z } from "zod";
 import { readFile, writeFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
-
-const META_DIR = path.join(process.cwd(), ".data");
-const META_FILE = path.join(META_DIR, "admin_meta.json");
+import { auditService } from "@/lib/modules/audit/audit.service";
 
 const updateAdminSchema = z.object({
   fullName: z.string().min(2).max(100).optional(),
   phone: z.string().optional(),
   status: z.enum(["Active", "Inactive"]).optional(),
 });
-
-async function getAllMeta(): Promise<Record<string, any>> {
-  try {
-    if (!existsSync(META_FILE)) return {};
-    const raw = await readFile(META_FILE, "utf-8");
-    return JSON.parse(raw);
-  } catch {
-    return {};
-  }
-}
-
-async function writeMeta(all: Record<string, any>) {
-  if (!existsSync(META_DIR)) await mkdir(META_DIR, { recursive: true });
-  await writeFile(META_FILE, JSON.stringify(all, null, 2), "utf-8");
-}
 
 export async function PATCH(
   req: NextRequest,
@@ -47,24 +30,38 @@ export async function PATCH(
     const body = await req.json();
     const data = updateAdminSchema.parse(body);
 
-    // Update isActive in users table
-    if (data.status !== undefined) {
-      await db
-        .update(users)
-        .set({ isActive: data.status === "Active", updatedAt: new Date() })
-        .where(eq(users.id, id));
-    }
+    // Capture before state
+    const [current] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+    if (!current) throw new Error("Admin not found");
+    
+    const beforeState = { 
+      fullName: current.fullName, 
+      phone: current.phone,
+      status: current.isActive ? "Active" : "Inactive" 
+    };
 
-    // Update metadata
-    if (data.fullName !== undefined || data.phone !== undefined) {
-      const all = await getAllMeta();
-      all[id] = {
-        ...all[id],
-        ...(data.fullName !== undefined && { fullName: data.fullName }),
-        ...(data.phone !== undefined && { phone: data.phone }),
-      };
-      await writeMeta(all);
-    }
+    // Prepare update object
+    const patch: any = { updatedAt: new Date() };
+    if (data.status !== undefined) patch.isActive = data.status === "Active";
+    if (data.fullName !== undefined) patch.fullName = data.fullName;
+    if (data.phone !== undefined) patch.phone = data.phone;
+
+    // Execute update in database
+    await db
+      .update(users)
+      .set(patch)
+      .where(eq(users.id, id));
+
+    // Log the action
+    await auditService.log({
+      actor: actor.id,
+      actor_role: actor.role,
+      action: "admin.updated",
+      entity: id,
+      before: beforeState,
+      after: { ...data },
+      req,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
@@ -90,14 +87,24 @@ export async function DELETE(
       );
     }
 
+    // Capture details before deletion
+    const [current] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+    const beforeState = current ? { email: current.email, status: current.isActive ? "Active" : "Inactive" } : null;
+
     // Delete profile first (FK constraint), then user
     await db.delete(profiles).where(eq(profiles.userId, id));
     await db.delete(users).where(eq(users.id, id));
 
-    // Clean up metadata
-    const all = await getAllMeta();
-    delete all[id];
-    await writeMeta(all);
+    // Log the action
+    await auditService.log({
+      actor: actor.id,
+      actor_role: actor.role,
+      action: "admin.deleted",
+      entity: id,
+      before: beforeState,
+      req,
+    });
+
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

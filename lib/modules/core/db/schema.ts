@@ -21,6 +21,8 @@ export const users = mysqlTable(
     email: varchar("email", { length: 255 }).notNull(),
     passwordHash: varchar("password_hash", { length: 255 }).notNull(),
     emailVerifiedAt: datetime("email_verified_at", { mode: "date" }),
+    fullName: varchar("full_name", { length: 255 }),
+    phone: varchar("phone", { length: 64 }),
     lastLoginAt: datetime("last_login_at", { mode: "date" }),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: datetime("created_at", { mode: "date" }).notNull(),

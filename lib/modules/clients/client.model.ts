@@ -89,18 +89,29 @@ export const clientModel = {
     return rows[0] ? rowToClient(rows[0]) : null;
   },
 
-  async update(id: string, data: Partial<Client>) {
+  async update(id: string, data: any) {
     const patch: Partial<typeof clients.$inferInsert> = {};
+    
     if (data.company_name !== undefined) patch.companyName = data.company_name;
-    if (data.registration_no !== undefined) patch.registrationNo = data.registration_no ?? undefined;
+    if (data.companyName !== undefined) patch.companyName = data.companyName;
+
+    if (data.registration_no !== undefined) patch.registrationNo = data.registration_no || null;
+    if (data.registrationNo !== undefined) patch.registrationNo = data.registrationNo || null;
+
     if (data.industry !== undefined) patch.industry = data.industry;
     if (data.email !== undefined) patch.email = data.email;
     if (data.phone !== undefined) patch.phone = data.phone;
+
     if (data.address_json !== undefined) patch.addressJson = data.address_json as any;
-    if (data.status !== undefined) patch.status = data.status as any;
+    if (data.addressJson !== undefined) patch.addressJson = data.addressJson as any;
+
+    if (data.status !== undefined) patch.status = data.status.toLowerCase() as any;
     if (data.two_fa_enabled !== undefined) patch.twoFaEnabled = Boolean(data.two_fa_enabled);
-    if (data.two_fa_secret !== undefined) patch.twoFaSecret = data.two_fa_secret ?? undefined;
-    if (data.notes !== undefined) patch.notes = data.notes ?? undefined;
+    if (data.twoFaEnabled !== undefined) patch.twoFaEnabled = Boolean(data.twoFaEnabled);
+
+    if (data.notes !== undefined) patch.notes = data.notes || null;
+
+    patch.updatedAt = sql`NOW()` as any;
 
     await db.update(clients).set(patch).where(eq(clients.id, id));
     return await this.findById(id);
@@ -128,5 +139,9 @@ export const clientModel = {
       clients: rows.map(rowToClient),
       total: Number(totalRows[0]?.count || 0),
     };
+  },
+
+  async delete(id: string) {
+    await db.delete(clients).where(eq(clients.id, id));
   },
 };

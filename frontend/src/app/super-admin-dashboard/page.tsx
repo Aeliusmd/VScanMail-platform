@@ -1,42 +1,129 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import SuperAdminHeader from "../superadmin/components/SuperAdminHeader";
+
+const admins = [
+  {
+    name: "Sarah Mitchell",
+    email: "sarah@vscanmail.com",
+    role: "Admin",
+    status: "Active",
+    scansToday: 47,
+    lastActive: "2 mins ago",
+    avatar: "SM",
+  },
+  {
+    name: "James Okonkwo",
+    email: "james@vscanmail.com",
+    role: "Admin",
+    status: "Active",
+    scansToday: 38,
+    lastActive: "15 mins ago",
+    avatar: "JO",
+  },
+  {
+    name: "Lin Wei",
+    email: "lin@vscanmail.com",
+    role: "Admin",
+    status: "Active",
+    scansToday: 29,
+    lastActive: "1 hour ago",
+    avatar: "LW",
+  },
+  {
+    name: "Priya Nair",
+    email: "priya@vscanmail.com",
+    role: "Admin",
+    status: "Offline",
+    scansToday: 0,
+    lastActive: "3 hours ago",
+    avatar: "PN",
+  },
+];
+
+const recentCompanies = [
+  { name: "TechNova Solutions", plan: "Enterprise", joined: "2026/03/28", mails: 342, status: "Active" },
+  { name: "Gulf Bridge Trading", plan: "Business", joined: "2026/03/25", mails: 128, status: "Active" },
+  { name: "Horizon Logistics", plan: "Starter", joined: "2026/03/20", mails: 56, status: "Active" },
+  { name: "Atlas Finance Group", plan: "Enterprise", joined: "2026/03/15", mails: 519, status: "Suspended" },
+];
+
+const recentRequests = [
+  {
+    company: "TechNova Solutions",
+    type: "Deposit",
+    amount: "AED 12,500",
+    status: "Open",
+    time: "8 mins ago",
+    icon: "ri-exchange-dollar-line",
+    color: "orange",
+  },
+  {
+    company: "Gulf Bridge Trading",
+    type: "Delivery",
+    status: "On the Way",
+    time: "22 mins ago",
+    icon: "ri-truck-line",
+    color: "sky",
+  },
+  {
+    company: "Horizon Logistics",
+    type: "Deposit",
+    amount: "AED 4,200",
+    status: "Deposited",
+    time: "1 hr ago",
+    icon: "ri-exchange-dollar-line",
+    color: "green",
+  },
+  {
+    company: "Summit LLC",
+    type: "Delivery",
+    status: "Confirmed",
+    time: "2 hrs ago",
+    icon: "ri-truck-line",
+    color: "green",
+  },
+  {
+    company: "Atlas Finance Group",
+    type: "Deposit",
+    amount: "AED 31,000",
+    status: "Processing",
+    time: "3 hrs ago",
+    icon: "ri-exchange-dollar-line",
+    color: "sky",
+  },
+];
+
+const navItems = [
+  { label: "Dashboard", icon: "ri-dashboard-3-line", path: "/superadmin/dashboard", active: true },
+  { label: "Companies", icon: "ri-building-4-line", path: "/superadmin/companies", active: false },
+  { label: "Deposit Requests", icon: "ri-exchange-dollar-line", path: "/superadmin/deposits", active: false },
+  { label: "Delivery Requests", icon: "ri-truck-line", path: "/superadmin/deliveries", active: false },
+];
 
 export default function SuperAdminDashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [requestFilter, setRequestFilter] = useState<"All" | "Deposit" | "Delivery">("All");
 
-  const [recentRequests, setRecentRequests] = useState<any[]>([]);
-  const [admins, setAdmins] = useState<any[]>([]);
-  const [recentCompanies, setRecentCompanies] = useState<any[]>([]);
-
   const getRecentRequestPath = (type: string) =>
     type === "Delivery" ? "/superadmin/deliveries" : "/superadmin/deposits";
-  
   const filteredRecentRequests =
     requestFilter === "All" ? recentRequests : recentRequests.filter((req) => req.type === requestFilter);
 
   const stats = [
-    { label: "Total Companies", value: "0", icon: "ri-building-4-line", change: "No companies yet", up: true },
-    { label: "Active Admins", value: "0", icon: "ri-user-settings-line", change: "None online", up: true },
+    { label: "Total Companies", value: "156", icon: "ri-building-4-line", change: "+8 this month", up: true },
+    { label: "Active Admins", value: "4", icon: "ri-user-settings-line", change: "3 online now", up: true },
     {
       label: "Open Deposit Requests",
-      value: "0",
+      value: "23",
       icon: "ri-exchange-dollar-line",
-      change: "None today",
+      change: "+5 today",
       up: false,
     },
-    { label: "Pending Deliveries", value: "0", icon: "ri-truck-line", change: "None pending", up: true },
-  ];
-
-  const navItems = [
-    { label: "Dashboard", icon: "ri-dashboard-3-line", path: "/superadmin/dashboard", active: true },
-    { label: "Companies", icon: "ri-building-4-line", path: "/superadmin/companies", active: false },
-    { label: "Deposit Requests", icon: "ri-exchange-dollar-line", path: "/superadmin/deposits", active: false },
-    { label: "Delivery Requests", icon: "ri-truck-line", path: "/superadmin/deliveries", active: false },
+    { label: "Pending Deliveries", value: "11", icon: "ri-truck-line", change: "3 on the way", up: true },
   ];
 
   return (
@@ -120,7 +207,7 @@ export default function SuperAdminDashboardPage() {
             {sidebarOpen && <span className="truncate">Settings</span>}
           </Link>
           <Link
-            href="/super-admin-login"
+            href="/login"
             onClick={() => setMobileMenuOpen(false)}
             className="flex items-center gap-3 px-3 py-3 text-slate-400 hover:bg-red-900/40 hover:text-red-400 rounded-lg font-medium text-sm transition-colors cursor-pointer"
           >
@@ -136,14 +223,12 @@ export default function SuperAdminDashboardPage() {
           subtitle={
             <>
               <span className="hidden sm:inline">Full system overview — </span>
-              <span suppressHydrationWarning>
-                {new Date().toLocaleDateString("en-GB", {
-                  weekday: "long",
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </span>
+              {new Date().toLocaleDateString("en-GB", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
             </>
           }
           onMobileNavOpen={() => setMobileMenuOpen(true)}
@@ -256,7 +341,7 @@ export default function SuperAdminDashboardPage() {
                 ))}
                 {filteredRecentRequests.length === 0 && (
                   <div className="px-4 sm:px-6 py-10 text-center text-sm text-slate-400">
-                    No requests found.
+                    No requests for this filter.
                   </div>
                 )}
               </div>
@@ -361,11 +446,6 @@ export default function SuperAdminDashboardPage() {
                     </div>
                   </div>
                 ))}
-                {admins.length === 0 && (
-                  <div className="px-4 sm:px-6 py-10 text-center text-sm text-slate-400">
-                    No admins found.
-                  </div>
-                )}
               </div>
             </div>
 
@@ -411,11 +491,6 @@ export default function SuperAdminDashboardPage() {
                     </div>
                   </div>
                 ))}
-                {recentCompanies.length === 0 && (
-                  <div className="px-4 sm:px-6 py-10 text-center text-sm text-slate-400">
-                    No companies found.
-                  </div>
-                )}
               </div>
             </div>
           </div>

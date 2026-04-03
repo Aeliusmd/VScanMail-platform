@@ -1,0 +1,105 @@
+@reference "../../../globals.css";
+
+.row {
+  @apply flex items-center px-4 py-2.5 border-b border-gray-100 hover:bg-gray-50 transition cursor-pointer;
+}
+
+.rowSelected {
+  @apply bg-[#EFF6FF];
+}
+
+.checkboxGroup {
+  @apply flex items-center gap-2 w-[80px] flex-shrink-0;
+}
+
+.checkbox {
+  @apply w-4 h-4 rounded border-gray-300 cursor-pointer;
+}
+
+.starBtn {
+  @apply w-4 h-4 flex items-center justify-center cursor-pointer transition text-gray-300 hover:text-yellow-300;
+}
+
+.starBtnActive {
+  @apply w-4 h-4 flex items-center justify-center cursor-pointer transition text-yellow-400;
+}
+
+.flagBtn {
+  @apply w-4 h-4 flex items-center justify-center cursor-pointer transition text-gray-300 hover:text-green-300;
+}
+
+.flagBtnActive {
+  @apply w-4 h-4 flex items-center justify-center cursor-pointer transition text-green-500;
+}
+
+.avatarWrapper {
+  @apply w-[40px] flex-shrink-0 mr-3;
+}
+
+.avatar {
+  @apply w-9 h-9 rounded-full flex items-center justify-center text-white font-semibold text-sm;
+}
+
+.companyNameWrapper {
+  @apply w-[170px] flex-shrink-0 mr-3;
+}
+
+.companyName {
+  @apply text-sm font-semibold text-gray-900 truncate block;
+}
+
+.industryWrapper {
+  @apply w-[130px] flex-shrink-0 mr-3;
+}
+
+.industryBadge {
+  @apply text-xs font-medium px-2 py-0.5 rounded-full;
+}
+
+.contactGroup {
+  @apply flex-1 min-w-0 mr-3 flex items-center gap-1.5;
+}
+
+.contactName {
+  @apply text-sm font-medium text-gray-800 whitespace-nowrap;
+}
+
+.contactEmail {
+  @apply text-sm text-gray-400 truncate;
+}
+
+.countWrapper {
+  @apply w-[50px] flex-shrink-0 mr-3 flex items-center gap-1 text-gray-500;
+}
+
+.countIcon {
+  @apply w-4 h-4 flex items-center justify-center;
+}
+
+.countText {
+  @apply text-sm;
+}
+
+.statusWrapper {
+  @apply w-[80px] flex-shrink-0 mr-3;
+}
+
+.statusActive {
+  @apply text-xs font-medium px-2.5 py-0.5 rounded-full bg-green-100 text-green-700;
+}
+
+.statusPending {
+  @apply text-xs font-medium px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-600;
+}
+
+.statusInactive {
+  @apply text-xs font-medium px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-500;
+}
+
+.timeWrapper {
+  @apply w-[130px] flex-shrink-0 text-right;
+}
+
+.timeText {
+  @apply text-sm text-gray-500 whitespace-nowrap;
+}

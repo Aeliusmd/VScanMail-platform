@@ -4,12 +4,14 @@ import { auditLogs } from "../core/db/schema";
 export type AuditLog = {
   id: string;
   actor_id: string;
-  actor_role: "super_admin" | "admin" | "client";
+  actor_role: "super_admin" | "admin" | "client" | "operator";
   action: string;
   entity_type: string;
   entity_id: string;
-  details: any;
+  before_state?: any;
+  after_state?: any;
   ip_address: string | null;
+  user_agent: string | null;
   created_at: string;
 };
 
@@ -18,14 +20,19 @@ export const auditLogModel = {
     const toInsert: typeof auditLogs.$inferInsert = {
       id: crypto.randomUUID(),
       actorId: data.actor_id,
-      actorRole: data.actor_role,
+      actorRole: data.actor_role as any,
       action: data.action,
+
       entityType: data.entity_type,
       entityId: data.entity_id,
-      afterState: data.details ?? {},
-      ipAddress: data.ip_address ?? undefined,
+      beforeState: data.before_state ?? null,
+      afterState: data.after_state ?? null,
+      ipAddress: data.ip_address ?? null,
+      userAgent: data.user_agent ?? null,
+
       createdAt: new Date(),
     };
     await db.insert(auditLogs).values(toInsert);
   },
 };
+

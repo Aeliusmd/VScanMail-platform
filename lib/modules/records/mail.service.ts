@@ -17,8 +17,10 @@ export const mailService = {
     type: string,
     frontFile: Buffer,
     backFile: Buffer,
-    contentFiles: Buffer[]
+    contentFiles: Buffer[],
+    req?: Request
   ) {
+
     const irn = generateIRN();
 
     // 1. Upload images to storage
@@ -93,7 +95,14 @@ export const mailService = {
       actor: operatorId,
       action: "mail.scanned",
       entity: mailItem.id,
-      details: { irn, type, tamperDetected: tamperResult.tamper_detected },
+      after: {
+        irn,
+        type,
+        tamperDetected: tamperResult.tamper_detected,
+        aiSummary,
+        aiRiskLevel,
+      },
+      req,
     });
 
     return mailItem;
@@ -104,7 +113,8 @@ export const mailService = {
     operatorId: string,
     annotations: any,
     tamperDetected: boolean,
-    notes?: string
+    notes?: string,
+    req?: Request
   ) {
     const item = await mailItemModel.update(mailItemId, {
       tamper_detected: tamperDetected,
@@ -115,8 +125,10 @@ export const mailService = {
       actor: operatorId,
       action: "mail.annotated",
       entity: mailItemId,
-      details: { tamperDetected, notes },
+      after: { tamperDetected, notes },
+      req,
     });
+
 
     // Alert client if tamper detected
     if (tamperDetected) {

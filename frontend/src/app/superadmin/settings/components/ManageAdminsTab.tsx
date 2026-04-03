@@ -11,6 +11,7 @@ interface Admin {
   role: string;
   status: "Active" | "Inactive";
   joined: string;
+  lastLogin: string | null;
   initials: string;
   avatarColor: string;
 }
@@ -268,6 +269,9 @@ export default function ManageAdminsTab() {
                 <th className="px-5 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
                   Joined
                 </th>
+                <th className="px-5 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  Last Login
+                </th>
                 <th className="px-5 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">
                   Actions
                 </th>
@@ -337,24 +341,41 @@ export default function ManageAdminsTab() {
                     </td>
                     <td className="px-5 py-3.5">
                       <span
-                        className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${
-                          admin.status === "Active"
+                        className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${admin.status === "Active"
                             ? "bg-emerald-100 text-emerald-700"
                             : "bg-slate-100 text-slate-500"
-                        }`}
+                          }`}
                       >
                         <span
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            admin.status === "Active"
+                          className={`w-1.5 h-1.5 rounded-full ${admin.status === "Active"
                               ? "bg-emerald-500"
                               : "bg-slate-400"
-                          }`}
+                            }`}
                         />
                         {admin.status}
                       </span>
                     </td>
                     <td className="px-5 py-3.5 text-slate-400 text-sm">
                       {admin.joined}
+                    </td>
+                    <td className="px-5 py-3.5 text-sm">
+                      {admin.lastLogin ? (
+                        <div className="flex flex-col">
+                          <span className="text-slate-600 font-medium">
+                            {formatTimeAgo(admin.lastLogin)}
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            {new Date(admin.lastLogin).toLocaleString([], {
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-slate-300 italic">Never</span>
+                      )}
                     </td>
                     <td className="px-5 py-3.5">
                       <div className="flex items-center justify-end space-x-1">
@@ -577,13 +598,12 @@ export default function ManageAdminsTab() {
                         key={s}
                         type="button"
                         onClick={() => setForm((p) => ({ ...p, status: s }))}
-                        className={`py-2.5 text-sm font-semibold rounded-xl border-2 transition-all cursor-pointer ${
-                          form.status === s
+                        className={`py-2.5 text-sm font-semibold rounded-xl border-2 transition-all cursor-pointer ${form.status === s
                             ? s === "Active"
                               ? "border-emerald-500 bg-emerald-50 text-emerald-700"
                               : "border-slate-400 bg-slate-50 text-slate-700"
                             : "border-slate-200 text-slate-400 hover:border-slate-300"
-                        }`}
+                          }`}
                       >
                         {s}
                       </button>
@@ -713,3 +733,16 @@ export default function ManageAdminsTab() {
     </div>
   );
 }
+
+function formatTimeAgo(dateStr: string) {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffInSeconds = Math.floor(Math.abs(now.getTime() - date.getTime()) / 1000);
+
+  if (diffInSeconds < 60) return "Just now";
+  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+  if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
+
+  return date.toLocaleDateString();
+}

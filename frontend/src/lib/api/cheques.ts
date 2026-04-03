@@ -52,4 +52,3 @@ export const chequeApi = {
   download: (id: string) =>
     apiClient<any>(`/api/records/cheques/${id}/download`, { method: "GET" }),
 };
-

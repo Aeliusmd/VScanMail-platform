@@ -38,4 +38,3 @@ export const authApi = {
 
   me: () => apiClient<any>("/api/auth/me", { method: "GET" }),
 };
-

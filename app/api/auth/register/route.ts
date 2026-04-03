@@ -3,12 +3,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { registerSchema } from "@/lib/modules/auth/auth.schema";
 import { authService } from "@/lib/modules/auth/auth.service";
 
+import { auditService } from "@/lib/modules/audit/audit.service";
+
 export async function POST(req: NextRequest) {
+
   try {
     const body = await req.json();
     const input = registerSchema.parse(body);
-    const result = await authService.register(input);
+    const result = await authService.register(input, req);
+
     return NextResponse.json(result, { status: 201 });
+
+
   } catch (error: any) {
     console.error("Registration error:", error);
     const errorMsg = error?.message || "";

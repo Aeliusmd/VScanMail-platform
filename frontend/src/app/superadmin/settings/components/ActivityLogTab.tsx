@@ -11,7 +11,14 @@ interface ActivityEntry {
   user: string;
   date: string;
   time: string;
+  // Metadata for details popup
+  ipAddress?: string;
+  userAgent?: string;
+  beforeState?: any;
+  afterState?: any;
+  entityType?: string;
 }
+
 
 function mapEntityType(type: string): string {
   const t = type.toLowerCase();
@@ -44,6 +51,8 @@ export default function ActivityLogTab() {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [dateFilter, setDateFilter] = useState('');
+  const [selectedLog, setSelectedLog] = useState<ActivityEntry | null>(null);
+
 
   const fetchLogs = useCallback(async () => {
     try {
@@ -56,7 +65,7 @@ export default function ActivityLogTab() {
       });
       if (!res.ok) throw new Error("Failed to load logs");
       const data = await res.json();
-      
+
       const mapped: ActivityEntry[] = data.logs.map((l: any, i: number) => {
         const dt = new Date(l.createdAt);
         return {
@@ -66,8 +75,14 @@ export default function ActivityLogTab() {
           user: l.actorEmail || l.actorId.slice(0, 8),
           date: dt.toISOString().split('T')[0],
           time: dt.toTimeString().split(' ')[0],
+          ipAddress: l.ipAddress,
+          userAgent: l.userAgent,
+          beforeState: l.beforeState,
+          afterState: l.afterState,
+          entityType: l.entityType,
         };
       });
+
       setAllLogs(mapped);
     } catch (err) {
       console.error(err);
@@ -179,7 +194,15 @@ export default function ActivityLogTab() {
                 filtered.map((log, idx) => (
                   <tr key={log.no} className={`hover:bg-slate-50 transition-colors ${idx % 2 === 0 ? '' : 'bg-slate-50/40'}`}>
                     <td className="px-4 py-3 text-slate-400 font-medium text-xs">{String(log.no).padStart(2, '0')}</td>
-                    <td className="px-4 py-3 text-slate-800 font-medium">{log.activity}</td>
+                    <td className="px-4 py-3">
+                      <button 
+                        onClick={() => setSelectedLog(log)}
+                        className="text-slate-800 font-medium hover:text-[#0A3D8F] hover:underline cursor-pointer text-left transition-colors"
+                      >
+                        {log.activity}
+                      </button>
+                    </td>
+
                     <td className="px-4 py-3">
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${categoryColors[log.category] || 'bg-slate-100 text-slate-600'}`}>
                         {log.category}
@@ -196,6 +219,135 @@ export default function ActivityLogTab() {
           </table>
         </div>
       </div>
+      
+      {/* Details Popup */}
+      {selectedLog && (
+        <LogDetailsPopup 
+          log={selectedLog} 
+          onClose={() => setSelectedLog(null)} 
+        />
+      )}
     </div>
   );
 }
+
+function LogDetailsPopup({ log, onClose }: { log: ActivityEntry; onClose: () => void }) {
+  // Simple JSON comparison logic
+  const renderChanges = () => {
+    if (!log.beforeState && !log.afterState) return <p className="text-slate-400 italic">No state changes recorded.</p>;
+
+    const before = log.beforeState || {};
+    const after = log.afterState || {};
+    const allKeys = Array.from(new Set([...Object.keys(before), ...Object.keys(after)]));
+
+    return (
+      <div className="space-y-3">
+        {allKeys.map(key => {
+          const bVal = JSON.stringify(before[key]);
+          const aVal = JSON.stringify(after[key]);
+          if (bVal === aVal) return null; // No change for this key
+
+          return (
+            <div key={key} className="border-b border-slate-100 pb-2">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-tight">{key}</p>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-xs bg-red-50 text-red-600 px-1.5 py-0.5 rounded line-through opacity-70">
+                  {bVal === 'undefined' ? 'null' : bVal}
+                </span>
+                <Icon icon="ri:arrow-right-line" className="text-slate-300" />
+                <span className="text-xs bg-emerald-50 text-emerald-700 font-semibold px-1.5 py-0.5 rounded">
+                  {aVal === 'undefined' ? 'null' : aVal}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        {/* Header */}
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-[#0A3D8F]/10 rounded-xl flex items-center justify-center">
+              <Icon icon="ri:history-line" className="text-[#0A3D8F] text-xl" />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-900 leading-tight">Activity Details</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Full audit trail for this action</p>
+            </div>
+          </div>
+          <button 
+            onClick={onClose}
+            className="p-2 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+          >
+            <Icon icon="ri:close-line" className="text-slate-500 text-xl" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 overflow-y-auto max-h-[70vh] space-y-6">
+          {/* Main Action */}
+          <div className="bg-[#0A3D8F] text-white p-4 rounded-xl shadow-lg shadow-[#0A3D8F]/10">
+            <p className="text-xs opacity-70 font-semibold uppercase tracking-wider mb-1">Action Performed</p>
+            <p className="text-lg font-bold">{log.activity}</p>
+          </div>
+
+          {/* Metadata Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+              <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">User</p>
+              <p className="text-xs font-semibold text-slate-800 truncate">{log.user}</p>
+            </div>
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+              <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Category</p>
+              <p className="text-xs font-semibold text-slate-800">{log.category}</p>
+            </div>
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+              <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">IP Address</p>
+              <p className="text-xs font-semibold text-slate-800 font-mono tracking-tighter">
+                {log.ipAddress || 'Unknown'}
+              </p>
+            </div>
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+              <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Date/Time</p>
+              <p className="text-xs font-semibold text-slate-800 truncate">{log.date} {log.time}</p>
+            </div>
+          </div>
+
+          {/* User Agent */}
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+            <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">User Agent</p>
+            <p className="text-xs text-slate-600 italic leading-relaxed break-all">
+              {log.userAgent || 'No device information available.'}
+            </p>
+          </div>
+
+          {/* State Changes */}
+          <div>
+            <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2 mb-3">
+              <Icon icon="ri:code-line" className="text-[#0A3D8F]" />
+              Data Changes
+            </h4>
+            <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm">
+              {renderChanges()}
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/30 flex justify-end">
+          <button 
+            onClick={onClose}
+            className="px-6 py-2 bg-slate-900 text-white text-sm font-bold rounded-xl hover:bg-slate-700 transition-colors cursor-pointer active:scale-95 duration-150"
+          >
+            Close Details
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

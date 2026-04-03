@@ -4,6 +4,8 @@ import { clientModel } from "@/lib/modules/clients/client.model";
 import { addManualCompanySchema } from "@/lib/modules/clients/client.schema";
 import { generateClientCode, generateClientTableName } from "@/lib/modules/clients/client-code";
 import { createClientTable } from "@/lib/modules/core/db/dynamic-table";
+import { auditService } from "@/lib/modules/audit/audit.service";
+
 
 const INDUSTRY_COLORS: Record<string, string> = {
   Technology: "bg-blue-100 text-blue-700",
@@ -113,17 +115,21 @@ export async function POST(req: NextRequest) {
       notes: data.notes || null,
     });
 
-    // Native setup
-    try {
-      await createClientTable(tableName);
-    } catch (e) {
-      console.warn("Failed creating dynamic table", e);
-    }
+    // Log the action
+    await auditService.log({
+      actor: user.id,
+      actor_role: user.role as any,
+      action: "company.created",
+      entity: record.id,
+      after: { company_name: record.company_name, email: record.email, status: record.status },
+      req,
+    });
 
     return NextResponse.json(
       { company: toFrontendCompany(record, 0) },
       { status: 201 }
     );
+
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
