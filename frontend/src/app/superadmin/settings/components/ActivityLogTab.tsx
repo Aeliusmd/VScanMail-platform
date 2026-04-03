@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
+import { Icon } from "@iconify/react";
+
 
 interface ActivityEntry {
   no: number;
@@ -11,28 +13,18 @@ interface ActivityEntry {
   time: string;
 }
 
-const allLogs: ActivityEntry[] = [
-  { no: 1, activity: 'Admin login successful', category: 'Auth', user: 'James Mitchell', date: '2026-03-27', time: '09:14:22' },
-  { no: 2, activity: 'New company "Apex Logistics" added', category: 'Company', user: 'James Mitchell', date: '2026-03-27', time: '09:21:05' },
-  { no: 3, activity: 'Mail scan completed — ref #SC-2847', category: 'Scan', user: 'Sarah Thompson', date: '2026-03-27', time: '09:35:48' },
-  { no: 4, activity: 'Cheque scan completed — ref #CH-1129', category: 'Scan', user: 'Sarah Thompson', date: '2026-03-27', time: '09:42:17' },
-  { no: 5, activity: 'Delivery request approved for Apex Logistics', category: 'Delivery', user: 'Robert Chen', date: '2026-03-27', time: '10:08:33' },
-  { no: 6, activity: 'New admin "Emily Walsh" added', category: 'Admin', user: 'James Mitchell', date: '2026-03-26', time: '14:55:01' },
-  { no: 7, activity: 'Deposit request processed — $4,200.00', category: 'Deposit', user: 'Maria Garcia', date: '2026-03-26', time: '15:20:44' },
-  { no: 8, activity: 'Mail scan completed — ref #SC-2846', category: 'Scan', user: 'Robert Chen', date: '2026-03-26', time: '11:05:29' },
-  { no: 9, activity: 'Company "BrightPath Inc." updated', category: 'Company', user: 'James Mitchell', date: '2026-03-26', time: '10:48:15' },
-  { no: 10, activity: 'Subscription plan updated to Business Pro', category: 'Billing', user: 'James Mitchell', date: '2026-03-25', time: '16:30:00' },
-  { no: 11, activity: 'Admin "David Patel" set to Inactive', category: 'Admin', user: 'James Mitchell', date: '2026-03-25', time: '09:55:12' },
-  { no: 12, activity: 'Cheque deposit confirmed — Westfield Corp', category: 'Deposit', user: 'Maria Garcia', date: '2026-03-25', time: '11:22:40' },
-  { no: 13, activity: 'Mail scan completed — ref #SC-2845', category: 'Scan', user: 'Emily Walsh', date: '2026-03-24', time: '13:44:07' },
-  { no: 14, activity: 'Delivery request submitted — Metro Finance', category: 'Delivery', user: 'Sarah Thompson', date: '2026-03-24', time: '15:07:55' },
-  { no: 15, activity: 'Profile information updated', category: 'Auth', user: 'James Mitchell', date: '2026-03-24', time: '08:30:11' },
-  { no: 16, activity: 'New company "Summit Holdings" added', category: 'Company', user: 'Robert Chen', date: '2026-03-23', time: '10:15:22' },
-  { no: 17, activity: 'Cheque scan completed — ref #CH-1128', category: 'Scan', user: 'Emily Walsh', date: '2026-03-23', time: '14:02:38' },
-  { no: 18, activity: 'Deposit request declined — insufficient info', category: 'Deposit', user: 'Maria Garcia', date: '2026-03-22', time: '11:50:03' },
-  { no: 19, activity: 'Manual billing plan renewed — Apex Logistics', category: 'Billing', user: 'James Mitchell', date: '2026-03-22', time: '09:00:00' },
-  { no: 20, activity: 'Admin login successful', category: 'Auth', user: 'Sarah Thompson', date: '2026-03-21', time: '08:10:45' },
-];
+function mapEntityType(type: string): string {
+  const t = type.toLowerCase();
+  if (t.includes('auth') || t.includes('user')) return 'Auth';
+  if (t.includes('company') || t.includes('client')) return 'Company';
+  if (t.includes('scan') || t.includes('mail')) return 'Scan';
+  if (t.includes('delivery')) return 'Delivery';
+  if (t.includes('deposit') || t.includes('cheque')) return 'Deposit';
+  if (t.includes('admin') || t.includes('profile')) return 'Admin';
+  if (t.includes('billing') || t.includes('subscription')) return 'Billing';
+  return 'Other';
+}
+
 
 const categoryColors: Record<string, string> = {
   Auth: 'bg-[#0A3D8F]/10 text-[#0A3D8F]',
@@ -47,9 +39,46 @@ const categoryColors: Record<string, string> = {
 const categories = ['All', 'Auth', 'Company', 'Scan', 'Delivery', 'Deposit', 'Admin', 'Billing'];
 
 export default function ActivityLogTab() {
+  const [allLogs, setAllLogs] = useState<ActivityEntry[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [dateFilter, setDateFilter] = useState('');
+
+  const fetchLogs = useCallback(async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("vscanmail_token");
+      const res = await fetch("/api/audit-logs", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!res.ok) throw new Error("Failed to load logs");
+      const data = await res.json();
+      
+      const mapped: ActivityEntry[] = data.logs.map((l: any, i: number) => {
+        const dt = new Date(l.createdAt);
+        return {
+          no: i + 1,
+          activity: l.action,
+          category: mapEntityType(l.entityType),
+          user: l.actorEmail || l.actorId.slice(0, 8),
+          date: dt.toISOString().split('T')[0],
+          time: dt.toTimeString().split(' ')[0],
+        };
+      });
+      setAllLogs(mapped);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchLogs();
+  }, [fetchLogs]);
 
   const filtered = useMemo(() => {
     return allLogs.filter(log => {
@@ -58,7 +87,8 @@ export default function ActivityLogTab() {
       const matchDate = dateFilter === '' || log.date === dateFilter;
       return matchSearch && matchCategory && matchDate;
     });
-  }, [search, categoryFilter, dateFilter]);
+  }, [allLogs, search, categoryFilter, dateFilter]);
+
 
   return (
     <div className="space-y-5">
@@ -129,7 +159,16 @@ export default function ActivityLogTab() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filtered.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-20 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-8 h-8 border-4 border-[#0A3D8F] border-t-transparent rounded-full animate-spin" />
+                      <p className="text-sm text-slate-500 font-medium">Loading activity records...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-12 text-center text-sm text-slate-400">
                     <i className="ri-file-search-line text-2xl block mb-2"></i>
@@ -153,6 +192,7 @@ export default function ActivityLogTab() {
                 ))
               )}
             </tbody>
+
           </table>
         </div>
       </div>
