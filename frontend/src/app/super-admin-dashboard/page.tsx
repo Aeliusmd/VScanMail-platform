@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import SuperAdminHeader from "../superadmin/components/SuperAdminHeader";
 
@@ -207,7 +207,7 @@ export default function SuperAdminDashboardPage() {
             {sidebarOpen && <span className="truncate">Settings</span>}
           </Link>
           <Link
-            href="/super-admin-login"
+            href="/login"
             onClick={() => setMobileMenuOpen(false)}
             className="flex items-center gap-3 px-3 py-3 text-slate-400 hover:bg-red-900/40 hover:text-red-400 rounded-lg font-medium text-sm transition-colors cursor-pointer"
           >

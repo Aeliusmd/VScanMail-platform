@@ -1,4 +1,4 @@
-import DepositsPage from "../../dashboard/deposits/page";
+import DepositsPage from "../../admin/deposits/page";
 
 export default function SuperadminDepositsPage() {
   return <DepositsPage />;

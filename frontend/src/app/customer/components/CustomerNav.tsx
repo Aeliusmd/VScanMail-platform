@@ -42,7 +42,7 @@ const notifications = [
 ];
 
 const navLinks = [
-  { label: "Dashboard", href: "/customer/dashboard", icon: "ri-dashboard-line" },
+  { label: "Dashboard", href: "/customer", icon: "ri-dashboard-line" },
   { label: "Mails", href: "/customer/mails", icon: "ri-mail-line" },
   { label: "Cheques", href: "/customer/cheques", icon: "ri-bank-card-line" },
   { label: "Deposits", href: "/customer/deposits", icon: "ri-exchange-dollar-line" },
@@ -58,8 +58,8 @@ const accentBorder: Record<NotificationAccent, string> = {
 };
 
 function isNavActive(pathname: string, href: string) {
-  if (href === "/customer/dashboard") {
-    return pathname === href;
+  if (href === "/customer") {
+    return pathname === "/customer" || pathname === "/customer/dashboard";
   }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
@@ -112,7 +112,7 @@ export default function CustomerNav() {
               <i className={`text-xl ${mobileOpen ? "ri-close-line" : "ri-menu-line"}`} aria-hidden />
             </button>
 
-            <Link href="/customer/dashboard" className="flex items-center flex-shrink-0">
+            <Link href="/customer" className="flex items-center flex-shrink-0">
               <img
                 src="/images/A-4.png"
                 alt="VScan Mail"
@@ -251,7 +251,7 @@ export default function CustomerNav() {
                   </button>
                   <div className="border-t border-gray-200 mt-1 pt-1">
                     <Link
-                      href="/customer/login"
+                      href="/login"
                       className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3 cursor-pointer"
                       onClick={closePanels}
                     >

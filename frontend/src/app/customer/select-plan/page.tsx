@@ -70,7 +70,7 @@ export default function SelectPlan() {
       window.location.href = 'mailto:sales@vscanmail.com';
       return;
     }
-    router.push(`/register1?plan=${encodeURIComponent(planId)}`);
+    router.push(`/register?plan=${encodeURIComponent(planId)}`);
   };
 
   return (
@@ -89,7 +89,7 @@ export default function SelectPlan() {
         <div className="flex items-center gap-3">
           <span className="text-sm text-slate-500">Already have an account?</span>
           <Link
-            href="/customer/login"
+            href="/login"
             className="flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:text-blue-700 border border-blue-200 px-4 py-2 rounded-xl hover:bg-blue-50 transition-all whitespace-nowrap"
           >
             <i className="ri-login-box-line"></i>
@@ -223,7 +223,7 @@ export default function SelectPlan() {
           <p className="text-sm text-slate-500">
             Already a member?{' '}
             <Link
-              href="/customer/login"
+              href="/login"
               className="text-blue-600 font-semibold hover:underline whitespace-nowrap"
             >
               Sign in to your account

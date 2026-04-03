@@ -1,17 +1,24 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import Sidebar from "../dashboard/components/Sidebar";
 import SuperAdminHeader from "./components/SuperAdminHeader";
+import SuperAdminSidebar from "./components/SuperAdminSidebar";
+import { SuperAdminToolbarProvider } from "./components/SuperAdminToolbarContext";
 
-export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
+export default function SuperAdminLayout({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const pathname = usePathname();
 
   const isSuperadminArea = pathname?.startsWith("/superadmin");
   const isSuperadminSettings = pathname?.startsWith("/superadmin/settings");
+
+  /** List pages reuse admin UI with search + actions in the page body (like /admin/companies). */
+  const isSuperadminListToolbarPage =
+    pathname === "/superadmin/companies" ||
+    pathname === "/superadmin/deposits" ||
+    pathname === "/superadmin/deliveries";
 
   const { headerTitle, headerSubtitle } = useMemo(() => {
     if (isSuperadminSettings) {
@@ -51,23 +58,25 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
           mobileSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
       >
-        <Suspense fallback={null}>
-          <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
-        </Suspense>
+        <SuperAdminSidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
       </div>
 
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        {isSuperadminArea && (
-          <SuperAdminHeader
-            title={headerTitle}
-            subtitle={headerSubtitle}
-            onMobileNavOpen={() => setMobileSidebarOpen(true)}
-            mobileNavBreakpoint="md"
-          />
-        )}
+      <SuperAdminToolbarProvider>
+        <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+          {isSuperadminArea && (
+            <SuperAdminHeader
+              title={headerTitle}
+              subtitle={headerSubtitle}
+              hideTitleBlock={isSuperadminListToolbarPage}
+              hideSearch={isSuperadminListToolbarPage}
+              onMobileNavOpen={() => setMobileSidebarOpen(true)}
+              mobileNavBreakpoint="md"
+            />
+          )}
 
-        <main className="flex-1 overflow-y-auto">{children}</main>
-      </div>
+          <main className="flex-1 overflow-y-auto">{children}</main>
+        </div>
+      </SuperAdminToolbarProvider>
     </div>
   );
 }

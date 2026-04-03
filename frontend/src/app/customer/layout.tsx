@@ -11,11 +11,9 @@ export default function CustomerLayout({
 }) {
   const pathname = usePathname();
   const hideNav =
-    pathname === "/customer" ||
+    pathname === "/customer/landing" ||
     pathname === "/customer/home" ||
-    pathname === "/customer/login" ||
-    pathname === "/customer/select-plan" ||
-    pathname === "/customer/register";
+    pathname === "/customer/select-plan";
 
   return (
     <>

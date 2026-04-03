@@ -60,7 +60,7 @@ function LandingPage() {
                 Pricing
               </a>
               <Link
-                href="/customer/login"
+                href="/login"
                 className={`text-sm font-medium transition-colors whitespace-nowrap ${
                   scrolled ? "text-slate-600 hover:text-blue-600" : "text-slate-700 hover:text-blue-600"
                 }`}
@@ -68,7 +68,7 @@ function LandingPage() {
                 Sign In
               </Link>
               <Link
-                href="/customer/register"
+                href="/register"
                 className="bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-all whitespace-nowrap"
               >
                 Get Started
@@ -96,11 +96,11 @@ function LandingPage() {
             <a href="#pricing" className="block text-sm font-medium text-slate-700">
               Pricing
             </a>
-            <Link href="/customer/login" className="block text-sm font-medium text-slate-700">
+            <Link href="/login" className="block text-sm font-medium text-slate-700">
               Sign In
             </Link>
             <Link
-              href="/customer/register"
+              href="/register"
               className="block w-full text-center bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold"
             >
               Get Started
@@ -134,7 +134,7 @@ function LandingPage() {
               </p>
               <div className="flex flex-wrap gap-4">
                 <Link
-                  href="/customer/register"
+                  href="/customer/select-plan"
                   className="px-6 min-[390px]:px-7 min-[425px]:px-8 py-3.5 min-[425px]:py-4 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all whitespace-nowrap text-sm"
                 >
                   Start Free Trial <i className="ri-arrow-right-line ml-1"></i>
@@ -452,7 +452,7 @@ function LandingPage() {
                 ))}
               </ul>
               <Link
-                href="/customer/register"
+                href="/register"
                 className="block w-full py-3 text-center bg-slate-100 text-slate-800 font-semibold rounded-xl hover:bg-slate-200 transition-colors text-sm whitespace-nowrap"
               >
                 Get Started
@@ -487,7 +487,7 @@ function LandingPage() {
                 ))}
               </ul>
               <Link
-                href="/customer/register"
+                href="/register"
                 className="block w-full py-3 text-center bg-white text-blue-700 font-bold rounded-xl hover:bg-blue-50 transition-colors text-sm whitespace-nowrap"
               >
                 Get Started
@@ -689,7 +689,7 @@ function LandingPage() {
                   </a>
                 </li>
                 <li>
-                  <Link href="/customer/register" className="hover:text-blue-600 transition-colors">
+                  <Link href="/register" className="hover:text-blue-600 transition-colors">
                     Sign Up
                   </Link>
                 </li>
