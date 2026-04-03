@@ -1,30 +1,28 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import Link from "next/link"
-import Image from "next/image"
-import { useRouter } from "next/navigation"
-import styles from "./login.module.css"
-import { HiOutlineEnvelope, HiOutlineLockClosed, HiOutlineEye, HiOutlineEyeSlash } from "react-icons/hi2"
+import { useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import styles from "./login.module.css";
+import { HiOutlineEnvelope, HiOutlineLockClosed, HiOutlineEye, HiOutlineEyeSlash } from "react-icons/hi2";
 
 export default function LoginPage() {
-  const router = useRouter()
+  const router = useRouter();
 
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [remember, setRemember] = useState(false)
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [remember, setRemember] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    router.push("/dashboard")
-  }
+    e.preventDefault();
+    // TODO: replace with API-driven redirect (admin / super-admin / customer) when auth is wired
+    router.push("/customer");
+  };
 
   return (
-
     <div className={styles.page}>
-
-      {/* MOBILE TOP IMAGE */}
       <div className={styles.mobileTopImage}>
         <Image
           src="/images/Mask group.png"
@@ -35,66 +33,26 @@ export default function LoginPage() {
         />
       </div>
 
-      {/* LEFT SIDE */}
-
       <div className={styles.leftSide}>
-
         <div className={styles.leftCard}>
-
-          <h1 className={styles.leftTitle}>
-            Sign in Account
-          </h1>
-
-          <p className={styles.leftSubtitle}>
-            Fill the details to sign in the account
-          </p>
-
-          <img
-            src="/images/signin.png"
-            alt="VScan Mail Illustration"
-            className={styles.leftImage}
-          />
-
+          <h1 className={styles.leftTitle}>Sign in Account</h1>
+          <p className={styles.leftSubtitle}>Fill the details to sign in the account</p>
+          <img src="/images/signin.png" alt="VScan Mail Illustration" className={styles.leftImage} />
         </div>
-
       </div>
 
-
-      {/* RIGHT SIDE */}
-
       <div className={styles.rightSide}>
-
         <div className={styles.formContainer}>
-
           <div className={styles.formCard}>
-
-            {/* Header */}
-
             <div className={styles.header}>
-
-              <h2 className={styles.heading}>
-                Company Login
-              </h2>
-
-              <p className={styles.subheading}>
-                Access your digital mailroom dashboard
-              </p>
-
+              <h2 className={styles.heading}>Company Login</h2>
+              <p className={styles.subheading}>Access your digital mailroom dashboard</p>
             </div>
 
-
             <form onSubmit={handleSubmit} className={styles.form}>
-
-              {/* EMAIL */}
-
               <div className={styles.fieldGroup}>
-
-                <label className={styles.label}>
-                  Company Email
-                </label>
-
+                <label className={styles.label}>Company Email</label>
                 <div className={styles.inputWrapper}>
-
                   <input
                     type="email"
                     value={email}
@@ -102,24 +60,17 @@ export default function LoginPage() {
                     placeholder="company@example.com"
                     className={styles.input}
                   />
-
-                  <span className={styles.inputIcon}><span className={styles.inputIconGlyph}><HiOutlineEnvelope /></span></span>
-
+                  <span className={styles.inputIcon}>
+                    <span className={styles.inputIconGlyph}>
+                      <HiOutlineEnvelope />
+                    </span>
+                  </span>
                 </div>
-
               </div>
 
-
-              {/* PASSWORD */}
-
               <div className={styles.fieldGroup}>
-
-                <label className={styles.label}>
-                  Password
-                </label>
-
+                <label className={styles.label}>Password</label>
                 <div className={styles.inputWrapper}>
-
                   <input
                     type={showPassword ? "text" : "password"}
                     value={password}
@@ -127,9 +78,11 @@ export default function LoginPage() {
                     placeholder="Enter your password"
                     className={`${styles.input} ${styles.inputPasswordPad}`}
                   />
-
-                  <span className={styles.inputIcon}><span className={styles.inputIconGlyph}><HiOutlineLockClosed /></span></span>
-
+                  <span className={styles.inputIcon}>
+                    <span className={styles.inputIconGlyph}>
+                      <HiOutlineLockClosed />
+                    </span>
+                  </span>
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
@@ -139,16 +92,10 @@ export default function LoginPage() {
                       {showPassword ? <HiOutlineEyeSlash /> : <HiOutlineEye />}
                     </span>
                   </button>
-
                 </div>
-
               </div>
 
-
-              {/* REMEMBER */}
-
               <div className={styles.rememberRow}>
-
                 <label className={styles.rememberLabel}>
                   <input
                     type="checkbox"
@@ -157,57 +104,29 @@ export default function LoginPage() {
                   />
                   Remember me
                 </label>
-
-                <a className={styles.forgotLink}>
-                  Forgot password?
-                </a>
-
+                <a className={styles.forgotLink}>Forgot password?</a>
               </div>
 
-
-              {/* BUTTON */}
-
-              <button
-                type="submit"
-                className={styles.submitButton}
-              >
+              <button type="submit" className={styles.submitButton}>
                 Sign In
               </button>
 
-
-              {/* REGISTER */}
-
               <p className={styles.registerText}>
                 Don&apos;t have an account?
-                <Link
-                  href="/register1"
-                  className={styles.registerLink}
-                >
+                <Link href="/register" className={styles.registerLink}>
                   Register your company
                 </Link>
               </p>
-
-
-              {/* TERMS */}
 
               <div className={styles.termsWrapper}>
                 <p className={styles.termsText}>
                   By signing in, you agree to our Terms of Service and Privacy Policy
                 </p>
               </div>
-
             </form>
-
           </div>
-
         </div>
-
       </div>
-
     </div>
-
-  )
-
+  );
 }
-
-
