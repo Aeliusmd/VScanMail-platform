@@ -1,7 +1,7 @@
 "use client";
 
 import { Icon } from '@iconify/react';
-import type { DeliveryRequest } from '../../../../mocks/deliveries';
+import type { DeliveryRequest } from '@/types/delivery';
 
 interface ClickedDeliveryProps {
   request: DeliveryRequest;

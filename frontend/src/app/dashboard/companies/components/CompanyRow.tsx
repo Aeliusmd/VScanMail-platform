@@ -2,13 +2,13 @@
 
 import { useState } from 'react';
 import { Icon } from '@iconify/react';
-import type { Company } from '../../../../mocks/companies';
+import type { Company } from '@/types/company';
 import styles from './CompanyRow.module.css';
 
 interface CompanyRowProps {
   company: Company;
   selected: boolean;
-  onSelect: (id: number) => void;
+  onSelect: (id: string) => void;
   onClick?: () => void;
 }
 

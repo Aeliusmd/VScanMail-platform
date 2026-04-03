@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import type { Deposit } from '../../../../mocks/deposits';
+import type { Deposit } from '@/types/deposit';
 
 interface ClickedDepositProps {
   deposit: Deposit;

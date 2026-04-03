@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
-import { cheques, type Cheque } from '../../../mocks/cheques';
+import type { Cheque } from '@/types/cheque';
 import ChequeToolbar from './components/ChequeToolbar';
 import ChequeRow from './components/ChequeRow';
 import ClickedCheque from './components/ClickedCheque';
@@ -31,6 +31,7 @@ export default function AllChequesPage() {
 }
 
 function AllChequesPageContent() {
+  const [chequerList, setChequerList] = useState<Cheque[]>([]);
   const [activeTab, setActiveTab] = useState<TabType>('All');
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [page, setPage] = useState(1);
@@ -55,13 +56,9 @@ function AllChequesPageContent() {
     }
   }, [tabFromUrl, activeTab]);
 
-  const notifications = [
-    { id: 1, text: 'Cheque deposited for Global Enterprises', time: '5 mins ago', unread: true },
-    { id: 2, text: 'Pending deposit for Horizon Group', time: '12 mins ago', unread: true },
-    { id: 3, text: 'Rejected cheque requires review', time: '25 mins ago', unread: false },
-  ];
+  const notifications: any[] = [];
 
-  const filtered = cheques.filter((c) => {
+  const filtered = chequerList.filter((c) => {
     const matchTab = activeTab === 'All' || c.status === activeTab;
     const q = search.toLowerCase();
     const matchSearch =
@@ -78,8 +75,8 @@ function AllChequesPageContent() {
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   const getTabCount = (status: TabType) => {
-    if (status === 'All') return cheques.length;
-    return cheques.filter((c) => c.status === status).length;
+    if (status === 'All') return chequerList.length;
+    return chequerList.filter((c) => c.status === status).length;
   };
 
   const handleSelect = (id: number) => {

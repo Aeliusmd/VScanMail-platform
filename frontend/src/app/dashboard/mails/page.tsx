@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
-import { mails, type Mail } from '../../../mocks/mails';
+import type { Mail } from '@/types/mail';
 import MailToolbar from './components/MailToolbar';
 import MailRow from './components/MailRow';
 import ClickedMail from './clickedmail/clickedmail';
@@ -13,10 +13,10 @@ import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 type TabType = 'All' | 'Processed' | 'Delivered' | 'Pending Delivery';
 
 const TABS: { label: TabType; count: number }[] = [
-  { label: 'All', count: 10 },
-  { label: 'Processed', count: 6 },
-  { label: 'Delivered', count: 3 },
-  { label: 'Pending Delivery', count: 1 },
+  { label: 'All', count: 0 },
+  { label: 'Processed', count: 0 },
+  { label: 'Delivered', count: 0 },
+  { label: 'Pending Delivery', count: 0 },
 ];
 
 const PER_PAGE = 10;
@@ -30,6 +30,7 @@ export default function AllMailsPage() {
 }
 
 function AllMailsPageContent() {
+  const [mailList, setMailList] = useState<Mail[]>([]);
   const [activeTab, setActiveTab] = useState<TabType>('All');
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [page, setPage] = useState(1);
@@ -55,15 +56,10 @@ function AllMailsPageContent() {
     }
   }, [tabFromUrl, activeTab]);
 
-  // Mock Notifications for Mail Page Topbar
-  const notifications = [
-    { id: 1, text: 'New mail received from Tech Solutions Inc', time: '5 mins ago', unread: true },
-    { id: 2, text: 'Cheque deposit request from Global Enterprises', time: '12 mins ago', unread: true },
-    { id: 3, text: 'Delivery completed for Innovate Corp', time: '25 mins ago', unread: false },
-    { id: 4, text: 'New company registration pending approval', time: '1 hour ago', unread: false },
-  ];
+  // Notifications (keeping empty for now as user said current database is empty)
+  const notifications: any[] = [];
 
-  const filtered = mails.filter((m) => {
+  const filtered = mailList.filter((m) => {
     const matchTab =
       activeTab === 'All' ||
       (activeTab === 'Processed' && m.tag === 'Inbox') ||
@@ -132,18 +128,22 @@ function AllMailsPageContent() {
                   <span className="text-xs text-[#1E40AF] cursor-pointer hover:underline">Mark all read</span>
                 </div>
                 <div className="max-h-[280px] overflow-y-auto">
-                  {notifications.map((n) => (
-                    <div key={n.id} className={`px-4 py-3 border-b border-gray-50 hover:bg-gray-50 cursor-pointer flex gap-3 ${n.unread ? 'bg-[#EFF6FF]/40' : ''}`}>
-                      <div className="w-8 h-8 flex items-center justify-center rounded-full bg-[#EFF6FF] flex-shrink-0">
-                        <Icon icon="ri:mail-line" className="text-[#1E40AF] text-sm" />
+                  {notifications.length === 0 ? (
+                    <div className="px-4 py-8 text-center text-gray-500 text-xs">No notifications</div>
+                  ) : (
+                    notifications.map((n) => (
+                      <div key={n.id} className={`px-4 py-3 border-b border-gray-50 hover:bg-gray-50 cursor-pointer flex gap-3 ${n.unread ? 'bg-[#EFF6FF]/40' : ''}`}>
+                        <div className="w-8 h-8 flex items-center justify-center rounded-full bg-[#EFF6FF] flex-shrink-0">
+                          <Icon icon="ri:mail-line" className="text-[#1E40AF] text-sm" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-gray-700 leading-5">{n.text}</p>
+                          <p className="text-[11px] text-gray-400 mt-0.5">{n.time}</p>
+                        </div>
+                        {n.unread && <span className="w-2 h-2 bg-[#1E40AF] rounded-full flex-shrink-0 mt-1.5"></span>}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-gray-700 leading-5">{n.text}</p>
-                        <p className="text-[11px] text-gray-400 mt-0.5">{n.time}</p>
-                      </div>
-                      {n.unread && <span className="w-2 h-2 bg-[#1E40AF] rounded-full flex-shrink-0 mt-1.5"></span>}
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
                 <div className="px-4 py-2 text-center">
                   <span className="text-xs text-[#1E40AF] cursor-pointer hover:underline">View all notifications</span>

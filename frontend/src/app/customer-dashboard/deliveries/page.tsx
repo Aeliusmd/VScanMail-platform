@@ -21,130 +21,6 @@ interface CustomerDeliveryRequest {
   aiSummary: string;
 }
 
-const mockDeliveries: CustomerDeliveryRequest[] = [
-  {
-    id: "DEL-001",
-    mailSubject: "Bank Statement - January 2025",
-    deliveryAddress: "1234 Market Street, Suite 500, San Francisco, CA 94103",
-    courier: "FedEx Express",
-    trackingNumber: "FDX8821445672",
-    requestedAt: "Today, 11:05 AM",
-    timeShort: "11:05 AM",
-    status: "Pending",
-    requestedBy: "John Smith",
-    recipientName: "Sarah Johnson",
-    recipientPhone: "+1 (415) 555-0123",
-    notes: "Signature required upon delivery",
-    thumbnail:
-      "https://readdy.ai/api/search-image?query=business%20envelope%20with%20bank%20statement%20document%20on%20white%20background%20professional%20mail%20package%20scanned%20clean&width=600&height=360&seq=cdel-1&orientation=landscape",
-    aiSummary:
-      "Delivery request for bank statement mail. Standard priority delivery. Recipient confirmed available for signature. No special handling required.",
-  },
-  {
-    id: "DEL-002",
-    mailSubject: "Legal Documents - Contract Amendment",
-    deliveryAddress: "789 Business Park Drive, Building C, Austin, TX 78701",
-    courier: "UPS Next Day Air",
-    trackingNumber: "UPS9934521087",
-    requestedAt: "Today, 09:48 AM",
-    timeShort: "9:48 AM",
-    status: "On the Way",
-    requestedBy: "Sarah Johnson",
-    recipientName: "Michael Chen",
-    recipientPhone: "+1 (512) 555-0198",
-    thumbnail:
-      "https://readdy.ai/api/search-image?query=legal%20document%20envelope%20with%20contract%20papers%20on%20white%20background%20professional%20mail%20package%20scanned&width=600&height=360&seq=cdel-2&orientation=landscape",
-    aiSummary:
-      "Legal documents in transit. Next day air delivery scheduled. Package scanned at distribution center at 8:30 AM. Expected delivery by 3:00 PM today.",
-  },
-  {
-    id: "DEL-003",
-    mailSubject: "Tax Documents - Q4 2024",
-    deliveryAddress: "456 Innovation Way, Floor 12, Seattle, WA 98101",
-    courier: "USPS Priority Mail",
-    trackingNumber: "USPS7712334556",
-    requestedAt: "Yesterday, 3:30 PM",
-    timeShort: "Yesterday",
-    status: "Delivered",
-    requestedBy: "Michael Chen",
-    recipientName: "Emily Davis",
-    recipientPhone: "+1 (206) 555-0167",
-    thumbnail:
-      "https://readdy.ai/api/search-image?query=tax%20document%20envelope%20with%20financial%20papers%20on%20white%20background%20professional%20mail%20package%20scanned%20clean&width=600&height=360&seq=cdel-3&orientation=landscape",
-    aiSummary:
-      "Tax documents delivered to Seattle office. Package signed for by Emily Davis at 2:45 PM yesterday. Delivery confirmation sent to company email.",
-  },
-  {
-    id: "DEL-005",
-    mailSubject: "Vendor Invoices - Multiple Documents",
-    deliveryAddress: "555 Commerce Street, Floor 8, Dallas, TX 75201",
-    courier: "FedEx Ground",
-    trackingNumber: "FDX2234567890",
-    requestedAt: "Yesterday, 10:00 AM",
-    timeShort: "Yesterday",
-    status: "Pending",
-    requestedBy: "David Wilson",
-    recipientName: "Lisa Anderson",
-    recipientPhone: "+1 (214) 555-0189",
-    notes: "Multiple documents - handle with care",
-    thumbnail:
-      "https://readdy.ai/api/search-image?query=business%20invoice%20envelope%20with%20multiple%20documents%20on%20white%20background%20professional%20mail%20package%20scanned%20clean&width=600&height=360&seq=cdel-5&orientation=landscape",
-    aiSummary:
-      "Vendor invoice package awaiting courier pickup. Multiple documents inside. Expected delivery within 3-5 business days.",
-  },
-  {
-    id: "DEL-006",
-    mailSubject: "Financial Reports - Annual Review",
-    deliveryAddress: "888 Financial Plaza, Suite 1500, New York, NY 10004",
-    courier: "UPS Ground",
-    trackingNumber: "UPS1122334455",
-    requestedAt: "Jun 11, 4:20 PM",
-    timeShort: "Jun 11",
-    status: "Confirmed",
-    requestedBy: "Lisa Anderson",
-    recipientName: "Robert Taylor",
-    recipientPhone: "+1 (212) 555-0134",
-    thumbnail:
-      "https://readdy.ai/api/search-image?query=financial%20report%20envelope%20with%20annual%20documents%20on%20white%20background%20professional%20mail%20package%20scanned%20clean&width=600&height=360&seq=cdel-6&orientation=landscape",
-    aiSummary: "Annual financial reports delivered and confirmed received by Robert Taylor on June 11.",
-  },
-  {
-    id: "DEL-007",
-    mailSubject: "Client Correspondence - Proposal Documents",
-    deliveryAddress: "222 Enterprise Avenue, Building B, Boston, MA 02101",
-    courier: "FedEx 2Day",
-    trackingNumber: "FDX5566778899",
-    requestedAt: "Jun 11, 11:45 AM",
-    timeShort: "Jun 11",
-    status: "On the Way",
-    requestedBy: "Robert Taylor",
-    recipientName: "Jennifer Martinez",
-    recipientPhone: "+1 (617) 555-0176",
-    thumbnail:
-      "https://readdy.ai/api/search-image?query=business%20proposal%20envelope%20with%20client%20documents%20on%20white%20background%20professional%20mail%20package%20scanned&width=600&height=360&seq=cdel-7&orientation=landscape",
-    aiSummary:
-      "Client proposal documents in transit to Boston office. Two-day delivery service. Expected delivery tomorrow by end of day.",
-  },
-  {
-    id: "DEL-004",
-    mailSubject: "Insurance Policy Documents",
-    deliveryAddress: "321 Corporate Blvd, Suite 200, Chicago, IL 60601",
-    courier: "DHL Express",
-    trackingNumber: "DHL4456778899",
-    requestedAt: "Yesterday, 1:15 PM",
-    timeShort: "Yesterday",
-    status: "Failed",
-    requestedBy: "Emily Davis",
-    recipientName: "David Wilson",
-    recipientPhone: "+1 (312) 555-0145",
-    notes: "Recipient unavailable - package held at facility. Please arrange redelivery.",
-    thumbnail:
-      "https://readdy.ai/api/search-image?query=insurance%20document%20envelope%20with%20policy%20papers%20on%20white%20background%20professional%20mail%20package%20scanned&width=600&height=360&seq=cdel-4&orientation=landscape",
-    aiSummary:
-      "Delivery attempt failed - recipient not available at delivery address. Package held at local DHL facility.",
-  },
-];
-
 const statusConfig: Record<
   DeliveryStatus,
   { color: string; icon: string; bgBanner: string; textBanner: string; borderBanner: string }
@@ -187,7 +63,7 @@ const statusConfig: Record<
 };
 
 export default function CustomerDeliveryRequestsPage() {
-  const [requests, setRequests] = useState<CustomerDeliveryRequest[]>(mockDeliveries);
+  const [requests, setRequests] = useState<CustomerDeliveryRequest[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("All");
   const [search, setSearch] = useState("");
   const [selectedRequest, setSelectedRequest] = useState<CustomerDeliveryRequest | null>(null);

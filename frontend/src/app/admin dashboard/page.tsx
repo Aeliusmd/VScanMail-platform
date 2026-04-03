@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Icon } from '@iconify/react';
-import { mails, type Mail } from '../../mocks/mails';
+import type { Mail } from '@/types/mail';
 import MailRow from '../dashboard/mails/components/MailRow';
 import MailToolbar from '../dashboard/mails/components/MailToolbar';
 import ClickedMail from '../dashboard/mails/clickedmail/clickedmail';
@@ -11,10 +11,10 @@ import styles from './page.module.css';
 type TabType = 'All' | 'Processed' | 'Delivered' | 'Pending Delivery';
 
 const TABS: { label: TabType; count: number }[] = [
-  { label: 'All', count: 10 },
-  { label: 'Processed', count: 6 },
-  { label: 'Delivered', count: 3 },
-  { label: 'Pending Delivery', count: 1 },
+  { label: 'All', count: 0 },
+  { label: 'Processed', count: 0 },
+  { label: 'Delivered', count: 0 },
+  { label: 'Pending Delivery', count: 0 },
 ];
 
 const PER_PAGE = 10;
@@ -25,8 +25,9 @@ export default function AdminMailsPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [openedMail, setOpenedMail] = useState<Mail | null>(null);
+  const [mailList, setMailList] = useState<Mail[]>([]);
 
-  const filtered = mails.filter((m) => {
+  const filtered = mailList.filter((m) => {
     const matchTab =
       activeTab === 'All' ||
       (activeTab === 'Processed' && m.tag === 'Inbox') ||

@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
-import { deliveries, type DeliveryRequest } from '../../../mocks/deliveries';
+import type { DeliveryRequest } from '@/types/delivery';
 import DeliveryToolbar from './components/DeliveryToolbar';
 import DeliveryRow from './components/DeliveryRow';
 import ClickedDelivery from './components/ClickedDelivery';
@@ -31,7 +31,7 @@ function DeliveriesPageContent() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
 
-  const [requests, setRequests] = useState<DeliveryRequest[]>(deliveries);
+  const [requests, setRequests] = useState<DeliveryRequest[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [openedRequest, setOpenedRequest] = useState<DeliveryRequest | null>(null);
   const [actionFeedback, setActionFeedback] = useState<Record<string, string>>({});
@@ -52,15 +52,7 @@ function DeliveriesPageContent() {
     }
   }, [tabFromUrl, activeTab]);
 
-  const notifications = useMemo(
-    () => [
-      { id: 1, text: 'New delivery request created for Tech Solutions Inc', time: '5 mins ago', unread: true },
-      { id: 2, text: 'Tracking updated for Global Enterprises delivery', time: '12 mins ago', unread: true },
-      { id: 3, text: 'Delivery completed for Innovate Corp', time: '25 mins ago', unread: false },
-      { id: 4, text: 'Delivery attempt failed for Prime Industries', time: '1 hour ago', unread: false },
-    ],
-    []
-  );
+  const notifications: any[] = [];
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

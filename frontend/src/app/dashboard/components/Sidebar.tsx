@@ -4,11 +4,6 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Icon } from '@iconify/react';
-import { mails } from '../../../mocks/mails';
-import { companies } from '../../../mocks/companies';
-import { initialDepositRequests } from '../../../mocks/depositRequests';
-import { cheques } from '../../../mocks/cheques';
-import { deliveries } from '../../../mocks/deliveries';
 
 const navItems = [
   { icon: 'ri:dashboard-line', label: 'Dashboard', slug: '' },
@@ -118,7 +113,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     {
       icon: 'ri:inbox-line',
       label: 'All Mail',
-      count: mails.length,
+      count: 0,
       color: '#0F172A',
       bg: 'bg-[#F1F5F9]',
       fontWeight: 'font-semibold',
@@ -126,19 +121,19 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     {
       icon: 'ri:mail-check-line',
       label: 'Processed',
-      count: mails.filter((m) => m.tag === 'Inbox').length,
+      count: 0,
       color: '#0A3D8F',
     },
     {
       icon: 'ri:truck-line',
       label: 'Delivered',
-      count: mails.filter((m) => m.tag === 'Delivered').length,
+      count: 0,
       color: '#2F8F3A',
     },
     {
       icon: 'ri:time-line',
       label: 'Pending',
-      count: mails.filter((m) => m.tag === 'Pending').length,
+      count: 0,
       color: '#F59E0B',
     },
   ];
@@ -147,7 +142,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     {
       icon: 'ri:inbox-archive-line',
       label: 'All Cheques',
-      count: cheques.length,
+      count: 0,
       color: '#0F172A',
       bg: 'bg-[#F1F5F9]',
       fontWeight: 'font-semibold',
@@ -155,25 +150,25 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     {
       icon: 'ri:time-line',
       label: 'Pending',
-      count: cheques.filter((c) => c.status === 'Pending Deposit').length,
+      count: 0,
       color: '#F59E0B',
     },
     {
       icon: 'ri:checkbox-circle-line',
       label: 'Deposited',
-      count: cheques.filter((c) => c.status === 'Deposited').length,
+      count: 0,
       color: '#2F8F3A',
     },
     {
       icon: 'ri:close-circle-line',
       label: 'Rejected',
-      count: cheques.filter((c) => c.status === 'Rejected').length,
+      count: 0,
       color: '#EF4444',
     },
     {
       icon: 'ri:pause-circle-line',
       label: 'On Hold',
-      count: cheques.filter((c) => c.status === 'On Hold').length,
+      count: 0,
       color: '#64748B',
     },
   ];
@@ -182,7 +177,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     {
       icon: 'ri:building-line',
       label: 'All Companies',
-      count: companies.length,
+      count: 0,
       color: '#0F172A',
       bg: 'bg-[#F1F5F9]',
       fontWeight: 'font-semibold',
@@ -190,19 +185,19 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     {
       icon: 'ri:checkbox-circle-line',
       label: 'Active',
-      count: companies.filter((c) => c.status === 'Active').length,
+      count: 0,
       color: '#2F8F3A',
     },
     {
       icon: 'ri:time-line',
       label: 'Pending',
-      count: companies.filter((c) => c.status === 'Pending').length,
+      count: 0,
       color: '#F59E0B',
     },
     {
       icon: 'ri:pause-circle-line',
       label: 'Inactive',
-      count: companies.filter((c) => c.status === 'Inactive').length,
+      count: 0,
       color: '#64748B',
     },
   ];
@@ -211,7 +206,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     {
       icon: 'ri:inbox-archive-line',
       label: 'All Requests',
-      count: initialDepositRequests.length,
+      count: 0,
       color: '#0F172A',
       bg: 'bg-[#F1F5F9]',
       fontWeight: 'font-semibold',
@@ -219,25 +214,25 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     {
       icon: 'ri:time-line',
       label: 'Pending',
-      count: initialDepositRequests.filter((r) => r.status === 'Pending').length,
+      count: 0,
       color: '#F59E0B',
     },
     {
       icon: 'ri:checkbox-circle-line',
       label: 'Approved',
-      count: initialDepositRequests.filter((r) => r.status === 'Approved').length,
+      count: 0,
       color: '#2F8F3A',
     },
     {
       icon: 'ri:close-circle-line',
       label: 'Rejected',
-      count: initialDepositRequests.filter((r) => r.status === 'Rejected').length,
+      count: 0,
       color: '#EF4444',
     },
     {
       icon: 'ri:bank-line',
       label: 'Deposited',
-      count: initialDepositRequests.filter((r) => r.status === 'Deposited').length,
+      count: 0,
       color: '#0D9488',
     },
   ];
@@ -246,7 +241,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     {
       icon: 'ri:inbox-archive-line',
       label: 'All Requests',
-      count: deliveries.length,
+      count: 0,
       color: '#0F172A',
       bg: 'bg-[#F1F5F9]',
       fontWeight: 'font-semibold',
@@ -254,25 +249,25 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     {
       icon: 'ri:time-line',
       label: 'Pending',
-      count: deliveries.filter((d) => d.status === 'Pending').length,
+      count: 0,
       color: '#F59E0B',
     },
     {
       icon: 'ri:truck-line',
       label: 'In Transit',
-      count: deliveries.filter((d) => d.status === 'In Transit').length,
+      count: 0,
       color: '#0A3D8F',
     },
     {
       icon: 'ri:check-double-line',
       label: 'Delivered',
-      count: deliveries.filter((d) => d.status === 'Delivered').length,
+      count: 0,
       color: '#2F8F3A',
     },
     {
       icon: 'ri:close-circle-line',
       label: 'Failed',
-      count: deliveries.filter((d) => d.status === 'Failed').length,
+      count: 0,
       color: '#EF4444',
     },
   ];
@@ -292,57 +287,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   /** Count for the main nav badge when that route is active — reflects current `?tab=` filter. */
   const getMainNavBadgeCount = (slug: string): number | null => {
-    const tab = tabFromUrl ?? 'All';
-    switch (slug) {
-      case '':
-      case '/scan':
-        return null;
-      case '/mails': {
-        if (tab === 'All') return mails.length;
-        if (tab === 'Processed') return mails.filter((m) => m.tag === 'Inbox').length;
-        if (tab === 'Delivered') return mails.filter((m) => m.tag === 'Delivered').length;
-        if (tab === 'Pending Delivery') return mails.filter((m) => m.tag === 'Pending').length;
-        return mails.length;
-      }
-      case '/cheques': {
-        if (tab === 'All') return cheques.length;
-        if (tab === 'Pending Deposit')
-          return cheques.filter((c) => c.status === 'Pending Deposit').length;
-        if (tab === 'Deposited') return cheques.filter((c) => c.status === 'Deposited').length;
-        if (tab === 'Rejected') return cheques.filter((c) => c.status === 'Rejected').length;
-        if (tab === 'On Hold') return cheques.filter((c) => c.status === 'On Hold').length;
-        return cheques.length;
-      }
-      case '/companies': {
-        if (tab === 'All') return companies.length;
-        if (tab === 'Active') return companies.filter((c) => c.status === 'Active').length;
-        if (tab === 'Pending') return companies.filter((c) => c.status === 'Pending').length;
-        if (tab === 'Inactive') return companies.filter((c) => c.status === 'Inactive').length;
-        return companies.length;
-      }
-      case '/deposits': {
-        if (tab === 'All') return initialDepositRequests.length;
-        if (tab === 'Pending')
-          return initialDepositRequests.filter((r) => r.status === 'Pending').length;
-        if (tab === 'Approved')
-          return initialDepositRequests.filter((r) => r.status === 'Approved').length;
-        if (tab === 'Rejected')
-          return initialDepositRequests.filter((r) => r.status === 'Rejected').length;
-        if (tab === 'Deposited')
-          return initialDepositRequests.filter((r) => r.status === 'Deposited').length;
-        return initialDepositRequests.length;
-      }
-      case '/deliveries': {
-        if (tab === 'All') return deliveries.length;
-        if (tab === 'Pending') return deliveries.filter((d) => d.status === 'Pending').length;
-        if (tab === 'In Transit') return deliveries.filter((d) => d.status === 'In Transit').length;
-        if (tab === 'Delivered') return deliveries.filter((d) => d.status === 'Delivered').length;
-        if (tab === 'Failed') return deliveries.filter((d) => d.status === 'Failed').length;
-        return deliveries.length;
-      }
-      default:
-        return null;
-    }
+    return 0; // Return 0 as we're moving away from mock data
   };
 
   const getLabelColorClass = (color?: string) => {

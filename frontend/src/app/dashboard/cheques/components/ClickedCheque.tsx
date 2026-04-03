@@ -1,7 +1,7 @@
 "use client";
 
 import { Icon } from '@iconify/react';
-import type { Cheque } from '../../../../mocks/cheques';
+import type { Cheque } from '@/types/cheque';
 
 interface ClickedChequeProps {
   cheque: Cheque;

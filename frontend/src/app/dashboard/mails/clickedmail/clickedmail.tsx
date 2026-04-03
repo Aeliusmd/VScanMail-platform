@@ -1,6 +1,6 @@
 "use client";
 
-import type { Mail } from '../../../../mocks/mails';
+import type { Mail } from '@/types/mail';
 import { Icon } from '@iconify/react';
 import styles from './clickedmail.module.css';
 

@@ -19,105 +19,6 @@ interface CustomerDepositRequest {
   thumbnail: string;
 }
 
-const mockRequests: CustomerDepositRequest[] = [
-  {
-    id: "DEP-001",
-    bankName: "Bank of America",
-    chequeNumber: "004821",
-    amount: "$12,500.00",
-    requestedAt: "Today, 11:05 AM",
-    timeShort: "11:05 AM",
-    status: "Open Deposit Request",
-    requestedBy: "John Smith",
-    thumbnail:
-      "https://readdy.ai/api/search-image?query=business%20cheque%20document%20on%20white%20background%20with%20bank%20details%20amount%20and%20signature%20lines%20professional%20financial%20instrument%20scanned%20clean&width=600&height=360&seq=cdep-1&orientation=landscape",
-    notes: "Client requested expedited processing",
-  },
-  {
-    id: "DEP-002",
-    bankName: "Chase Bank",
-    chequeNumber: "009134",
-    amount: "$47,200.00",
-    requestedAt: "Today, 09:48 AM",
-    timeShort: "9:48 AM",
-    status: "Processing",
-    requestedBy: "Sarah Johnson",
-    depositDate: "2026/03/25",
-    thumbnail:
-      "https://readdy.ai/api/search-image?query=bank%20cheque%20financial%20document%20on%20white%20background%20with%20printed%20amount%20payee%20name%20and%20routing%20number%20professional%20scanned%20document&width=600&height=360&seq=cdep-2&orientation=landscape",
-  },
-  {
-    id: "DEP-006",
-    bankName: "US Bank",
-    chequeNumber: "011042",
-    amount: "$65,000.00",
-    requestedAt: "Jun 11, 4:20 PM",
-    timeShort: "Jun 11",
-    status: "Deposited",
-    requestedBy: "Lisa Anderson",
-    depositDate: "2026/03/20",
-    depositSlipUrl:
-      "https://readdy.ai/api/search-image?query=scanned%20deposit%20slip%20bank%20receipt%20document%20on%20white%20background%20with%20transaction%20details%20professional%20clean%20scan&width=600&height=400&seq=cdep-slip-1&orientation=portrait",
-    thumbnail:
-      "https://readdy.ai/api/search-image?query=large%20value%20cheque%20document%20on%20white%20background%20with%20bank%20details%20amount%20payee%20and%20date%20professional%20financial%20instrument%20scanned%20clean&width=600&height=360&seq=cdep-6&orientation=landscape",
-  },
-  {
-    id: "DEP-003",
-    bankName: "Wells Fargo",
-    chequeNumber: "002267",
-    amount: "$8,750.00",
-    requestedAt: "Yesterday, 3:30 PM",
-    timeShort: "Yesterday",
-    status: "Open Deposit Request",
-    requestedBy: "Michael Chen",
-    thumbnail:
-      "https://readdy.ai/api/search-image?query=corporate%20cheque%20document%20on%20white%20paper%20with%20bank%20logo%20amount%20field%20and%20memo%20line%20professional%20financial%20instrument%20clean%20scan&width=600&height=360&seq=cdep-3&orientation=landscape",
-  },
-  {
-    id: "DEP-004",
-    bankName: "Citibank",
-    chequeNumber: "007755",
-    amount: "$3,300.00",
-    requestedAt: "Yesterday, 1:15 PM",
-    timeShort: "Yesterday",
-    status: "Rejected",
-    requestedBy: "Emily Davis",
-    notes: "Signature verification failed - please resubmit with correct documents",
-    thumbnail:
-      "https://readdy.ai/api/search-image?query=rejected%20cheque%20document%20on%20white%20background%20with%20bank%20details%20and%20amount%20professional%20financial%20document%20scanned%20with%20visible%20details&width=600&height=360&seq=cdep-4&orientation=landscape",
-  },
-  {
-    id: "DEP-008",
-    bankName: "Regions Bank",
-    chequeNumber: "008877",
-    amount: "$33,400.00",
-    requestedAt: "Jun 10, 2:00 PM",
-    timeShort: "Jun 10",
-    status: "Deposited",
-    requestedBy: "Jennifer Martinez",
-    depositDate: "2026/03/22",
-    depositSlipUrl:
-      "https://readdy.ai/api/search-image?query=bank%20deposit%20confirmation%20slip%20receipt%20document%20clean%20white%20background%20with%20transaction%20amount%20date%20and%20reference%20number&width=600&height=400&seq=cdep-slip-2&orientation=portrait",
-    thumbnail:
-      "https://readdy.ai/api/search-image?query=corporate%20cheque%20document%20on%20white%20background%20with%20regions%20bank%20details%20amount%20and%20signature%20professional%20financial%20instrument%20scanned&width=600&height=360&seq=cdep-8&orientation=landscape",
-  },
-  {
-    id: "DEP-010",
-    bankName: "Truist Bank",
-    chequeNumber: "013456",
-    amount: "$28,900.00",
-    requestedAt: "Jun 8, 9:30 AM",
-    timeShort: "Jun 8",
-    status: "Deposited",
-    requestedBy: "Amanda White",
-    depositDate: "2026/03/18",
-    depositSlipUrl:
-      "https://readdy.ai/api/search-image?query=truist%20bank%20deposit%20slip%20scanned%20document%20receipt%20white%20background%20transaction%20confirmation%20professional%20clean&width=600&height=400&seq=cdep-slip-3&orientation=portrait",
-    thumbnail:
-      "https://readdy.ai/api/search-image?query=truist%20bank%20cheque%20document%20on%20white%20background%20with%20amount%20payee%20routing%20number%20professional%20financial%20instrument%20scanned%20clean&width=600&height=360&seq=cdep-10&orientation=landscape",
-  },
-];
-
 const statusConfig: Record<DepositStatus, { color: string; icon: string; label: string }> = {
   "Open Deposit Request": { color: "bg-amber-100 text-amber-700", icon: "ri-time-line", label: "Open Deposit Request" },
   Processing: { color: "bg-blue-100 text-blue-700", icon: "ri-loader-3-line", label: "Processing" },
@@ -126,7 +27,7 @@ const statusConfig: Record<DepositStatus, { color: string; icon: string; label: 
 };
 
 export default function CustomerDepositRequestsPage() {
-  const [requests] = useState<CustomerDepositRequest[]>(mockRequests);
+  const [requests] = useState<CustomerDepositRequest[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("All");
   const [search, setSearch] = useState("");
   const [selectedRequest, setSelectedRequest] = useState<CustomerDepositRequest | null>(null);

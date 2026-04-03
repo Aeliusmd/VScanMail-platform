@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Icon } from '@iconify/react';
-import type { Mail } from '../../../../mocks/mails';
+import type { Mail } from '@/types/mail';
 import styles from './MailRow.module.css';
 
 interface MailRowProps {

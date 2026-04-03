@@ -4,10 +4,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Icon } from '@iconify/react';
-import {
-  initialDepositRequests,
-  type DepositRequest,
-} from '../../../mocks/depositRequests';
+import type { DepositRequest } from '@/types/deposit';
 
 const statusColors: Record<DepositRequest['status'], string> = {
   Pending: 'bg-amber-100 text-amber-700',
@@ -54,7 +51,7 @@ function DepositsPageContent() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedRequest, setSelectedRequest] = useState<DepositRequest | null>(null);
-  const [requests, setRequests] = useState<DepositRequest[]>(initialDepositRequests);
+  const [requests, setRequests] = useState<DepositRequest[]>([]);
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [allChecked, setAllChecked] = useState(false);
 
@@ -268,11 +265,7 @@ function DepositsPageContent() {
   const countForStatus = (s: StatusTab) =>
     s === 'All' ? requests.length : requests.filter((r) => r.status === s).length;
 
-  const notifications = [
-    { id: 1, text: 'Deposit approved for Tech Solutions Inc', time: '5 mins ago', unread: true },
-    { id: 2, text: 'Pending deposit review for Summit LLC', time: '12 mins ago', unread: true },
-    { id: 3, text: 'Rejected deposit requires action', time: '25 mins ago', unread: false },
-  ];
+  const notifications: any[] = [];
 
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-white">

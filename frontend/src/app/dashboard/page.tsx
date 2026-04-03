@@ -12,32 +12,32 @@ export default function DashboardOverview() {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
           title="Total Mails"
-          value="1,247"
-          subtitle="+12% from last month"
+          value="0"
+          subtitle="No mails yet"
           iconifyId="ri:mail-line"
           iconBg="bg-orange-100"
           iconColor="text-orange-500"
         />
         <StatCard
           title="Total Cheques"
-          value="384"
-          subtitle="+8% from last month"
+          value="0"
+          subtitle="No cheques yet"
           iconifyId="iconamoon:cheque"
           iconBg="bg-green-100"
           iconColor="text-green-500"
         />
         <StatCard
           title="Active Companies"
-          value="1,89"
-          subtitle="+5 new this month"
+          value="0"
+          subtitle="No companies yet"
           iconifyId="mdi:company"
           iconBg="bg-[#DBEAFE]"
           iconColor="text-[#1E40AF]"
         />
         <StatCard
           title="Pending Requests"
-          value="6"
-          subtitle="Requires attention"
+          value="0"
+          subtitle="No pending requests"
           iconifyId="ri:time-line"
           iconBg="bg-red-100"
           iconColor="text-red-400"

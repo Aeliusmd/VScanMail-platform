@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
-import { companies, type Company } from '../../../mocks/companies';
+import type { Company } from '@/types/company';
 import CompanyToolbar from './components/CompanyToolbar';
 import CompanyRow from './components/CompanyRow';
 import ClickedCompany from './components/ClickedCompany';
@@ -25,15 +25,18 @@ export default function CompaniesPage() {
 
 function CompaniesPageContent() {
   const [activeTab, setActiveTab] = useState<TabType>('All');
-  const [companyList, setCompanyList] = useState<Company[]>(companies);
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [companyList, setCompanyList] = useState<Company[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [openedCompany, setOpenedCompany] = useState<Company | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [addLoading, setAddLoading] = useState(false);
   const [addSuccess, setAddSuccess] = useState(false);
+  const [addError, setAddError] = useState('');
   const [newCompany, setNewCompany] = useState({
     name: '',
     industry: 'Technology',
@@ -51,6 +54,30 @@ function CompaniesPageContent() {
   const router = useRouter();
   const pathname = usePathname();
   const isSuperadminRoute = pathname.startsWith('/superadmin');
+
+  // Fetch companies on mount
+  useEffect(() => {
+    fetchCompanies();
+  }, []);
+
+  const fetchCompanies = async () => {
+    try {
+      setLoading(true);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('vscanmail_token') : null;
+      const res = await fetch('/api/clients/manual', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!res.ok) throw new Error('Failed to fetch companies');
+      const data = await res.json();
+      setCompanyList(data.companies || []);
+    } catch (error) {
+      console.error('Error fetching companies:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!tabFromUrl) return;
@@ -75,7 +102,7 @@ function CompaniesPageContent() {
 
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
-  const handleSelect = (id: number) => {
+  const handleSelect = (id: string) => {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
@@ -97,53 +124,68 @@ function CompaniesPageContent() {
     Retail: 'bg-pink-100 text-pink-700',
   };
 
-  const handleAddCompany = () => {
+  const handleAddCompany = async () => {
     if (!newCompany.name || !newCompany.email) return;
 
-    const nextId = companyList.length ? Math.max(...companyList.map((c) => c.id)) + 1 : 1;
-    const now = new Date();
-    const created: Company = {
-      id: nextId,
-      starred: false,
-      flagged: false,
-      name: newCompany.name,
-      initial: newCompany.name.charAt(0).toUpperCase(),
-      avatarColor: 'bg-[#0A3D8F]',
-      industry: newCompany.industry,
-      industryBadge: industryColors[newCompany.industry] ?? 'bg-slate-100 text-slate-700',
-      contact: newCompany.contactPerson || 'N/A',
-      email: newCompany.email,
-      mails: 0,
-      cheques: 0,
-      status: newCompany.status,
-      time: 'Just now',
-      joined: now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      phone: newCompany.phone || 'N/A',
-      address: newCompany.address || 'N/A',
-      chequeValue: 0,
-      notes: newCompany.notes || 'No notes added.',
-      lastActivity: 'Just now',
-    };
+    try {
+      setAddLoading(true);
+      setAddError('');
+      
+      const payload = {
+        companyName: newCompany.name,
+        industry: newCompany.industry,
+        email: newCompany.email,
+        phone: newCompany.phone,
+        status: newCompany.status.toLowerCase(),
+        website: newCompany.website,
+        address: newCompany.address,
+        contactPerson: newCompany.contactPerson,
+        notes: newCompany.notes,
+      };
 
-    setCompanyList((prev) => [created, ...prev]);
-    setAddSuccess(true);
-    window.setTimeout(() => {
-      setShowAddModal(false);
-      setAddSuccess(false);
-      setNewCompany({
-        name: '',
-        industry: 'Technology',
-        status: 'Pending',
-        website: '',
-        address: '',
-        email: '',
-        contactPerson: '',
-        phone: '',
-        notes: '',
+      const token = typeof window !== 'undefined' ? localStorage.getItem('vscanmail_token') : null;
+      const res = await fetch('/api/clients/manual', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload),
       });
-      setActiveTab('All');
-      setPage(1);
-    }, 900);
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to add company');
+      }
+
+      const { company: created } = await res.json();
+
+      setCompanyList((prev) => [created, ...prev]);
+      setAddSuccess(true);
+      
+      window.setTimeout(() => {
+        setShowAddModal(false);
+        setAddSuccess(false);
+        setNewCompany({
+          name: '',
+          industry: 'Technology',
+          status: 'Pending',
+          website: '',
+          address: '',
+          email: '',
+          contactPerson: '',
+          phone: '',
+          notes: '',
+        });
+        setActiveTab('All');
+        setPage(1);
+      }, 900);
+    } catch (error: any) {
+      console.error('Error adding company:', error);
+      setAddError(error.message);
+    } finally {
+      setAddLoading(false);
+    }
   };
 
   return (
@@ -170,6 +212,7 @@ function CompaniesPageContent() {
             className={styles.addBtn}
             onClick={() => {
               setAddSuccess(false);
+              setAddError('');
               setShowAddModal(true);
             }}
           >
@@ -272,7 +315,12 @@ function CompaniesPageContent() {
 
       <div className={styles.listContainer}>
         <div className={styles.listInner}>
-        {paginated.length === 0 ? (
+        {loading ? (
+          <div className="flex flex-col items-center justify-center h-64 space-y-4">
+            <div className="w-8 h-8 border-4 border-[#0A3D8F] border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm text-slate-500 font-medium">Loading companies...</p>
+          </div>
+        ) : paginated.length === 0 ? (
           <div className={styles.emptyState}>
             <div className={styles.emptyIcon}><Icon icon="ri:building-line" className="text-3xl" /></div>
             <p className={styles.emptyText}>No companies found</p>
@@ -325,6 +373,15 @@ function CompaniesPageContent() {
               </div>
             ) : (
               <div className="flex-1 overflow-y-auto px-7 py-6 space-y-7">
+                {addError && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start space-x-3">
+                    <i className="ri-error-warning-line text-red-500 text-lg mt-0.5"></i>
+                    <div className="flex-1">
+                      <p className="text-sm font-bold text-red-900">Error Adding Company</p>
+                      <p className="text-xs text-red-700 mt-0.5">{addError}</p>
+                    </div>
+                  </div>
+                )}
                 <div>
                   <div className="flex items-center space-x-2 mb-4">
                     <div className="w-6 h-6 bg-[#0A3D8F] rounded-md flex items-center justify-center flex-shrink-0">
@@ -335,12 +392,12 @@ function CompaniesPageContent() {
                   <div className="space-y-4">
                     <div>
                       <label className="block text-xs font-semibold text-slate-600 mb-1.5">Company Name <span className="text-red-500">*</span></label>
-                      <input type="text" value={newCompany.name} onChange={(e) => setNewCompany((p) => ({ ...p, name: e.target.value }))} placeholder="e.g. Acme Corporation" className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all" />
+                      <input type="text" value={newCompany.name} onChange={(e) => setNewCompany((p) => ({ ...p, name: e.target.value }))} placeholder="e.g. Acme Corporation" className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all shadow-sm" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label htmlFor="companyIndustry" className="block text-xs font-semibold text-slate-600 mb-1.5">Industry</label>
-                        <select id="companyIndustry" value={newCompany.industry} onChange={(e) => setNewCompany((p) => ({ ...p, industry: e.target.value }))} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all bg-white cursor-pointer">
+                        <select id="companyIndustry" value={newCompany.industry} onChange={(e) => setNewCompany((p) => ({ ...p, industry: e.target.value }))} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all bg-white cursor-pointer shadow-sm">
                           {Object.keys(industryColors).map((ind) => (
                             <option key={ind} value={ind}>{ind}</option>
                           ))}
@@ -348,7 +405,7 @@ function CompaniesPageContent() {
                       </div>
                       <div>
                         <label htmlFor="companyStatus" className="block text-xs font-semibold text-slate-600 mb-1.5">Initial Status</label>
-                        <select id="companyStatus" value={newCompany.status} onChange={(e) => setNewCompany((p) => ({ ...p, status: e.target.value as Company['status'] }))} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all bg-white cursor-pointer">
+                        <select id="companyStatus" value={newCompany.status} onChange={(e) => setNewCompany((p) => ({ ...p, status: e.target.value as Company['status'] }))} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all bg-white cursor-pointer shadow-sm">
                           <option value="Pending">Pending</option>
                           <option value="Active">Active</option>
                           <option value="Inactive">Inactive</option>
@@ -359,12 +416,12 @@ function CompaniesPageContent() {
                       <label className="block text-xs font-semibold text-slate-600 mb-1.5">Website</label>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-medium">https://</span>
-                        <input type="text" value={newCompany.website} onChange={(e) => setNewCompany((p) => ({ ...p, website: e.target.value }))} placeholder="www.company.com" className="w-full pl-16 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all" />
+                        <input type="text" value={newCompany.website} onChange={(e) => setNewCompany((p) => ({ ...p, website: e.target.value }))} placeholder="www.company.com" className="w-full pl-16 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all shadow-sm" />
                       </div>
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-slate-600 mb-1.5">Address</label>
-                      <input type="text" value={newCompany.address} onChange={(e) => setNewCompany((p) => ({ ...p, address: e.target.value }))} placeholder="Street, City, State, ZIP" className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all" />
+                      <input type="text" value={newCompany.address} onChange={(e) => setNewCompany((p) => ({ ...p, address: e.target.value }))} placeholder="Street, City, State, ZIP" className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all shadow-sm" />
                     </div>
                   </div>
                 </div>
@@ -383,19 +440,19 @@ function CompaniesPageContent() {
                       <label className="block text-xs font-semibold text-slate-600 mb-1.5">Email Address <span className="text-red-500">*</span></label>
                       <div className="relative">
                         <i className="ri-mail-line absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-base"></i>
-                        <input type="email" value={newCompany.email} onChange={(e) => setNewCompany((p) => ({ ...p, email: e.target.value }))} placeholder="info@company.com" className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all" />
+                        <input type="email" value={newCompany.email} onChange={(e) => setNewCompany((p) => ({ ...p, email: e.target.value }))} placeholder="info@company.com" className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all shadow-sm" />
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-xs font-semibold text-slate-600 mb-1.5">Contact Person</label>
-                        <input type="text" value={newCompany.contactPerson} onChange={(e) => setNewCompany((p) => ({ ...p, contactPerson: e.target.value }))} placeholder="Full name" className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all" />
+                        <input type="text" value={newCompany.contactPerson} onChange={(e) => setNewCompany((p) => ({ ...p, contactPerson: e.target.value }))} placeholder="Full name" className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all shadow-sm" />
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-slate-600 mb-1.5">Phone</label>
                         <div className="relative">
                           <i className="ri-phone-line absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-base"></i>
-                          <input type="text" value={newCompany.phone} onChange={(e) => setNewCompany((p) => ({ ...p, phone: e.target.value }))} placeholder="+1 (000) 000-0000" className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all" />
+                          <input type="text" value={newCompany.phone} onChange={(e) => setNewCompany((p) => ({ ...p, phone: e.target.value }))} placeholder="+1 (000) 000-0000" className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all shadow-sm" />
                         </div>
                       </div>
                     </div>
@@ -411,7 +468,7 @@ function CompaniesPageContent() {
                     </div>
                     <h3 className="text-sm font-bold text-slate-800">Notes & Instructions</h3>
                   </div>
-                  <textarea value={newCompany.notes} onChange={(e) => setNewCompany((p) => ({ ...p, notes: e.target.value }))} placeholder="Any special handling instructions, preferences, or important notes about this company..." rows={4} maxLength={500} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all resize-none" />
+                  <textarea value={newCompany.notes} onChange={(e) => setNewCompany((p) => ({ ...p, notes: e.target.value }))} placeholder="Any special handling instructions, preferences, or important notes about this company..." rows={4} maxLength={500} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all resize-none shadow-sm" />
                   <p className="text-xs text-slate-400 mt-1 text-right">{newCompany.notes.length}/500</p>
                 </div>
               </div>
@@ -434,12 +491,22 @@ function CompaniesPageContent() {
                   )}
                 </div>
                 <div className="flex items-center space-x-3">
-                  <button onClick={() => setShowAddModal(false)} className="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 font-semibold rounded-xl hover:bg-slate-50 transition-colors text-sm whitespace-nowrap cursor-pointer">
+                  <button onClick={() => setShowAddModal(false)} className="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 font-semibold rounded-xl hover:bg-slate-50 transition-colors text-sm whitespace-nowrap cursor-pointer shadow-sm">
                     Cancel
                   </button>
-                  <button onClick={handleAddCompany} disabled={!newCompany.name || !newCompany.email} className="flex-1 py-2.5 bg-[#0A3D8F] text-white font-bold rounded-xl hover:bg-[#083170] transition-colors text-sm whitespace-nowrap cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center space-x-2">
-                    <i className="ri-building-line text-base"></i>
-                    <span>Add Company</span>
+                  <button 
+                    onClick={handleAddCompany} 
+                    disabled={!newCompany.name || !newCompany.email || addLoading} 
+                    className="flex-1 py-2.5 bg-[#0A3D8F] text-white font-bold rounded-xl hover:bg-[#083170] transition-colors text-sm whitespace-nowrap cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center space-x-2 shadow-md hover:shadow-lg active:scale-[0.98]"
+                  >
+                    {addLoading ? (
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <>
+                        <i className="ri-building-line text-base"></i>
+                        <span>Add Company</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>

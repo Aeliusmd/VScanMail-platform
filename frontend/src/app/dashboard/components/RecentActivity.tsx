@@ -1,15 +1,7 @@
 import { Icon } from '@iconify/react';
 import Link from 'next/link';
 
-const activities = [
-  { id: 1, company: 'Tech Solutions Inc', type: 'Mail', time: '5 mins ago', status: 'Processed', statusColor: 'bg-[#DBEAFE] text-[#1E40AF]', icon: 'ri:mail-line' },
-  { id: 2, company: 'Global Enterprises', type: 'Cheque', time: '12 mins ago', status: 'Pending', statusColor: 'bg-yellow-100 text-yellow-700', icon: 'iconamoon:cheque' },
-  { id: 3, company: 'Innovate Corp', type: 'Mail', time: '25 mins ago', status: 'Delivered', statusColor: 'bg-green-100 text-green-700', icon: 'ri:mail-line' },
-  { id: 4, company: 'Prime Industries', type: 'Cheque', time: '1 hour ago', status: 'Deposited', statusColor: 'bg-purple-100 text-purple-700', icon: 'iconamoon:cheque' },
-  { id: 5, company: 'Summit LLC', type: 'Mail', time: '2 hours ago', status: 'Processed', statusColor: 'bg-[#DBEAFE] text-[#1E40AF]', icon: 'ri:mail-line' },
-  { id: 6, company: 'Apex Holdings', type: 'Mail', time: '3 hours ago', status: 'Pending', statusColor: 'bg-yellow-100 text-yellow-700', icon: 'ri:mail-line' },
-  { id: 7, company: 'Nexus Corp', type: 'Cheque', time: '4 hours ago', status: 'Deposited', statusColor: 'bg-purple-100 text-purple-700', icon: 'iconamoon:cheque' },
-];
+const activities: any[] = [];
 
 export default function RecentActivity() {
   return (

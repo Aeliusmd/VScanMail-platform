@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Icon } from '@iconify/react';
-import type { Deposit } from '../../../../mocks/deposits';
+import type { Deposit } from '@/types/deposit';
 
 interface DepositRowProps {
   deposit: Deposit;

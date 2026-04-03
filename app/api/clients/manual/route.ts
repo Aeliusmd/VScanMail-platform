@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
       phone: data.phone || "",
       address_json: { street: data.address || "", city: "", state: "", zip: "", country: "" },
       client_type: "manual",
-      status: (data.status as any) || "active",
+      status: (data.status?.toLowerCase() as any) || "pending",
       added_by: user.id,
       notes: data.notes || null,
     });

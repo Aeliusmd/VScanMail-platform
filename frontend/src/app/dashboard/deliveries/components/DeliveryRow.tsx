@@ -2,7 +2,7 @@
 
 import { Icon } from '@iconify/react';
 import { useMemo } from 'react';
-import type { DeliveryRequest } from '../../../../mocks/deliveries';
+import type { DeliveryRequest } from '@/types/delivery';
 
 interface DeliveryRowProps {
   request: DeliveryRequest;
