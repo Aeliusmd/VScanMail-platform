@@ -13,7 +13,7 @@ export default function CustomerLogin() {
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    router.push("/customer-dashboard/dashboard");
+    router.push("/customer/dashboard");
   };
 
   return (
@@ -26,7 +26,7 @@ export default function CustomerLogin() {
         </div>
 
         <div className="relative z-10">
-          <Link href="/customer-dashboard">
+          <Link href="/customer">
             <img
               src="\images\A-4.png"
               alt="VScan Mail"
@@ -81,7 +81,7 @@ export default function CustomerLogin() {
       <div className="flex-1 flex items-center justify-center p-8 bg-gray-50">
         <div className="w-full max-w-md">
           <div className="lg:hidden mb-8 text-center">
-            <Link href="/customer-dashboard">
+            <Link href="/customer">
               <div className="flex justify-center">
                 <img
                   src="/images/A-4.png"
@@ -177,7 +177,7 @@ export default function CustomerLogin() {
               <p className="text-sm text-gray-600">
                 Don&apos;t have an account?{" "}
                 <Link
-                  href="/customer-dashboard/register"
+                  href="/customer/register"
                   className="font-medium text-[#0A3D8F] hover:text-[#083170] whitespace-nowrap"
                 >
                   Register your company

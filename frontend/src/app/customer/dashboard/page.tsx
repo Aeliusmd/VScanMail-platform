@@ -58,13 +58,13 @@ export default function CustomerDashboard() {
 
               <div className="hidden md:flex items-center gap-3">
                 <Link
-                  href="/customer-dashboard/mails"
+                  href="/customer/mails"
                   className="flex items-center gap-2 px-4 py-2.5 bg-white/15 hover:bg-white/25 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
                 >
                   <i className="ri-mail-line" /> View Mails
                 </Link>
                 <Link
-                  href="/customer-dashboard/cheques"
+                  href="/customer/cheques"
                   className="flex items-center gap-2 px-4 py-2.5 bg-white/15 hover:bg-white/25 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
                 >
                   <i className="ri-bank-card-line" /> View Cheques
@@ -123,7 +123,7 @@ export default function CustomerDashboard() {
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-1">2</h3>
               <p className="text-sm text-gray-500">Bank Accounts</p>
-              <Link href="/customer-dashboard/account" className="text-xs text-[#0A3D8F] mt-1 font-medium hover:underline">
+              <Link href="/customer/account" className="text-xs text-[#0A3D8F] mt-1 font-medium hover:underline">
                 Manage
               </Link>
             </div>
@@ -136,7 +136,7 @@ export default function CustomerDashboard() {
               <div className="p-5 border-b border-gray-200 flex items-center justify-between">
                 <h2 className="text-base font-bold text-gray-900">Recent Mails</h2>
                 <Link
-                  href="/customer-dashboard/mails"
+                  href="/customer/mails"
                   className="text-sm text-[#0A3D8F] hover:text-[#083170] font-medium whitespace-nowrap"
                 >
                   View all <i className="ri-arrow-right-line" />
@@ -145,7 +145,7 @@ export default function CustomerDashboard() {
               <div className="divide-y divide-gray-100">
                 {recentMails.map((mail) => (
                   <Link
-                    href="/customer-dashboard/mails"
+                    href="/customer/mails"
                     key={mail.id}
                     className="flex gap-4 p-4 hover:bg-gray-50 cursor-pointer block"
                   >
@@ -187,7 +187,7 @@ export default function CustomerDashboard() {
               <div className="p-5 border-b border-gray-200 flex items-center justify-between">
                 <h2 className="text-base font-bold text-gray-900">Pending Cheque Actions</h2>
                 <Link
-                  href="/customer-dashboard/cheques"
+                  href="/customer/cheques"
                   className="text-sm text-[#0A3D8F] hover:text-[#083170] font-medium whitespace-nowrap"
                 >
                   View all <i className="ri-arrow-right-line" />
@@ -212,13 +212,13 @@ export default function CustomerDashboard() {
                     </div>
                     <div className="flex gap-2 flex-wrap">
                       <Link
-                        href="/customer-dashboard/cheques"
+                        href="/customer/cheques"
                         className="flex-1 min-w-[150px] flex items-center justify-center gap-1.5 bg-[#2F8F3A] text-white px-3 py-2 rounded-lg text-xs font-medium hover:bg-[#267a2f] transition-colors whitespace-nowrap cursor-pointer"
                       >
                         <i className="ri-bank-line" /> Deposit
                       </Link>
                       <Link
-                        href="/customer-dashboard/cheques"
+                        href="/customer/cheques"
                         className="flex-1 min-w-[150px] flex items-center justify-center gap-1.5 bg-gray-100 text-gray-700 px-3 py-2 rounded-lg text-xs font-medium hover:bg-gray-200 transition-colors whitespace-nowrap cursor-pointer"
                       >
                         <i className="ri-hand-coin-line" /> Request Pickup
@@ -235,7 +235,7 @@ export default function CustomerDashboard() {
             <h2 className="text-base font-bold text-gray-900 mb-4">Quick Actions</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Link
-                href="/customer-dashboard/mails"
+                href="/customer/mails"
                 className="flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:border-[#0A3D8F] hover:bg-blue-50/50 transition-all cursor-pointer group"
               >
                 <div className="w-11 h-11 rounded-lg bg-blue-50 group-hover:bg-blue-100 flex items-center justify-center flex-shrink-0 transition-colors">
@@ -249,7 +249,7 @@ export default function CustomerDashboard() {
               </Link>
 
               <Link
-                href="/customer-dashboard/cheques"
+                href="/customer/cheques"
                 className="flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:border-[#2F8F3A] hover:bg-green-50/50 transition-all cursor-pointer group"
               >
                 <div className="w-11 h-11 rounded-lg bg-green-50 group-hover:bg-green-100 flex items-center justify-center flex-shrink-0 transition-colors">
@@ -263,7 +263,7 @@ export default function CustomerDashboard() {
               </Link>
 
               <Link
-                href="/customer-dashboard/account"
+                href="/customer/account"
                 className="flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:border-indigo-500 hover:bg-indigo-50/50 transition-all cursor-pointer group"
               >
                 <div className="w-11 h-11 rounded-lg bg-indigo-50 group-hover:bg-indigo-100 flex items-center justify-center flex-shrink-0 transition-colors">

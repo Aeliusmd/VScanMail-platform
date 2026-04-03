@@ -195,7 +195,7 @@ export default function SuperAdminLoginPage() {
                 Admin Login
               </Link>
               <Link
-                href="/customer-dashboard/login"
+                href="/customer/login"
                 className="text-xs text-slate-500 hover:text-slate-700 flex items-center justify-center gap-1 py-1.5 sm:py-0"
               >
                 <i className="ri-user-line"></i>

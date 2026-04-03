@@ -84,7 +84,7 @@ export default function CustomerRegister() {
       if (response.ok) {
         setSubmitStatus('success');
         setTimeout(() => {
-          router.push("/customer-dashboard/dashboard");
+          router.push("/customer/dashboard");
         }, 2000);
       } else {
         setSubmitStatus('error');
@@ -108,7 +108,7 @@ export default function CustomerRegister() {
         </div>
 
         <div className="relative z-10">
-          <Link href="/customer-dashboard">
+          <Link href="/customer">
             <img
               src="\images\A-4.png"
               alt="VScan Mail"
@@ -177,7 +177,7 @@ export default function CustomerRegister() {
         <div className="w-full max-w-2xl">
           {/* Mobile Logo */}
           <div className="lg:hidden mb-8 text-center">
-            <Link href="/customer-dashboard">
+            <Link href="/customer">
               <div className="flex justify-center">
                 <img
                   src="/images/A-4.png"
@@ -647,7 +647,7 @@ export default function CustomerRegister() {
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
               Already have an account?{' '}
-              <Link href="/customer-dashboard/login" className="font-medium text-[#0A3D8F] hover:text-[#083170] whitespace-nowrap">
+              <Link href="/customer/login" className="font-medium text-[#0A3D8F] hover:text-[#083170] whitespace-nowrap">
                 Sign in here
               </Link>
             </p>

@@ -42,12 +42,12 @@ const notifications = [
 ];
 
 const navLinks = [
-  { label: "Dashboard", href: "/customer-dashboard/dashboard", icon: "ri-dashboard-line" },
-  { label: "Mails", href: "/customer-dashboard/mails", icon: "ri-mail-line" },
-  { label: "Cheques", href: "/customer-dashboard/cheques", icon: "ri-bank-card-line" },
-  { label: "Deposits", href: "/customer-dashboard/deposits", icon: "ri-exchange-dollar-line" },
-  { label: "Deliveries", href: "/customer-dashboard/deliveries", icon: "ri-truck-line" },
-  { label: "Account", href: "/customer-dashboard/account", icon: "ri-user-settings-line" },
+  { label: "Dashboard", href: "/customer/dashboard", icon: "ri-dashboard-line" },
+  { label: "Mails", href: "/customer/mails", icon: "ri-mail-line" },
+  { label: "Cheques", href: "/customer/cheques", icon: "ri-bank-card-line" },
+  { label: "Deposits", href: "/customer/deposits", icon: "ri-exchange-dollar-line" },
+  { label: "Deliveries", href: "/customer/deliveries", icon: "ri-truck-line" },
+  { label: "Account", href: "/customer/account", icon: "ri-user-settings-line" },
 ] as const;
 
 const accentBorder: Record<NotificationAccent, string> = {
@@ -58,7 +58,7 @@ const accentBorder: Record<NotificationAccent, string> = {
 };
 
 function isNavActive(pathname: string, href: string) {
-  if (href === "/customer-dashboard/dashboard") {
+  if (href === "/customer/dashboard") {
     return pathname === href;
   }
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -112,7 +112,7 @@ export default function CustomerNav() {
               <i className={`text-xl ${mobileOpen ? "ri-close-line" : "ri-menu-line"}`} aria-hidden />
             </button>
 
-            <Link href="/customer-dashboard/dashboard" className="flex items-center flex-shrink-0">
+            <Link href="/customer/dashboard" className="flex items-center flex-shrink-0">
               <img
                 src="/images/A-4.png"
                 alt="VScan Mail"
@@ -231,7 +231,7 @@ export default function CustomerNav() {
                     <p className="text-xs text-gray-500">acme@company.com</p>
                   </div>
                   <Link
-                    href="/customer-dashboard/account"
+                    href="/customer/account"
                     className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 cursor-pointer"
                     onClick={closePanels}
                   >
@@ -251,7 +251,7 @@ export default function CustomerNav() {
                   </button>
                   <div className="border-t border-gray-200 mt-1 pt-1">
                     <Link
-                      href="/customer-dashboard/login"
+                      href="/customer/login"
                       className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3 cursor-pointer"
                       onClick={closePanels}
                     >
