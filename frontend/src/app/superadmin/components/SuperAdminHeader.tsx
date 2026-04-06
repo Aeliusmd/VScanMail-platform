@@ -70,6 +70,46 @@ export default function SuperAdminHeader({
   const notificationsBtnRef = useRef<HTMLButtonElement>(null);
   const profileBtnRef = useRef<HTMLButtonElement>(null);
 
+  const [userData, setUserData] = useState<{ firstName: string, lastName: string, avatarUrl: string, email: string, role: string } | null>(null);
+
+  const fetchUserProfile = async () => {
+    // We can't use server actions directly in a component that might be rendered deeply without care, 
+    // but here it's fine. Alternatively, use a simple fetch.
+    try {
+      const { getProfile } = await import("../settings/profile/actions");
+      const res = await getProfile();
+      if (res.success && res.data) {
+        setUserData({
+          firstName: res.data.firstName || '',
+          lastName: res.data.lastName || '',
+          avatarUrl: res.data.avatarUrl || '',
+          email: res.data.email || '',
+          role: res.data.role || '',
+        });
+      }
+    } catch (err) {
+      console.error("Failed to fetch profile in header", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchUserProfile();
+
+    const handleUpdate = () => fetchUserProfile();
+    window.addEventListener('profileUpdated', handleUpdate);
+    return () => window.removeEventListener('profileUpdated', handleUpdate);
+  }, []);
+
+  const initials = userData?.firstName && userData?.lastName 
+    ? `${userData.firstName[0].toUpperCase()}${userData.lastName[0].toUpperCase()}`
+    : 'SA';
+
+  const displayName = userData?.firstName 
+    ? `${userData.firstName} ${userData.lastName}`
+    : 'Super Admin';
+
+  const displayEmail = userData?.email || 'superadmin@vscanmail.com';
+
   useEffect(() => {
     function handlePointerDown(e: MouseEvent) {
       const el = e.target as Node;
@@ -166,28 +206,30 @@ export default function SuperAdminHeader({
             setShowProfile((v) => !v);
             setShowNotifications(false);
           }}
-          className="flex items-center gap-2 cursor-pointer rounded-r-lg hover:bg-slate-50 py-1 min-h-[32px] pr-0"
+          className="flex items-center gap-2 cursor-pointer rounded-r-lg hover:bg-slate-50 py-1 min-h-[32px] pr-0 transition-colors"
           aria-haspopup="true"
           aria-label="Account menu"
         >
-          <div className="h-8 w-8 shrink-0 rounded-full bg-gradient-to-br from-[#0A3D8F] to-[#083170] flex items-center justify-center text-white font-semibold text-xs leading-4 [font-family:Roboto,system-ui,sans-serif]">
-            SA
+          <div className="h-8 w-8 shrink-0 rounded-full bg-gradient-to-br from-[#0A3D8F] to-[#083170] flex items-center justify-center text-white font-semibold text-xs leading-4 [font-family:Roboto,system-ui,sans-serif] overflow-hidden">
+            {userData?.avatarUrl ? (
+                <img src={userData.avatarUrl} alt="SA" className="w-full h-full object-cover" />
+            ) : initials}
           </div>
           <div className="text-left hidden sm:block min-w-0">
             <p className="text-sm font-semibold leading-[14px] text-[#0F172A] truncate [font-family:Roboto,system-ui,sans-serif]">
-              Super Admin
+              {displayName}
             </p>
             <p className="text-xs font-normal leading-4 text-[#64748B] mt-0.5 [font-family:Roboto,system-ui,sans-serif]">
-              Administrator
+              {userData?.role === 'super_admin' ? 'System Administrator' : (userData?.role?.replace('_', ' ') || 'Administrator')}
             </p>
           </div>
         </button>
 
         {showProfile && (
-          <div className="absolute right-0 mt-2 w-52 max-w-[calc(100vw-2rem)] bg-white rounded-xl border border-slate-200 shadow-lg z-50">
+          <div className="absolute right-0 mt-2 w-52 max-w-[calc(100vw-2rem)] bg-white rounded-xl border border-slate-200 shadow-lg z-50 animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="p-4 border-b border-slate-100">
-              <p className="font-semibold text-slate-900 text-sm [font-family:Roboto,system-ui,sans-serif]">Super Admin</p>
-              <p className="text-xs text-slate-500 mt-0.5 truncate">superadmin@vscanmail.com</p>
+              <p className="font-semibold text-slate-900 text-sm [font-family:Roboto,system-ui,sans-serif] truncate">{displayName}</p>
+              <p className="text-xs text-slate-500 mt-0.5 truncate">{displayEmail}</p>
             </div>
             <div className="p-2">
               <Link

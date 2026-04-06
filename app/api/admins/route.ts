@@ -11,7 +11,8 @@ import { z } from "zod";
 import { auditService } from "@/lib/modules/audit/audit.service";
 
 const createAdminSchema = z.object({
-  fullName: z.string().min(2).max(100),
+  firstName: z.string().min(1).max(100),
+  lastName: z.string().min(1).max(100),
   email: z.string().email(),
   phone: z.string().optional().default(""),
   password: z.string().min(8, "Password must be at least 8 characters"),
@@ -19,7 +20,8 @@ const createAdminSchema = z.object({
 });
 
 const updateAdminSchema = z.object({
-  fullName: z.string().min(2).max(100).optional(),
+  firstName: z.string().min(1).max(100).optional(),
+  lastName: z.string().min(1).max(100).optional(),
   phone: z.string().optional(),
   status: z.enum(["active", "inactive"]).optional(),
 });
@@ -34,13 +36,12 @@ function toFrontendAdmin(row: any, index: number) {
     "from-violet-500 to-violet-700",
     "from-cyan-500 to-cyan-700",
   ];
-  const name = row.fullName || row.email.split("@")[0];
-  const initials = name
-    .split(" ")
-    .map((n: string) => n[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  const name = row.firstName && row.lastName 
+    ? `${row.firstName} ${row.lastName}`
+    : row.firstName || row.email.split("@")[0];
+  const initials = row.firstName && row.lastName
+    ? `${row.firstName[0]}${row.lastName[0]}`.toUpperCase()
+    : name.slice(0, 2).toUpperCase();
 
   return {
     id: row.id,
@@ -72,7 +73,8 @@ export async function GET(req: NextRequest) {
         email: users.email,
         isActive: users.isActive,
         createdAt: users.createdAt,
-        fullName: users.fullName,
+        firstName: users.firstName,
+        lastName: users.lastName,
         phone: users.phone,
         lastLoginAt: users.lastLoginAt,
       })
@@ -121,7 +123,8 @@ export async function POST(req: NextRequest) {
       await tx.insert(users).values({
         id: userId,
         email: data.email,
-        fullName: data.fullName,
+        firstName: data.firstName,
+        lastName: data.lastName,
         phone: data.phone,
         passwordHash,
         isActive: data.status === "active",
@@ -145,7 +148,8 @@ export async function POST(req: NextRequest) {
         email: data.email,
         isActive: data.status === "active",
         createdAt: new Date(),
-        fullName: data.fullName,
+        firstName: data.firstName,
+        lastName: data.lastName,
         phone: data.phone,
       },
       0
@@ -157,7 +161,7 @@ export async function POST(req: NextRequest) {
       actor_role: actor.role,
       action: "admin.created",
       entity: userId,
-      after: { email: data.email, fullName: data.fullName, status: data.status },
+      after: { email: data.email, firstName: data.firstName, lastName: data.lastName, status: data.status },
       req,
     });
 

@@ -6,3 +6,9 @@ node_modules/
 next-env.d.ts
 .vercel
 .supabase
+
+# Uploads
+public/uploads/*
+!public/uploads/.gitkeep
+frontend/public/uploads/*
+!frontend/public/uploads/.gitkeep
