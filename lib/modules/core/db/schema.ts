@@ -28,7 +28,9 @@ export const users = mysqlTable(
     createdAt: datetime("created_at", { mode: "date" }).notNull(),
     updatedAt: datetime("updated_at", { mode: "date" }).notNull(),
   },
-  (t) => [uniqueIndex("users_email_uq").on(t.email)]
+  (t) => ({
+    emailUq: uniqueIndex("users_email_uq").on(t.email),
+  })
 );
 
 export const profiles = mysqlTable(
@@ -41,11 +43,11 @@ export const profiles = mysqlTable(
     createdAt: datetime("created_at", { mode: "date" }).notNull(),
     updatedAt: datetime("updated_at", { mode: "date" }).notNull(),
   },
-  (t) => [
-    uniqueIndex("profiles_user_uq").on(t.userId),
-    index("profiles_client_idx").on(t.clientId),
-    index("profiles_role_idx").on(t.role),
-  ]
+  (t) => ({
+    userUq: uniqueIndex("profiles_user_uq").on(t.userId),
+    clientIdx: index("profiles_client_idx").on(t.clientId),
+    roleIdx: index("profiles_role_idx").on(t.role),
+  })
 );
 
 export const emailVerifications = mysqlTable(
@@ -57,7 +59,9 @@ export const emailVerifications = mysqlTable(
     expiresAt: datetime("expires_at", { mode: "date" }).notNull(),
     createdAt: datetime("created_at", { mode: "date" }).notNull(),
   },
-  (t) => [index("ev_email_idx").on(t.email)]
+  (t) => ({
+    emailIdx: index("ev_email_idx").on(t.email),
+  })
 );
 
 export const passwordResets = mysqlTable(
@@ -70,10 +74,10 @@ export const passwordResets = mysqlTable(
     used: boolean("used").notNull().default(false),
     createdAt: datetime("created_at", { mode: "date" }).notNull(),
   },
-  (t) => [
-    uniqueIndex("pr_token_uq").on(t.token),
-    index("pr_user_idx").on(t.userId),
-  ]
+  (t) => ({
+    tokenUq: uniqueIndex("pr_token_uq").on(t.token),
+    userIdx: index("pr_user_idx").on(t.userId),
+  })
 );
 
 // --- Business ---
@@ -98,14 +102,14 @@ export const clients = mysqlTable(
     createdAt: datetime("created_at", { mode: "date" }).notNull(),
     updatedAt: datetime("updated_at", { mode: "date" }).notNull(),
   },
-  (t) => [
-    uniqueIndex("clients_code_uq").on(t.clientCode),
-    uniqueIndex("clients_table_name_uq").on(t.tableName),
-    uniqueIndex("clients_email_uq").on(t.email),
-    index("clients_status_idx").on(t.status),
-    index("clients_type_idx").on(t.clientType),
-    index("clients_added_by_idx").on(t.addedBy),
-  ]
+  (t) => ({
+    codeUq: uniqueIndex("clients_code_uq").on(t.clientCode),
+    tableNameUq: uniqueIndex("clients_table_name_uq").on(t.tableName),
+    emailUq: uniqueIndex("clients_email_uq").on(t.email),
+    statusIdx: index("clients_status_idx").on(t.status),
+    typeIdx: index("clients_type_idx").on(t.clientType),
+    addedByIdx: index("clients_added_by_idx").on(t.addedBy),
+  })
 );
 
 // --- Billing Tables ---
@@ -125,11 +129,11 @@ export const subscriptions = mysqlTable(
     createdAt: datetime("created_at", { mode: "date" }).notNull(),
     updatedAt: datetime("updated_at", { mode: "date" }).notNull(),
   },
-  (t) => [
-    uniqueIndex("sub_stripe_uq").on(t.stripeSubscriptionId),
-    index("sub_client_idx").on(t.clientId),
-    index("sub_status_idx").on(t.status),
-  ]
+  (t) => ({
+    stripeUq: uniqueIndex("sub_stripe_uq").on(t.stripeSubscriptionId),
+    clientIdx: index("sub_client_idx").on(t.clientId),
+    statusIdx: index("sub_status_idx").on(t.status),
+  })
 );
 
 export const manualPayments = mysqlTable(
@@ -149,11 +153,11 @@ export const manualPayments = mysqlTable(
     periodEnd: date("period_end", { mode: "date" }).notNull(),
     createdAt: datetime("created_at", { mode: "date" }).notNull(),
   },
-  (t) => [
-    index("mp_client_idx").on(t.clientId),
-    index("mp_recorder_idx").on(t.recordedBy),
-    index("mp_date_idx").on(t.paymentDate),
-  ]
+  (t) => ({
+    clientIdx: index("mp_client_idx").on(t.clientId),
+    recorderIdx: index("mp_recorder_idx").on(t.recordedBy),
+    dateIdx: index("mp_date_idx").on(t.paymentDate),
+  })
 );
 
 // --- Usage & Audit Tables ---
@@ -169,11 +173,11 @@ export const usageEvents = mysqlTable(
     triggeredBy: varchar("triggered_by", { length: 36 }),
     createdAt: datetime("created_at", { mode: "date" }).notNull(),
   },
-  (t) => [
-    index("ue_client_idx").on(t.clientId),
-    index("ue_type_idx").on(t.eventType),
-    index("ue_created_idx").on(t.createdAt),
-  ]
+  (t) => ({
+    clientIdx: index("ue_client_idx").on(t.clientId),
+    typeIdx: index("ue_type_idx").on(t.eventType),
+    createdIdx: index("ue_created_idx").on(t.createdAt),
+  })
 );
 
 export const auditLogs = mysqlTable(
@@ -185,17 +189,19 @@ export const auditLogs = mysqlTable(
     action: varchar("action", { length: 128 }).notNull(),
     entityType: varchar("entity_type", { length: 64 }).notNull(),
     entityId: varchar("entity_id", { length: 36 }).notNull(),
+    clientId: varchar("client_id", { length: 36 }),
     beforeState: json("before_state"),
     afterState: json("after_state"),
     ipAddress: varchar("ip_address", { length: 64 }),
     userAgent: varchar("user_agent", { length: 255 }),
     createdAt: datetime("created_at", { mode: "date" }).notNull(),
   },
-  (t) => [
-    index("al_actor_idx").on(t.actorId),
-    index("al_role_idx").on(t.actorRole),
-    index("al_entity_idx").on(t.entityType, t.entityId),
-    index("al_action_idx").on(t.action),
-    index("al_created_idx").on(t.createdAt),
-  ]
+  (t) => ({
+    actorIdx: index("al_actor_idx").on(t.actorId),
+    roleIdx: index("al_role_idx").on(t.actorRole),
+    clientIdx: index("al_client_idx").on(t.clientId),
+    entityIdx: index("al_entity_idx").on(t.entityType, t.entityId),
+    actionIdx: index("al_action_idx").on(t.action),
+    createdIdx: index("al_created_idx").on(t.createdAt),
+  })
 );

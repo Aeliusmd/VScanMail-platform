@@ -112,6 +112,7 @@ export const authService = {
       actor_role: "client",
       action: "client.registered",
       entity: userId,
+      clientId: userId,
       after: { clientCode, planType: input.planType, tableName },
       req,
     });
@@ -120,8 +121,16 @@ export const authService = {
     return { clientId: userId, clientCode };
   },
 
-  async verifyEmail(email: string, otp: string) {
+  async verifyEmail(email: string, otp: string, req?: Request) {
     const rows = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+    
+    const userId = rows[0]?.id;
+
+    const verificationRows = await db
       .select()
       .from(emailVerifications)
       .where(
@@ -133,7 +142,7 @@ export const authService = {
       )
       .limit(1);
 
-    if (!rows[0]) throw new Error("Invalid or expired OTP");
+    if (!verificationRows[0]) throw new Error("Invalid or expired OTP");
 
     // Mark user verified in both users and clients table directly by email
     await db.update(users).set({ emailVerifiedAt: new Date() }).where(eq(users.email, email));
@@ -142,10 +151,21 @@ export const authService = {
     // Clean up
     await db.delete(emailVerifications).where(eq(emailVerifications.email, email));
 
+    if (userId) {
+      await auditService.log({
+        actor: userId,
+        actor_role: "client",
+        action: "auth.email_verified",
+        entity: userId,
+        clientId: userId,
+        req,
+      });
+    }
+
     return { verified: true };
   },
 
-  async setup2FA(userId: string) {
+  async setup2FA(userId: string, req?: Request) {
     const secret = authenticator.generateSecret();
     const otpauthUrl = authenticator.keyuri(
       userId,
@@ -157,10 +177,19 @@ export const authService = {
     // Store secret temporarily (confirm on first valid TOTP)
     await clientModel.update(userId, { two_fa_secret: secret });
 
+    await auditService.log({
+      actor: userId,
+      actor_role: "client",
+      action: "auth.2fa_setup_started",
+      entity: userId,
+      clientId: userId,
+      req,
+    });
+
     return { qrCode: qrCodeDataUrl, secret };
   },
 
-  async confirm2FA(userId: string, totpCode: string) {
+  async confirm2FA(userId: string, totpCode: string, req?: Request) {
     const client = await clientModel.findById(userId);
     if (!client.two_fa_secret) throw new Error("2FA not initialized");
 
@@ -171,7 +200,20 @@ export const authService = {
 
     if (!isValid) throw new Error("Invalid TOTP code");
 
+    const before = { two_fa_enabled: client.two_fa_enabled };
     await clientModel.update(userId, { two_fa_enabled: true });
+
+    await auditService.log({
+      actor: userId,
+      actor_role: "client",
+      action: "auth.2fa_enabled",
+      entity: userId,
+      clientId: userId,
+      before,
+      after: { two_fa_enabled: true },
+      req,
+    });
+
     return { enabled: true };
   },
 

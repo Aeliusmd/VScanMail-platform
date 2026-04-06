@@ -59,6 +59,7 @@ export async function POST(req: NextRequest) {
       actor_role: role as any,
       action: "auth.login",
       entity: user.id,
+      clientId: clientId ?? undefined,
       after: { email: user.email, role },
       req,
     });

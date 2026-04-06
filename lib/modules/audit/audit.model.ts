@@ -8,6 +8,7 @@ export type AuditLog = {
   action: string;
   entity_type: string;
   entity_id: string;
+  client_id?: string | null;
   before_state?: any;
   after_state?: any;
   ip_address: string | null;
@@ -25,14 +26,13 @@ export const auditLogModel = {
 
       entityType: data.entity_type,
       entityId: data.entity_id,
+      clientId: data.client_id ?? null,
       beforeState: data.before_state ?? null,
       afterState: data.after_state ?? null,
       ipAddress: data.ip_address ?? null,
       userAgent: data.user_agent ?? null,
-
       createdAt: new Date(),
     };
     await db.insert(auditLogs).values(toInsert);
   },
 };
-

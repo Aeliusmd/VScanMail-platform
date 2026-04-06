@@ -1,3 +1,4 @@
+import { auditService } from "../audit/audit.service";
 import { db, sql } from "@/lib/modules/core/db/mysql";
 import { getClientTableName } from "@/lib/modules/core/db/dynamic-table";
 import { clients } from "@/lib/modules/core/db/schema";
@@ -67,11 +68,12 @@ async function locateChequeById(id: string) {
 }
 
 export const chequeModel = {
-  async create(data: Partial<Cheque>) {
+  async create(data: Partial<Cheque>, actorId?: string, req?: Request) {
     const row = await locateChequeById(data.mail_item_id!);
     if (!row) throw new Error("Base mail item not found for cheque");
     
     const clientId = row._client_id;
+    const before = rowToCheque(row, clientId);
     const tableName = await getClientTableName(clientId);
 
     const updates = [];
@@ -97,7 +99,22 @@ export const chequeModel = {
       await db.execute(query);
     }
 
-    return await this.findById(data.mail_item_id!);
+    const after = await this.findById(data.mail_item_id!);
+
+    if (actorId) {
+      await auditService.log({
+        actor: actorId,
+        actor_role: "operator",
+        action: "cheque.validated",
+        entity: data.mail_item_id!,
+        clientId,
+        before,
+        after,
+        req,
+      });
+    }
+
+    return after;
   },
 
   async findById(id: string) {
@@ -127,11 +144,12 @@ export const chequeModel = {
     };
   },
 
-  async updateStatus(id: string, status: string, userId?: string) {
+  async updateStatus(id: string, status: string, userId?: string, req?: Request) {
     const row = await locateChequeById(id);
     if (!row) throw new Error("Cheque not found");
     
     const clientId = row._client_id;
+    const before = rowToCheque(row, clientId);
     const tableName = await getClientTableName(clientId);
 
     const updates = [sql`cheque_decision = ${status}`];
@@ -147,10 +165,25 @@ export const chequeModel = {
     `;
 
     await db.execute(query);
-    return await this.findById(id);
+    const after = await this.findById(id);
+
+    if (userId) {
+      await auditService.log({
+        actor: userId,
+        actor_role: "client", // Clients approve/reject cheques
+        action: "cheque.decided",
+        entity: id,
+        clientId,
+        before,
+        after,
+        req,
+      });
+    }
+
+    return after;
   },
 
-  async assignToBatch(chequeIds: string[], batchId: string) {
+  async assignToBatch(chequeIds: string[], batchId: string, actorId?: string, req?: Request) {
     if (chequeIds.length === 0) return;
 
     const allClients = await db.select({ tableName: clients.tableName }).from(clients);
@@ -163,6 +196,17 @@ export const chequeModel = {
         WHERE id IN (${placeholders}) AND record_type = 'cheque'
       `;
       await db.execute(query);
+    }
+
+    if (actorId) {
+      await auditService.log({
+        actor: actorId,
+        actor_role: "operator",
+        action: "cheque.batch_deposited",
+        entity: batchId,
+        after: { chequeIds },
+        req,
+      });
     }
   },
 };

@@ -1,3 +1,4 @@
+import { auditService } from "../audit/audit.service";
 import { db, sql } from "../core/db/mysql";
 import { clients } from "../core/db/schema";
 import { and, desc, eq } from "drizzle-orm";
@@ -51,7 +52,7 @@ function rowToClient(row: typeof clients.$inferSelect): Client {
 }
 
 export const clientModel = {
-  async create(data: Partial<Client>) {
+  async create(data: Partial<Client>, actorId?: string, req?: Request) {
     const toInsert: typeof clients.$inferInsert = {
       id: data.id!,
       clientCode: data.client_code!,
@@ -75,7 +76,21 @@ export const clientModel = {
     await db.insert(clients).values(toInsert);
     const rows = await db.select().from(clients).where(eq(clients.id, toInsert.id)).limit(1);
     if (!rows[0]) throw new Error("Failed to create client");
-    return rowToClient(rows[0]);
+    const client = rowToClient(rows[0]);
+
+    if (actorId) {
+      await auditService.log({
+        actor: actorId,
+        actor_role: "super_admin",
+        action: "client.created",
+        entity: client.id,
+        clientId: client.id,
+        after: client,
+        req,
+      });
+    }
+
+    return client;
   },
 
   async findById(id: string) {
@@ -89,7 +104,8 @@ export const clientModel = {
     return rows[0] ? rowToClient(rows[0]) : null;
   },
 
-  async update(id: string, data: any) {
+  async update(id: string, data: any, actorId?: string, req?: Request) {
+    const before = await this.findById(id);
     const patch: Partial<typeof clients.$inferInsert> = {};
     
     if (data.company_name !== undefined) patch.companyName = data.company_name;
@@ -114,7 +130,22 @@ export const clientModel = {
     patch.updatedAt = sql`NOW()` as any;
 
     await db.update(clients).set(patch).where(eq(clients.id, id));
-    return await this.findById(id);
+    const after = await this.findById(id);
+
+    if (actorId) {
+      await auditService.log({
+        actor: actorId,
+        actor_role: "super_admin", // Usually Super Admin or Admin updates clients
+        action: "client.updated",
+        entity: id,
+        clientId: id,
+        before,
+        after,
+        req,
+      });
+    }
+
+    return after;
   },
 
   async list(page = 1, limit = 20, type?: string) {
@@ -141,7 +172,20 @@ export const clientModel = {
     };
   },
 
-  async delete(id: string) {
+  async delete(id: string, actorId?: string, req?: Request) {
+    const before = await this.findById(id);
     await db.delete(clients).where(eq(clients.id, id));
+
+    if (actorId) {
+      await auditService.log({
+        actor: actorId,
+        actor_role: "super_admin",
+        action: "client.deleted",
+        entity: id,
+        clientId: id,
+        before,
+        req,
+      });
+    }
   },
 };

@@ -79,7 +79,7 @@ export const mailService = {
       scanned_by: operatorId,
       scanned_at: new Date().toISOString(),
       status: "processed",
-    });
+    }, operatorId, req);
 
     // 5. Track usage
     await billingService.trackUsage(clientId, "envelope_scan", 1);
@@ -90,20 +90,7 @@ export const mailService = {
     // 6. Notify client
     await notificationService.sendNewMailAlert(clientId, mailItem);
 
-    // 7. Audit
-    await auditService.log({
-      actor: operatorId,
-      action: "mail.scanned",
-      entity: mailItem.id,
-      after: {
-        irn,
-        type,
-        tamperDetected: tamperResult.tamper_detected,
-        aiSummary,
-        aiRiskLevel,
-      },
-      req,
-    });
+    // 7. Audit (Handled by model)
 
     return mailItem;
   },
@@ -119,15 +106,9 @@ export const mailService = {
     const item = await mailItemModel.update(mailItemId, {
       tamper_detected: tamperDetected,
       tamper_annotations: annotations,
-    });
+    }, operatorId, req);
 
-    await auditService.log({
-      actor: operatorId,
-      action: "mail.annotated",
-      entity: mailItemId,
-      after: { tamperDetected, notes },
-      req,
-    });
+    // Audit (Handled by model)
 
 
     // Alert client if tamper detected

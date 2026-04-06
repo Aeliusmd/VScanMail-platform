@@ -79,16 +79,11 @@ export const chequeService = {
     const cheque = await chequeModel.updateStatus(
       chequeId,
       "approved",
-      userId
+      userId,
+      req
     );
 
-    await auditService.log({
-      actor: userId,
-      action: "cheque.approved",
-      entity: chequeId,
-      after: { reason, amount: cheque.amount_figures },
-      req,
-    });
+    // Audit (Handled by model)
 
 
     await billingService.trackUsage(
@@ -107,16 +102,11 @@ export const chequeService = {
     const cheque = await chequeModel.updateStatus(
       chequeId,
       "rejected",
-      userId
+      userId,
+      req
     );
 
-    await auditService.log({
-      actor: userId,
-      action: "cheque.rejected",
-      entity: chequeId,
-      after: { reason, amount: cheque.amount_figures },
-      req,
-    });
+    // Audit (Handled by model)
 
 
     return cheque;

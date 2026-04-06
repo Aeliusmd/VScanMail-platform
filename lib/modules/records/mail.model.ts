@@ -1,3 +1,4 @@
+import { auditService } from "../audit/audit.service";
 import { db, sql } from "@/lib/modules/core/db/mysql";
 import { getClientTableName } from "@/lib/modules/core/db/dynamic-table";
 import { clients } from "@/lib/modules/core/db/schema";
@@ -61,7 +62,7 @@ async function locateRecordById(id: string) {
 }
 
 export const mailItemModel = {
-  async create(data: Partial<MailItem>) {
+  async create(data: Partial<MailItem>, actorId?: string, req?: Request) {
     if (!data.client_id) throw new Error("client_id is required");
     const tableName = await getClientTableName(data.client_id);
     
@@ -82,7 +83,21 @@ export const mailItemModel = {
     `;
 
     await db.execute(query);
-    return await this.findById(id);
+    const item = await this.findById(id);
+
+    if (actorId) {
+      await auditService.log({
+        actor: actorId,
+        actor_role: "operator", // Usually operators ingest mail
+        action: "record.created",
+        entity: id,
+        clientId: data.client_id,
+        after: item,
+        req,
+      });
+    }
+
+    return item;
   },
 
   async findById(id: string) {
@@ -124,11 +139,12 @@ export const mailItemModel = {
     };
   },
 
-  async update(id: string, data: Partial<MailItem>) {
+  async update(id: string, data: Partial<MailItem>, actorId?: string, req?: Request) {
     const row = await locateRecordById(id);
     if (!row) throw new Error("Mail item not found");
     
     const clientId = row._client_id;
+    const before = rowToMailItem(row, clientId);
     const tableName = await getClientTableName(clientId);
 
     const updates = [];
@@ -153,7 +169,22 @@ export const mailItemModel = {
       await db.execute(query);
     }
     
-    return await this.findById(id);
+    const after = await this.findById(id);
+
+    if (actorId) {
+      await auditService.log({
+        actor: actorId,
+        actor_role: "operator",
+        action: "record.updated",
+        entity: id,
+        clientId,
+        before,
+        after,
+        req,
+      });
+    }
+
+    return after;
   },
 
   async getDestructionDue(beforeDate: string) {

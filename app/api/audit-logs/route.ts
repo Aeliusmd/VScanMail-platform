@@ -29,17 +29,18 @@ export async function GET(req: NextRequest) {
         action: auditLogs.action,
         entityType: auditLogs.entityType,
         entityId: auditLogs.entityId,
+        clientId: auditLogs.clientId,
         beforeState: auditLogs.beforeState,
         afterState: auditLogs.afterState,
         ipAddress: auditLogs.ipAddress,
         userAgent: auditLogs.userAgent,
         createdAt: auditLogs.createdAt,
-        actorEmail: users.email,
+        actorEmail: users.fullName, // Using Name is better for display
       })
       .from(auditLogs)
       .leftJoin(users, eq(auditLogs.actorId, users.id))
       .orderBy(desc(auditLogs.createdAt))
-      .limit(200); 
+      .limit(100); 
 
     return NextResponse.json({ logs });
   } catch (error: any) {

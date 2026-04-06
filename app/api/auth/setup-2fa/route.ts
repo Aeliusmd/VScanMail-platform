@@ -7,7 +7,7 @@ import { setup2faSchema } from "@/lib/modules/auth/auth.schema";
 export async function GET(req: NextRequest) {
   try {
     const user = await withAuth(req);
-    const result = await authService.setup2FA(user.id);
+    const result = await authService.setup2FA(user.id, req);
     return NextResponse.json(result);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 401 });
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     const user = await withAuth(req);
     const body = await req.json();
     const { totpCode } = setup2faSchema.parse(body);
-    const result = await authService.confirm2FA(user.id, totpCode);
+    const result = await authService.confirm2FA(user.id, totpCode, req);
     return NextResponse.json(result);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 400 });

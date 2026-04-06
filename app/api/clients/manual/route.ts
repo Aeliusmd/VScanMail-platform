@@ -113,17 +113,7 @@ export async function POST(req: NextRequest) {
       status: (data.status?.toLowerCase() as any) || "pending",
       added_by: user.id,
       notes: data.notes || null,
-    });
-
-    // Log the action
-    await auditService.log({
-      actor: user.id,
-      actor_role: user.role as any,
-      action: "company.created",
-      entity: record.id,
-      after: { company_name: record.company_name, email: record.email, status: record.status },
-      req,
-    });
+    }, user.id, req);
 
     return NextResponse.json(
       { company: toFrontendCompany(record, 0) },

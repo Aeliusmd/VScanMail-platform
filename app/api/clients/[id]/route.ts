@@ -28,21 +28,7 @@ export async function PATCH(
     const { id } = await params;
     const body = await req.json();
 
-    // Capture before state
-    const beforeState = await clientModel.findById(id);
-
-    const client = await clientModel.update(id, body);
-
-    // Log the action
-    await auditService.log({
-      actor: user.id,
-      actor_role: user.role,
-      action: "client.updated",
-      entity: id,
-      before: beforeState,
-      after: client,
-      req,
-    });
+    const client = await clientModel.update(id, body, user.id, req);
 
     return NextResponse.json(client);
   } catch (error: any) {
@@ -59,20 +45,7 @@ export async function DELETE(
     withRole(user, ["admin", "super_admin"]);
     const { id } = await params;
 
-    // Capture before state
-    const beforeState = await clientModel.findById(id);
-
-    await clientModel.delete(id);
-
-    // Log the action
-    await auditService.log({
-      actor: user.id,
-      actor_role: user.role,
-      action: "client.deleted",
-      entity: id,
-      before: beforeState,
-      req,
-    });
+    await clientModel.delete(id, user.id, req);
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
