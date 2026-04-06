@@ -23,27 +23,50 @@ interface ActivityEntry {
 function mapEntityType(type: string): string {
   const t = type.toLowerCase();
   if (t.includes('auth') || t.includes('user')) return 'Auth';
-  if (t.includes('company') || t.includes('client')) return 'Company';
-  if (t.includes('scan') || t.includes('mail')) return 'Scan';
+  if (t.includes('company') || t.includes('client')) return 'Client';
+  if (t.includes('scan') || t.includes('mail')) return 'Records';
   if (t.includes('delivery')) return 'Delivery';
-  if (t.includes('deposit') || t.includes('cheque')) return 'Deposit';
-  if (t.includes('admin') || t.includes('profile')) return 'Admin';
+  if (t.includes('deposit') || t.includes('cheque')) return 'Cheque';
+  if (t.includes('admin') || t.includes('profile')) return 'System';
   if (t.includes('billing') || t.includes('subscription')) return 'Billing';
   return 'Other';
+}
+
+function mapActionToLabel(action: string): string {
+  const mapping: Record<string, string> = {
+    'auth.login': 'Logged In',
+    'auth.login_failed': 'Login Failed',
+    'auth.email_verified': 'Email Verified',
+    'auth.2fa_enabled': '2FA Enabled',
+    'auth.2fa_setup_started': '2FA Setup Started',
+    'client.registered': 'New Client Registered',
+    'client.created': 'Client Created (Manual)',
+    'client.updated': 'Client Profile Updated',
+    'client.deleted': 'Client Account Deleted',
+    'admin.created': 'Admin Created',
+    'admin.updated': 'Admin Updated',
+    'admin.deleted': 'Admin Deleted',
+    'mail.created': 'Mail Item Ingested',
+    'mail.updated': 'Mail Item Updated',
+    'cheque.decided': 'Cheque Decision Made',
+    'cheque.batch_deposited': 'Cheque Batch Deposited',
+    'billing.manual_payment': 'Manual Payment Recorded',
+  };
+  return mapping[action] || action;
 }
 
 
 const categoryColors: Record<string, string> = {
   Auth: 'bg-[#0A3D8F]/10 text-[#0A3D8F]',
-  Company: 'bg-emerald-100 text-emerald-700',
-  Scan: 'bg-amber-100 text-amber-700',
+  Client: 'bg-emerald-100 text-emerald-700',
+  Records: 'bg-amber-100 text-amber-700',
   Delivery: 'bg-violet-100 text-violet-700',
-  Deposit: 'bg-teal-100 text-teal-700',
-  Admin: 'bg-red-100 text-red-600',
+  Cheque: 'bg-teal-100 text-teal-700',
+  System: 'bg-red-100 text-red-600',
   Billing: 'bg-orange-100 text-orange-600',
 };
 
-const categories = ['All', 'Auth', 'Company', 'Scan', 'Delivery', 'Deposit', 'Admin', 'Billing'];
+const categories = ['All', 'Auth', 'Client', 'Records', 'Delivery', 'Cheque', 'System', 'Billing'];
 
 export default function ActivityLogTab() {
   const [allLogs, setAllLogs] = useState<ActivityEntry[]>([]);
@@ -68,11 +91,16 @@ export default function ActivityLogTab() {
 
       const mapped: ActivityEntry[] = data.logs.map((l: any, i: number) => {
         const dt = new Date(l.createdAt);
+        const actorDisplayName = 
+          l.actorRole === 'client' 
+            ? (l.companyName || l.actorName || l.actorId.slice(0, 8)) 
+            : (l.actorName || l.actorId.slice(0, 8));
+
         return {
           no: i + 1,
-          activity: l.action,
+          activity: mapActionToLabel(l.action),
           category: mapEntityType(l.entityType),
-          user: l.actorEmail || l.actorId.slice(0, 8),
+          user: actorDisplayName,
           date: dt.toISOString().split('T')[0],
           time: dt.toTimeString().split(' ')[0],
           ipAddress: l.ipAddress,

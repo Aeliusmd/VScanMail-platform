@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth, withRole } from "@/lib/modules/auth/auth.middleware";
 import { db } from "@/lib/modules/core/db/mysql";
-import { auditLogs, users } from "@/lib/modules/core/db/schema";
+import { auditLogs, users, clients } from "@/lib/modules/core/db/schema";
 import { eq, desc } from "drizzle-orm";
 
 /**
@@ -35,10 +35,13 @@ export async function GET(req: NextRequest) {
         ipAddress: auditLogs.ipAddress,
         userAgent: auditLogs.userAgent,
         createdAt: auditLogs.createdAt,
-        actorEmail: users.fullName, // Using Name is better for display
+        actorName: users.fullName,
+        companyName: clients.companyName,
       })
       .from(auditLogs)
       .leftJoin(users, eq(auditLogs.actorId, users.id))
+      // Join clients on clientId (new logs) or actorId (legacy client logs)
+      .leftJoin(clients, eq(auditLogs.clientId, clients.id)) 
       .orderBy(desc(auditLogs.createdAt))
       .limit(100); 
 
