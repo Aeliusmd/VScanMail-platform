@@ -15,7 +15,7 @@ const navItems = [
   { icon: 'ri:scan-2-line', label: 'Scan Document', slug: '/scan' },
   { icon: 'ri:mail-line', label: 'All Mails', slug: '/mails' },
   { icon: 'ri:bank-card-line', label: 'All Cheques', slug: '/cheques' },
-  { icon: 'ri:building-line', label: 'Companies', slug: '/companies' },
+  { icon: 'ri:building-line', label: 'Organizations', slug: '/companies' },
   { icon: 'ri:exchange-dollar-line', label: 'Deposit Requests', slug: '/deposits' },
   { icon: 'ri:truck-line', label: 'Delivery Requests', slug: '/deliveries' },
 ];
