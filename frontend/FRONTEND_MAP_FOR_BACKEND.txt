@@ -1,0 +1,165 @@
+================================================================================
+VScanMail — FRONTEND MAP FOR BACKEND DEVELOPERS
+================================================================================
+Generated as a route and integration reference. Frontend-only; no backend
+implementation details. Paths are URL paths (Next.js App Router).
+
+--------------------------------------------------------------------------------
+1. STACK & CONFIG
+--------------------------------------------------------------------------------
+  Framework     : Next.js 16 (App Router)
+  UI            : React 19, Tailwind CSS 4
+  Package root  : frontend/
+  Dev server    : npm run dev  (default http://localhost:3000)
+
+  Backend base URL (client-side):
+    Env var       : NEXT_PUBLIC_API_URL
+    Example       : http://localhost:5000
+    Fallback      : http://localhost:5000  (if env unset)
+    See           : frontend/.env.local.example
+
+  No Next.js middleware.ts in this repo (auth/routing guards not centralized
+  here at time of writing).
+
+--------------------------------------------------------------------------------
+2. API ROUTES THE FRONTEND ALREADY CALLS
+--------------------------------------------------------------------------------
+  Base: {NEXT_PUBLIC_API_URL} with no trailing slash.
+
+  Customer account
+    GET  /api/customer/account?companyId={id}
+    PUT  /api/customer/account?companyId={id}
+         Body: JSON partial { profile, bankAccounts, security, notifications }
+    Source: frontend/src/lib/customerAccount.ts
+
+  Customer billing
+    GET  /api/customer/billing?companyId={id}
+    POST /api/customer/billing/upgrade-request
+         Body: JSON { companyId, planId }
+    Source: frontend/src/lib/customerBilling.ts
+
+  Note: Many screens still use static mock data (frontend/src/mocks/*.ts) or
+  inline arrays; those areas will need matching backend endpoints when wired.
+
+--------------------------------------------------------------------------------
+3. URL REDIRECTS (next.config.ts)
+--------------------------------------------------------------------------------
+  /customer/dashboard     -> /customer                    (permanent)
+  /dashboard              -> /admin                       (permanent)
+  /dashboard/*            -> /admin/*                     (permanent)
+  /customer/login         -> /login                       (permanent)
+  /register1              -> /register                    (permanent)
+  /Register2              -> /register/step-2             (permanent)
+  /Register3              -> /register/step-3             (permanent)
+  /super-admin-login      -> /login                       (permanent)
+  /admin/login            -> /login                       (permanent)
+
+--------------------------------------------------------------------------------
+4. ROUTE MAP BY AREA (canonical order)
+--------------------------------------------------------------------------------
+
+  --- Public / auth / onboarding ---
+  /
+  /login
+  /register
+  /register/step-2
+  /register/step-3
+
+  --- Customer (company user portal) ---
+  Layout: src/app/customer/layout.tsx  (shared shell for most customer routes)
+
+  /customer                         → customer home; renders same as dashboard
+  /customer/dashboard               → redirected to /customer (see §3)
+  /customer/landing
+  /customer/account
+  /customer/mails
+  /customer/cheques
+  /customer/deposits
+  /customer/deliveries
+  /customer/select-plan
+  /customer/register
+
+  --- Company admin (tenant admin) ---
+  Layout: src/app/admin/layout.tsx
+
+  /admin
+  /admin/companies
+  /admin/mails
+  /admin/cheques
+  /admin/deposits
+  /admin/deliveries
+  /admin/scan
+  /admin/settings
+  /admin/settings/profile
+  /admin/settings/notifications
+
+  Note: /admin/mails has a nested layout: admin/mails/layout.tsx
+
+  --- Super admin (platform operator) ---
+  Layout: src/app/superadmin/layout.tsx  (shell with sidebar/header for
+           routes under /superadmin/... except see below)
+
+  /superadmin                       → redirects to /super-admin (root page only)
+  /superadmin/dashboard
+  /superadmin/companies
+  /superadmin/mails
+  /superadmin/cheques
+  /superadmin/deposits
+  /superadmin/deliveries
+  /superadmin/scan
+  /superadmin/settings
+  /superadmin/settings/profile
+  /superadmin/settings/billing
+  /superadmin/settings/activity
+  /superadmin/settings/manage-admins
+
+  Alternate super-admin landing (no superadmin layout):
+  /super-admin                      → client page; different from /superadmin/*
+
+  --- Legacy / duplicate entry points (keep for bookmarks) ---
+  /customer-dashboard               → server redirect to /customer
+  /super-admin-dashboard            → standalone dashboard-style page
+  /dashboard                        → see redirects (→ /admin)
+
+--------------------------------------------------------------------------------
+5. MOCK DATA SOURCES (for entity shape reference)
+--------------------------------------------------------------------------------
+  Shared mock modules (types + sample rows): frontend/src/mocks/
+
+    companies.ts
+    mails.ts
+    cheques.ts
+    deposits.ts
+    depositRequests.ts
+    deliveries.ts
+
+  Used heavily by: src/app/admin/* list pages, admin Sidebar badge counts.
+  Customer pages may use inline arrays instead of these files.
+
+--------------------------------------------------------------------------------
+6. CLIENT LIB HELPERS (non-API)
+--------------------------------------------------------------------------------
+  frontend/src/lib/billingLocal.ts  — local state helper for subscription UI
+  (used with billing upgrade flow on customer account).
+
+--------------------------------------------------------------------------------
+7. PERSONAS (logical domains)
+--------------------------------------------------------------------------------
+  Public          : marketing, login, registration
+  Customer        : end-user company portal (/customer/...)
+  Admin           : single-tenant company admin (/admin/...)
+  Super admin     : platform-wide (/superadmin/... and /super-admin...)
+
+--------------------------------------------------------------------------------
+8. NOTES FOR BACKEND ALIGNMENT
+--------------------------------------------------------------------------------
+  • companyId appears in existing customer API calls (often hardcoded as
+    "demo" in UI until auth provides a real id).
+  • Admin/superadmin list screens expect row shapes aligned with mocks until
+    replaced by real fetches.
+  • External image URLs: some pages use third-party image APIs (e.g. readdy.ai)
+    for placeholders; unrelated to your REST API.
+
+================================================================================
+END
+================================================================================

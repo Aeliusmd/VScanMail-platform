@@ -799,33 +799,7 @@ export default function CustomerAccountPage() {
                             </div>
 
                             
-                            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                              <div className="mb-2 flex items-center justify-between">
-                                <span className="text-sm font-medium text-gray-700">Scan Usage</span>
-                                <span className="text-sm font-semibold text-gray-900">
-                                  {billing.manual.scansUsed} / {billing.manual.scansLimit}
-                                </span>
-                              </div>
-                              <svg
-                                className="h-2.5 w-full rounded-full"
-                                viewBox="0 0 100 1"
-                                preserveAspectRatio="none"
-                                role="img"
-                                aria-label={`Scan usage ${Math.round(scanUsagePercent(billing.manual.scansUsed, billing.manual.scansLimit))} percent`}
-                              >
-                                <rect width="100" height="1" fill="#e5e7eb" rx="0.5" />
-                                <rect
-                                  width={scanUsagePercent(billing.manual.scansUsed, billing.manual.scansLimit)}
-                                  height="1"
-                                  fill="#0A3D8F"
-                                  rx="0.5"
-                                />
-                              </svg>
-                              <p className="mt-1.5 text-xs text-gray-400">
-                                {Math.max(0, billing.manual.scansLimit - billing.manual.scansUsed)} scans remaining this
-                                period
-                              </p>
-                            </div>
+                            
                           </div>
                         </div>
 

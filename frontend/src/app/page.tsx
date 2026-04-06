@@ -25,12 +25,15 @@ function LandingPage() {
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 transition-all duration-300 bg-[#FFFFFFF2]">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="flex justify-between items-center h-18 py-4">
-            <Link href="/" className="flex items-center space-x-2">
+          <div className="flex h-14 items-center justify-between md:h-16">
+            <Link
+              href="/"
+              className="flex items-center md:h-full md:items-center md:py-2"
+            >
               <img
-                src="/images/A-4.png"
+                src="/images/A-41.png"
                 alt="VScanMail"
-                className="w-auto h-full object-contain opacity-100"
+                className="h-8 w-auto object-contain opacity-100 md:h-full"
               />
             </Link>
 
@@ -641,7 +644,7 @@ function LandingPage() {
           <div className="grid md:grid-cols-4 gap-10 mb-10">
             <div>
               <div className="flex items-center space-x-2 mb-4">
-                <img src="/images/icon.jpg" alt="VScanMail" className="w-[140px] h-[100px] object-contain" />
+                <img src="/images/A-41.png" alt="VScanMail" className="w-[160px] h-[160px] object-contain" />
               </div>
               <p className="text-xs leading-relaxed">
                 Revolutionizing mail and cheque management with AI-powered scanning technology for modern businesses.
