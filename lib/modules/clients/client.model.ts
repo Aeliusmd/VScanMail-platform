@@ -126,6 +126,8 @@ export const clientModel = {
     if (data.twoFaEnabled !== undefined) patch.twoFaEnabled = Boolean(data.twoFaEnabled);
 
     if (data.notes !== undefined) patch.notes = data.notes || null;
+    if (data.client_type !== undefined) patch.clientType = data.client_type;
+    if (data.clientType !== undefined) patch.clientType = data.clientType;
 
     patch.updatedAt = sql`NOW()` as any;
 

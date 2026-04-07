@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { HiArrowLeft, HiCheck, HiShieldCheck } from "react-icons/hi2";
+import { HiArrowLeft, HiCheck, HiShieldCheck, HiInformationCircle } from "react-icons/hi2";
 import { HiOutlineEye, HiOutlineEyeSlash } from "react-icons/hi2";
 import styles from "./register-step3.module.css";
 
@@ -31,15 +31,19 @@ export default function RegisterStep3() {
     agreeTerms?: string;
   }>({});
 
+  const [isLoading, setIsLoading] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
+
   useEffect(() => {
-    const step2Data = localStorage.getItem("registerStep2");
-    if (!step2Data) router.push("/register/step-2");
+    const step1Data = localStorage.getItem("registerStep1");
+    if (!step1Data) router.push("/register");
   }, [router]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
     setFormData({ ...formData, [name]: type === "checkbox" ? checked : value });
     setErrors({ ...errors, [name]: undefined });
+    setServerError(null);
   };
 
   const validate = () => {
@@ -51,19 +55,75 @@ export default function RegisterStep3() {
     return newErrors;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors = validate();
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
-    const step1 = JSON.parse(localStorage.getItem("registerStep1") || "{}");
-    const step2 = JSON.parse(localStorage.getItem("registerStep2") || "{}");
-    console.log("Registration complete:", { ...step1, ...step2, password: formData.password });
-    localStorage.removeItem("registerStep1");
-    localStorage.removeItem("registerStep2");
-    router.push("/login");
+
+    const step1Raw = localStorage.getItem("registerStep1");
+    const step2Raw = localStorage.getItem("registerStep2");
+
+    if (!step1Raw || !step2Raw) {
+      setServerError("Registration data is missing. Please restart the process.");
+      return;
+    }
+
+    const step1 = JSON.parse(step1Raw);
+    const step2 = JSON.parse(step2Raw);
+
+    setIsLoading(true);
+    setServerError(null);
+
+    try {
+      const payload = {
+        companyName: step1.companyName,
+        registrationNo: step1.registrationNumber,
+        industry: step1.industry,
+        email: step1.companyEmail,
+        phone: step1.companyPhone,
+        address: {
+          street: step1.streetAddress,
+          city: step1.city,
+          state: step1.state,
+          zip: step1.zipCode,
+          country: step1.country,
+        },
+        // Contact person info (can be used for profile if needed, currently service uses company email for user)
+        contactName: step2.fullName,
+        contactJob: step2.jobTitle,
+        contactEmail: step2.emailAddress,
+        contactPhone: step2.phoneNumber,
+        
+        password: formData.password,
+        planType: "subscription", // Default
+      };
+
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Registration failed");
+      }
+
+      // Success
+      localStorage.removeItem("registerStep1");
+      localStorage.removeItem("registerStep2");
+      localStorage.removeItem("selectedPlanId");
+
+      router.push(`/verify-email?email=${encodeURIComponent(step1.companyEmail)}`);
+    } catch (err: any) {
+      setServerError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -108,6 +168,13 @@ export default function RegisterStep3() {
             <h2 className={styles.heading}>Account Security</h2>
             <p className={styles.subheading}>Create a secure password for your account</p>
           </div>
+
+          {serverError && (
+            <div className={styles.serverError}>
+              <HiInformationCircle className={styles.errorIcon} />
+              <span>{serverError}</span>
+            </div>
+          )}
 
           <div className={styles.requirementsBanner}>
             <HiShieldCheck className={styles.requirementsIcon} />
@@ -200,11 +267,24 @@ export default function RegisterStep3() {
             </div>
 
             <div className={styles.buttonRow}>
-              <button type="button" onClick={() => router.push("/register/step-2")} className={styles.backButton}>
+              <button 
+                type="button" 
+                onClick={() => router.push("/register/step-2")} 
+                className={styles.backButton}
+                disabled={isLoading}
+              >
                 <HiArrowLeft /> Back
               </button>
-              <button type="submit" className={styles.submitButton}>
-                Complete Registration <HiCheck />
+              <button 
+                type="submit" 
+                className={styles.submitButton}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>Registering...</>
+                ) : (
+                  <>Complete Registration <HiCheck /></>
+                )}
               </button>
             </div>
           </form>

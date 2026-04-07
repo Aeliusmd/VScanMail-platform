@@ -64,6 +64,9 @@ export const manualPaymentModel = {
 
     await db.insert(manualPayments).values(toInsert);
 
+    // Keep clientType in sync - if a manual payment is recorded, the client is now 'manual'
+    await db.update(clients).set({ clientType: 'manual' }).where(eq(clients.id, data.client_id!));
+
     const record = await this.findById(id);
 
     // Audit log
@@ -127,6 +130,9 @@ export const manualPaymentModel = {
     if (data.period_end !== undefined) toUpdate.periodEnd = new Date(data.period_end);
 
     await db.update(manualPayments).set(toUpdate).where(eq(manualPayments.id, id));
+
+    // Ensure clientType is in sync - if a manual payment exists, the client is now 'manual'
+    await db.update(clients).set({ clientType: 'manual' }).where(eq(clients.id, before.client_id));
 
     const after = await this.findById(id);
 
