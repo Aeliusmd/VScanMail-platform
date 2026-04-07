@@ -26,6 +26,7 @@ export interface Company {
   chequeValue: number;
   notes: string;
   lastActivity: string;
+  clientType?: 'manual' | 'subscription';
 }
 
 export const companies: Company[] = [

@@ -141,6 +141,7 @@ function CompaniesPageContent() {
       chequeValue: 0,
       notes: c.notes || 'No notes added.',
       lastActivity: 'Just now',
+      clientType: c.client_type as any,
     };
   };
 

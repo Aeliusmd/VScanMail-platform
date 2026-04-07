@@ -8,6 +8,13 @@ export const addManualCompanySchema = z.object({
   status:        z.enum(["active", "pending"]).default("pending"),
   website:       z.string().optional(),
   address:       z.string().optional(),
+  addressJson:   z.object({
+    street:  z.string().optional().default(""),
+    city:    z.string().optional().default(""),
+    state:   z.string().optional().default(""),
+    zip:     z.string().optional().default(""),
+    country: z.string().optional().default(""),
+  }).optional(),
   contactPerson: z.string().optional(),
   notes:         z.string().max(500).optional(),
   paymentType:   z.enum(["cash", "bank_transfer", "cheque", "other"]).default("other"),

@@ -18,29 +18,32 @@ export const auditService = {
     let userAgent = params.userAgent || null;
 
     if (params.req) {
-      userAgent = params.req.headers.get("user-agent");
-      // Try x-forwarded-for, then Next.js specific ip property, then fallback
-      const forwarded = params.req.headers.get("x-forwarded-for");
-      if (forwarded) {
-        ip = forwarded.split(",")[0].trim();
-      } else {
-        ip = (params.req as any).ip || "127.0.0.1";
+      userAgent = params.req?.headers?.get("user-agent") || "unknown";
+      ip = (params.req as any)?.ip || "127.0.0.1";
+
+      if (ip === "::1" || ip === "127.0.0.1") {
+        ip = params.req?.headers?.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
       }
     }
 
 
-    await auditLogModel.append({
-      actor_id: params.actor,
-      actor_role: (params.actor_role as any) || "admin",
-      action: params.action,
-      entity_type: params.action.split(".")[0],
-      entity_id: params.entity,
-      client_id: params.clientId || null,
-      before_state: params.before || null,
-      after_state: params.after || null,
-      ip_address: ip,
-      user_agent: userAgent,
-    });
+    try {
+      await auditLogModel.append({
+        actor_id: params.actor,
+        actor_role: (params.actor_role as any) || "admin",
+        action: params.action,
+        entity_type: params.action.split(".")[0],
+        entity_id: params.entity,
+        client_id: params.clientId || null,
+        before_state: params.before || null,
+        after_state: params.after || null,
+        ip_address: ip,
+        user_agent: userAgent,
+      });
+    } catch (err) {
+      console.error("[AUDIT_SERVICE_FAILURE]", err);
+      // We do NOT re-throw here to prevent audit failures from crashing the business logic
+    }
 
   },
 };

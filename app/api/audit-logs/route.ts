@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     withRole(actor, ["super_admin", "admin"]);
 
     // Fetch latest logs with all meta-data
-    const logs = await db
+    const rows = await db
       .select({
         id: auditLogs.id,
         actorId: auditLogs.actorId,
@@ -35,7 +35,8 @@ export async function GET(req: NextRequest) {
         ipAddress: auditLogs.ipAddress,
         userAgent: auditLogs.userAgent,
         createdAt: auditLogs.createdAt,
-        actorName: users.fullName,
+        actorFirstName: users.firstName,
+        actorLastName: users.lastName,
         companyName: clients.companyName,
       })
       .from(auditLogs)
@@ -44,6 +45,13 @@ export async function GET(req: NextRequest) {
       .leftJoin(clients, eq(auditLogs.clientId, clients.id)) 
       .orderBy(desc(auditLogs.createdAt))
       .limit(100); 
+
+    const logs = rows.map(r => ({
+      ...r,
+      actorName: r.actorFirstName && r.actorLastName 
+        ? `${r.actorFirstName} ${r.actorLastName}`
+        : (r.actorFirstName || r.actorLastName || null)
+    }));
 
     return NextResponse.json({ logs });
   } catch (error: any) {

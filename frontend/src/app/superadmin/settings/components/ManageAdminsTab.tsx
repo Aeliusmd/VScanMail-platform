@@ -120,11 +120,16 @@ export default function ManageAdminsTab() {
       setSaving(true);
       setSaveError("");
 
+      const parts = form.fullName.trim().split(/\s+/);
+      const firstName = parts[0];
+      const lastName = parts.slice(1).join(" ") || "";
+
       if (panelMode === "add") {
         const res = await apiFetch("/api/admins", {
           method: "POST",
           body: JSON.stringify({
-            fullName: form.fullName,
+            firstName,
+            lastName,
             email: form.email,
             phone: form.phone,
             password: form.password,
@@ -138,7 +143,8 @@ export default function ManageAdminsTab() {
         const res = await apiFetch(`/api/admins/${editingAdmin.id}`, {
           method: "PATCH",
           body: JSON.stringify({
-            fullName: form.fullName,
+            firstName,
+            lastName,
             phone: form.phone,
             status: form.status,
           }),

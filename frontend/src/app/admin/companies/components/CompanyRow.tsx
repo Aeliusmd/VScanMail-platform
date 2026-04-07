@@ -55,7 +55,16 @@ export default function CompanyRow({ company, selected, onSelect, onEdit, onDele
       </div>
 
       <div className={styles.nameWrap}>
-        <span className={styles.name}>{company.name}</span>
+        <div className="flex flex-col">
+          <span className={styles.name}>{company.name}</span>
+          {company.clientType && (
+            <div className="mt-1 flex">
+              <span className={`${styles.typeBadge} ${company.clientType === 'manual' ? styles.typeManual : styles.typeSubscription}`}>
+                {company.clientType}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className={styles.infoWrap}>

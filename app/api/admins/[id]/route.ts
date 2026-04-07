@@ -13,7 +13,9 @@ import path from "path";
 import { auditService } from "@/lib/modules/audit/audit.service";
 
 const updateAdminSchema = z.object({
-  fullName: z.string().min(2).max(100).optional(),
+  firstName: z.string().min(1).max(100).optional(),
+  lastName: z.string().min(1).max(100).optional(),
+  fullName: z.string().optional(), // Fallback if frontend isn't updated yet
   phone: z.string().optional(),
   status: z.enum(["Active", "Inactive"]).optional(),
 });
@@ -35,7 +37,8 @@ export async function PATCH(
     if (!current) throw new Error("Admin not found");
     
     const beforeState = { 
-      fullName: current.fullName, 
+      firstName: current.firstName,
+      lastName: current.lastName,
       phone: current.phone,
       status: current.isActive ? "Active" : "Inactive" 
     };
@@ -43,8 +46,18 @@ export async function PATCH(
     // Prepare update object
     const patch: any = { updatedAt: new Date() };
     if (data.status !== undefined) patch.isActive = data.status === "Active";
-    if (data.fullName !== undefined) patch.fullName = data.fullName;
     if (data.phone !== undefined) patch.phone = data.phone;
+
+    // Handle name updates
+    if (data.firstName) patch.firstName = data.firstName;
+    if (data.lastName) patch.lastName = data.lastName;
+    
+    // Fallback: If only fullName is sent, try to split it
+    if (!data.firstName && !data.lastName && data.fullName) {
+      const parts = data.fullName.trim().split(/\s+/);
+      patch.firstName = parts[0];
+      patch.lastName = parts.slice(1).join(" ") || "";
+    }
 
     // Execute update in database
     await db

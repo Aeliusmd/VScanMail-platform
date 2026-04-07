@@ -140,7 +140,7 @@ export default function CustomerAccountPage() {
     const next = buildBillingSubscriptionState(billing, plan);
     setBilling(next);
 
-    void postBillingUpgradeRequest(selectedUpgradePlan, COMPANY_ID).catch(() => {});
+    void postBillingUpgradeRequest(selectedUpgradePlan, COMPANY_ID).catch(() => { });
 
     setUpgradeSubmitting(false);
     setUpgradeConfirmed(true);
@@ -278,7 +278,7 @@ export default function CustomerAccountPage() {
           <p className="text-sm text-gray-500 mt-1">Manage your company profile, bank accounts, and preferences</p>
         </div>
 
-        
+
 
         {successMsg && (
           <div className="mb-4 flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-xl">
@@ -327,9 +327,8 @@ export default function CustomerAccountPage() {
                     key={t.key}
                     type="button"
                     onClick={() => setActiveTab(t.key)}
-                    className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all lg:mb-0.5 lg:w-full lg:gap-3 lg:text-left ${
-                      activeTab === t.key ? "bg-blue-50 text-[#0A3D8F]" : "text-gray-600 hover:bg-gray-100"
-                    } cursor-pointer whitespace-nowrap`}
+                    className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all lg:mb-0.5 lg:w-full lg:gap-3 lg:text-left ${activeTab === t.key ? "bg-blue-50 text-[#0A3D8F]" : "text-gray-600 hover:bg-gray-100"
+                      } cursor-pointer whitespace-nowrap`}
                   >
                     <i className={`${t.icon} text-base`} />
                     {t.label}
@@ -352,27 +351,27 @@ export default function CustomerAccountPage() {
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">Company Name</label>
-                      <input type="text" value={profile.companyName} onChange={e => { setProfile(p => ({...p, companyName: e.target.value})); setProfileDirty(true); }}
+                      <input type="text" value={profile.companyName} onChange={e => { setProfile(p => ({ ...p, companyName: e.target.value })); setProfileDirty(true); }}
                         className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">Primary Contact Person</label>
-                      <input type="text" value={profile.contactPerson} onChange={e => { setProfile(p => ({...p, contactPerson: e.target.value})); setProfileDirty(true); }}
+                      <input type="text" value={profile.contactPerson} onChange={e => { setProfile(p => ({ ...p, contactPerson: e.target.value })); setProfileDirty(true); }}
                         className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">Email Address</label>
-                      <input type="email" value={profile.email} onChange={e => { setProfile(p => ({...p, email: e.target.value})); setProfileDirty(true); }}
+                      <input type="email" value={profile.email} onChange={e => { setProfile(p => ({ ...p, email: e.target.value })); setProfileDirty(true); }}
                         className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">Phone Number</label>
-                      <input type="tel" value={profile.phone} onChange={e => { setProfile(p => ({...p, phone: e.target.value})); setProfileDirty(true); }}
+                      <input type="tel" value={profile.phone} onChange={e => { setProfile(p => ({ ...p, phone: e.target.value })); setProfileDirty(true); }}
                         className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">Website</label>
-                      <input type="text" value={profile.website} onChange={e => { setProfile(p => ({...p, website: e.target.value})); setProfileDirty(true); }}
+                      <input type="text" value={profile.website} onChange={e => { setProfile(p => ({ ...p, website: e.target.value })); setProfileDirty(true); }}
                         className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                     </div>
                   </div>
@@ -382,23 +381,23 @@ export default function CustomerAccountPage() {
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">Street Address</label>
-                        <input type="text" value={profile.address} onChange={e => { setProfile(p => ({...p, address: e.target.value})); setProfileDirty(true); }}
+                        <input type="text" value={profile.address} onChange={e => { setProfile(p => ({ ...p, address: e.target.value })); setProfileDirty(true); }}
                           className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                       </div>
                       <div className="md:col-span-2 grid grid-cols-1 gap-4 sm:grid-cols-3">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1.5">City</label>
-                          <input type="text" value={profile.city} onChange={e => { setProfile(p => ({...p, city: e.target.value})); setProfileDirty(true); }}
+                          <input type="text" value={profile.city} onChange={e => { setProfile(p => ({ ...p, city: e.target.value })); setProfileDirty(true); }}
                             className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1.5">State</label>
-                          <input type="text" value={profile.state} onChange={e => { setProfile(p => ({...p, state: e.target.value})); setProfileDirty(true); }}
+                          <input type="text" value={profile.state} onChange={e => { setProfile(p => ({ ...p, state: e.target.value })); setProfileDirty(true); }}
                             className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1.5">ZIP Code</label>
-                          <input type="text" value={profile.zip} onChange={e => { setProfile(p => ({...p, zip: e.target.value})); setProfileDirty(true); }}
+                          <input type="text" value={profile.zip} onChange={e => { setProfile(p => ({ ...p, zip: e.target.value })); setProfileDirty(true); }}
                             className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                         </div>
                       </div>
@@ -412,7 +411,7 @@ export default function CustomerAccountPage() {
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">Industry</label>
                         <select
                           aria-label="Industry"
-                          value={profile.industry} onChange={e => { setProfile(p => ({...p, industry: e.target.value})); setProfileDirty(true); }}
+                          value={profile.industry} onChange={e => { setProfile(p => ({ ...p, industry: e.target.value })); setProfileDirty(true); }}
                           className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30 cursor-pointer bg-white">
                           {['Technology', 'Finance', 'Healthcare', 'Manufacturing', 'Retail', 'Real Estate', 'Legal', 'Other'].map(i => <option key={i}>{i}</option>)}
                         </select>
@@ -421,7 +420,7 @@ export default function CustomerAccountPage() {
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">Number of Employees</label>
                         <select
                           aria-label="Number of employees"
-                          value={profile.employees} onChange={e => { setProfile(p => ({...p, employees: e.target.value})); setProfileDirty(true); }}
+                          value={profile.employees} onChange={e => { setProfile(p => ({ ...p, employees: e.target.value })); setProfileDirty(true); }}
                           className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30 cursor-pointer bg-white">
                           {['1–10', '11–50', '51–200', '201–500', '500+'].map(e => <option key={e}>{e}</option>)}
                         </select>
@@ -546,13 +545,13 @@ export default function CustomerAccountPage() {
                         )}
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1.5">Bank Name <span className="text-red-500">*</span></label>
-                          <input type="text" value={newBank.bankName} onChange={e => setNewBank(p => ({...p, bankName: e.target.value}))}
+                          <input type="text" value={newBank.bankName} onChange={e => setNewBank(p => ({ ...p, bankName: e.target.value }))}
                             placeholder="e.g. Chase Bank, Wells Fargo"
                             className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1.5">Account Nickname <span className="text-red-500">*</span></label>
-                          <input type="text" value={newBank.accountName} onChange={e => setNewBank(p => ({...p, accountName: e.target.value}))}
+                          <input type="text" value={newBank.accountName} onChange={e => setNewBank(p => ({ ...p, accountName: e.target.value }))}
                             placeholder="e.g. Acme Corp Operating"
                             className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                         </div>
@@ -561,7 +560,7 @@ export default function CustomerAccountPage() {
                           <div className="flex gap-3">
                             {(['Checking', 'Savings'] as const).map(t => (
                               <label key={t} className={`flex-1 flex items-center gap-2 p-3 border rounded-lg cursor-pointer transition-all ${newBank.accountType === t ? 'border-[#0A3D8F] bg-blue-50' : 'border-gray-200'}`}>
-                                <input type="radio" value={t} checked={newBank.accountType === t} onChange={() => setNewBank(p => ({...p, accountType: t}))} className="text-[#0A3D8F]" />
+                                <input type="radio" value={t} checked={newBank.accountType === t} onChange={() => setNewBank(p => ({ ...p, accountType: t }))} className="text-[#0A3D8F]" />
                                 <span className="text-sm font-medium text-gray-700">{t}</span>
                               </label>
                             ))}
@@ -569,24 +568,24 @@ export default function CustomerAccountPage() {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1.5">Account Number <span className="text-red-500">*</span></label>
-                          <input type="password" value={newBank.accountNumber} onChange={e => setNewBank(p => ({...p, accountNumber: e.target.value}))}
+                          <input type="password" value={newBank.accountNumber} onChange={e => setNewBank(p => ({ ...p, accountNumber: e.target.value }))}
                             placeholder="Enter account number"
                             className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1.5">Confirm Account Number <span className="text-red-500">*</span></label>
-                          <input type="password" value={newBank.confirmAccountNumber} onChange={e => setNewBank(p => ({...p, confirmAccountNumber: e.target.value}))}
+                          <input type="password" value={newBank.confirmAccountNumber} onChange={e => setNewBank(p => ({ ...p, confirmAccountNumber: e.target.value }))}
                             placeholder="Re-enter account number"
                             className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1.5">Routing Number <span className="text-red-500">*</span></label>
-                          <input type="text" value={newBank.routingNumber} onChange={e => setNewBank(p => ({...p, routingNumber: e.target.value}))}
+                          <input type="text" value={newBank.routingNumber} onChange={e => setNewBank(p => ({ ...p, routingNumber: e.target.value }))}
                             placeholder="9-digit routing number"
                             className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                         </div>
                         <label className="flex items-center gap-3 cursor-pointer">
-                          <input type="checkbox" checked={newBank.isPrimary} onChange={e => setNewBank(p => ({...p, isPrimary: e.target.checked}))} className="w-4 h-4 text-[#0A3D8F] rounded" />
+                          <input type="checkbox" checked={newBank.isPrimary} onChange={e => setNewBank(p => ({ ...p, isPrimary: e.target.checked }))} className="w-4 h-4 text-[#0A3D8F] rounded" />
                           <span className="text-sm text-gray-700">Set as primary account for deposits</span>
                         </label>
                         <div className="flex gap-3 pt-2">
@@ -669,7 +668,7 @@ export default function CustomerAccountPage() {
                           <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
                         </div>
                         <button
-                          onClick={() => setSecurity(p => ({...p, [key]: !p[key]}))}
+                          onClick={() => setSecurity(p => ({ ...p, [key]: !p[key] }))}
                           className={`relative w-12 h-6 rounded-full transition-colors cursor-pointer ${security[key] ? 'bg-[#0A3D8F]' : 'bg-gray-300'}`}
                         >
                           <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-all ${security[key] ? 'left-6.5 translate-x-0.5' : 'left-0.5'}`}></span>
@@ -683,7 +682,7 @@ export default function CustomerAccountPage() {
                       </div>
                       <select
                         aria-label="Session timeout duration"
-                        value={security.sessionTimeout} onChange={e => setSecurity(p => ({...p, sessionTimeout: e.target.value}))}
+                        value={security.sessionTimeout} onChange={e => setSecurity(p => ({ ...p, sessionTimeout: e.target.value }))}
                         className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-700 bg-white focus:outline-none cursor-pointer">
                         <option value="15">15 minutes</option>
                         <option value="30">30 minutes</option>
@@ -728,7 +727,7 @@ export default function CustomerAccountPage() {
                       </div>
                       <button
                         type="button"
-                        onClick={() => setNotifs(p => ({...p, [key]: !p[key]}))}
+                        onClick={() => setNotifs(p => ({ ...p, [key]: !p[key] }))}
                         className={`relative h-6 w-12 shrink-0 cursor-pointer rounded-full transition-colors ${notifs[key] ? "bg-[#0A3D8F]" : "bg-gray-300"}`}
                       >
                         <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-all ${notifs[key] ? 'left-6' : 'left-0.5'}`}></span>
@@ -753,195 +752,169 @@ export default function CustomerAccountPage() {
             {activeTab === "billing" && (
               <div className="space-y-5">
                 {billing.planType === "manual" ? (
-                      <>
-                        <div className="rounded-xl border border-gray-200 bg-white">
-                          <div className="flex flex-col gap-3 border-b border-gray-200 p-6 sm:flex-row sm:items-center sm:justify-between">
-                            <div>
-                              <h2 className="text-lg font-bold text-gray-900">Billing &amp; Plan</h2>
-                              <p className="mt-0.5 text-sm text-gray-500">Your current plan and usage details</p>
-                            </div>
-                            <span className="inline-flex items-center gap-1.5 self-start rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
-                              <i className="ri-file-text-line"></i>
-                              Manual Plan
-                            </span>
-                          </div>
+                  <>
+                    <div className="rounded-xl border border-gray-200 bg-white">
+                      <div className="flex flex-col gap-3 border-b border-gray-200 p-6 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <h2 className="text-lg font-bold text-gray-900">Billing &amp; Plan</h2>
+                          <p className="mt-0.5 text-sm text-gray-500">Your current plan and usage details</p>
+                        </div>
+                        <span className="inline-flex items-center gap-1.5 self-start rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
+                          <i className="ri-file-text-line"></i>
+                          Manual Plan
+                        </span>
+                      </div>
 
-                          <div className="p-6">
-                            <div className="mb-5 rounded-xl border border-gray-200 bg-gradient-to-br from-slate-50 to-gray-100 p-5">
-                              <div className="flex items-start gap-4">
-                                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-amber-100">
-                                  <i className="ri-file-list-3-line text-xl text-amber-600"></i>
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <div className="mb-1 flex flex-wrap items-center gap-2">
-                                    <h3 className="text-base font-bold text-gray-900">{billing.manual.planName}</h3>
-                                    <span className="rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-xs font-medium text-[#2F8F3A]">
-                                      {billing.manual.status}
-                                    </span>
-                                  </div>
-                                  <p className="mb-3 text-sm text-gray-500">{billing.manual.notes}</p>
-                                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                                    <div className="rounded-lg border border-gray-200 bg-white p-3">
-                                      <p className="mb-0.5 text-xs text-gray-400">Start Date</p>
-                                      <p className="text-sm font-semibold text-gray-800">{billing.manual.startDate}</p>
-                                    </div>
-                                    <div className="rounded-lg border border-gray-200 bg-white p-3">
-                                      <p className="mb-0.5 text-xs text-gray-400">Next Renewal</p>
-                                      <p className="text-sm font-semibold text-gray-800">{billing.manual.renewalDate}</p>
-                                    </div>
-                                    <div className="rounded-lg border border-gray-200 bg-white p-3">
-                                      <p className="mb-0.5 text-xs text-gray-400">Assigned Admin</p>
-                                      <p className="text-sm font-semibold text-gray-800">{billing.manual.assignedAdmin}</p>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
+                      <div className="p-6">
+                        <div className="mb-5 rounded-xl border border-gray-200 bg-gradient-to-br from-slate-50 to-gray-100 p-5">
+                          <div className="flex items-start gap-4">
+                            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-amber-100">
+                              <i className="ri-file-list-3-line text-xl text-amber-600"></i>
                             </div>
-
-                            
-                            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                              <div className="mb-2 flex items-center justify-between">
-                                <span className="text-sm font-medium text-gray-700">Scan Usage</span>
-                                <span className="text-sm font-semibold text-gray-900">
-                                  {billing.manual.scansUsed} / {billing.manual.scansLimit}
+                            <div className="min-w-0 flex-1">
+                              <div className="mb-1 flex flex-wrap items-center gap-2">
+                                <h3 className="text-base font-bold text-gray-900">{billing.manual.planName}</h3>
+                                <span className="rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-xs font-medium text-[#2F8F3A]">
+                                  {billing.manual.status}
                                 </span>
                               </div>
-                              <svg
-                                className="h-2.5 w-full rounded-full"
-                                viewBox="0 0 100 1"
-                                preserveAspectRatio="none"
-                                role="img"
-                                aria-label={`Scan usage ${Math.round(scanUsagePercent(billing.manual.scansUsed, billing.manual.scansLimit))} percent`}
-                              >
-                                <rect width="100" height="1" fill="#e5e7eb" rx="0.5" />
-                                <rect
-                                  width={scanUsagePercent(billing.manual.scansUsed, billing.manual.scansLimit)}
-                                  height="1"
-                                  fill="#0A3D8F"
-                                  rx="0.5"
-                                />
-                              </svg>
-                              <p className="mt-1.5 text-xs text-gray-400">
-                                {Math.max(0, billing.manual.scansLimit - billing.manual.scansUsed)} scans remaining this
-                                period
-                              </p>
+                              <p className="mb-3 text-sm text-gray-500">{billing.manual.notes}</p>
+                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                                <div className="rounded-lg border border-gray-200 bg-white p-3">
+                                  <p className="mb-0.5 text-xs text-gray-400">Start Date</p>
+                                  <p className="text-sm font-semibold text-gray-800">{billing.manual.startDate}</p>
+                                </div>
+                                <div className="rounded-lg border border-gray-200 bg-white p-3">
+                                  <p className="mb-0.5 text-xs text-gray-400">Next Renewal</p>
+                                  <p className="text-sm font-semibold text-gray-800">{billing.manual.renewalDate}</p>
+                                </div>
+                                <div className="rounded-lg border border-gray-200 bg-white p-3">
+                                  <p className="mb-0.5 text-xs text-gray-400">Assigned Admin</p>
+                                  <p className="text-sm font-semibold text-gray-800">{billing.manual.assignedAdmin}</p>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>
 
-                        <div className="rounded-xl bg-gradient-to-r from-[#0A3D8F] to-[#083170] p-6 text-white">
-                          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                            <div className="flex items-start gap-4">
-                              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-white/15">
-                                <i className="ri-rocket-line text-xl text-white"></i>
-                              </div>
-                              <div>
-                                <h3 className="mb-1 text-base font-bold">Switch to a Subscription Plan</h3>
-                                <p className="text-sm text-white/75">
-                                  Get predictable pricing, more scans, and premium features. Subscription plans start at
-                                  $49/mo.
-                                </p>
-                                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/70">
-                                  <span className="flex items-center gap-1">
-                                    <i className="ri-check-line"></i> Cancel anytime
-                                  </span>
-                                  <span className="flex items-center gap-1">
-                                    <i className="ri-check-line"></i> No setup fees
-                                  </span>
-                                  <span className="flex items-center gap-1">
-                                    <i className="ri-check-line"></i> Instant activation
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => setShowUpgradeModal(true)}
-                              className="flex-shrink-0 cursor-pointer whitespace-nowrap rounded-lg bg-white px-5 py-2.5 text-sm font-bold text-[#0A3D8F] transition-colors hover:bg-gray-100"
-                            >
-                              View Plans
-                            </button>
+
+
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl bg-gradient-to-r from-[#0A3D8F] to-[#083170] p-6 text-white">
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="flex items-start gap-4">
+                          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-white/15">
+                            <i className="ri-rocket-line text-xl text-white"></i>
                           </div>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="rounded-xl border border-gray-200 bg-white">
-                        <div className="flex flex-col gap-3 border-b border-gray-200 p-6 sm:flex-row sm:items-center sm:justify-between">
                           <div>
-                            <h2 className="text-lg font-bold text-gray-900">Billing &amp; Plan</h2>
-                            <p className="mt-0.5 text-sm text-gray-500">Your subscription details and usage</p>
+                            <h3 className="mb-1 text-base font-bold">Switch to a Subscription Plan</h3>
+                            <p className="text-sm text-white/75">
+                              Get predictable pricing, more scans, and premium features. Subscription plans start at
+                              $49/mo.
+                            </p>
+                            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/70">
+                              <span className="flex items-center gap-1">
+                                <i className="ri-check-line"></i> Cancel anytime
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <i className="ri-check-line"></i> No setup fees
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <i className="ri-check-line"></i> Instant activation
+                              </span>
+                            </div>
                           </div>
-                          <span className="inline-flex items-center gap-1.5 self-start rounded-full border border-[#0A3D8F]/20 bg-[#0A3D8F]/10 px-3 py-1.5 text-xs font-semibold text-[#0A3D8F]">
-                            <i className="ri-rocket-line"></i>
-                            {billing.subscription.planLabel}
-                          </span>
                         </div>
-                        <div className="p-6">
-                          <div className="mb-5 rounded-xl border border-[#0A3D8F]/15 bg-gradient-to-br from-[#0A3D8F]/5 to-[#083170]/5 p-5">
-                            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                              <div>
-                                <h3 className="text-base font-bold text-gray-900">{billing.subscription.titleLine}</h3>
-                                <p className="mt-0.5 text-sm text-gray-500">
-                                  Next billing date: {billing.subscription.nextBillingDate}
-                                </p>
-                              </div>
-                              <Link
-                                href="/customer/select-plan"
-                                className="inline-flex cursor-pointer items-center justify-center whitespace-nowrap rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
-                              >
-                                Manage Subscription
-                              </Link>
-                            </div>
-                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                              {(
-                                [
-                                  {
-                                    label: "Scans Used",
-                                    value: `${billing.subscription.scansUsed} / ${billing.subscription.scansLimit}`,
-                                    icon: "ri-scan-2-line",
-                                    color: "text-[#0A3D8F]",
-                                    bg: "bg-[#0A3D8F]/10",
-                                  },
-                                  {
-                                    label: "Mails Received",
-                                    value: String(billing.subscription.mailsReceived),
-                                    icon: "ri-mail-line",
-                                    color: "text-[#2F8F3A]",
-                                    bg: "bg-green-50",
-                                  },
-                                  {
-                                    label: "Cheques",
-                                    value: String(billing.subscription.chequesProcessed),
-                                    icon: "ri-bank-card-line",
-                                    color: "text-amber-600",
-                                    bg: "bg-amber-50",
-                                  },
-                                ] as const
-                              ).map((s) => (
-                                <div
-                                  key={s.label}
-                                  className="rounded-lg border border-gray-200 bg-white p-3 text-center"
-                                >
-                                  <div
-                                    className={`mx-auto mb-1.5 flex h-8 w-8 items-center justify-center rounded-full ${s.bg}`}
-                                  >
-                                    <i className={`${s.icon} ${s.color} text-sm`}></i>
-                                  </div>
-                                  <p className="text-sm font-bold text-gray-900">{s.value}</p>
-                                  <p className="text-xs text-gray-400">{s.label}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                          <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
-                            <i className="ri-information-line shrink-0 text-gray-400"></i>
-                            <p className="text-sm text-gray-500">
-                              To cancel or change your plan, please contact your account manager or reach out to support.
+                        <button
+                          type="button"
+                          onClick={() => setShowUpgradeModal(true)}
+                          className="flex-shrink-0 cursor-pointer whitespace-nowrap rounded-lg bg-white px-5 py-2.5 text-sm font-bold text-[#0A3D8F] transition-colors hover:bg-gray-100"
+                        >
+                          View Plans
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="rounded-xl border border-gray-200 bg-white">
+                    <div className="flex flex-col gap-3 border-b border-gray-200 p-6 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <h2 className="text-lg font-bold text-gray-900">Billing &amp; Plan</h2>
+                        <p className="mt-0.5 text-sm text-gray-500">Your subscription details and usage</p>
+                      </div>
+                      <span className="inline-flex items-center gap-1.5 self-start rounded-full border border-[#0A3D8F]/20 bg-[#0A3D8F]/10 px-3 py-1.5 text-xs font-semibold text-[#0A3D8F]">
+                        <i className="ri-rocket-line"></i>
+                        {billing.subscription.planLabel}
+                      </span>
+                    </div>
+                    <div className="p-6">
+                      <div className="mb-5 rounded-xl border border-[#0A3D8F]/15 bg-gradient-to-br from-[#0A3D8F]/5 to-[#083170]/5 p-5">
+                        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <h3 className="text-base font-bold text-gray-900">{billing.subscription.titleLine}</h3>
+                            <p className="mt-0.5 text-sm text-gray-500">
+                              Next billing date: {billing.subscription.nextBillingDate}
                             </p>
                           </div>
+                          <Link
+                            href="/customer/select-plan"
+                            className="inline-flex cursor-pointer items-center justify-center whitespace-nowrap rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+                          >
+                            Manage Subscription
+                          </Link>
+                        </div>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                          {(
+                            [
+                              {
+                                label: "Scans Used",
+                                value: `${billing.subscription.scansUsed} / ${billing.subscription.scansLimit}`,
+                                icon: "ri-scan-2-line",
+                                color: "text-[#0A3D8F]",
+                                bg: "bg-[#0A3D8F]/10",
+                              },
+                              {
+                                label: "Mails Received",
+                                value: String(billing.subscription.mailsReceived),
+                                icon: "ri-mail-line",
+                                color: "text-[#2F8F3A]",
+                                bg: "bg-green-50",
+                              },
+                              {
+                                label: "Cheques",
+                                value: String(billing.subscription.chequesProcessed),
+                                icon: "ri-bank-card-line",
+                                color: "text-amber-600",
+                                bg: "bg-amber-50",
+                              },
+                            ] as const
+                          ).map((s) => (
+                            <div
+                              key={s.label}
+                              className="rounded-lg border border-gray-200 bg-white p-3 text-center"
+                            >
+                              <div
+                                className={`mx-auto mb-1.5 flex h-8 w-8 items-center justify-center rounded-full ${s.bg}`}
+                              >
+                                <i className={`${s.icon} ${s.color} text-sm`}></i>
+                              </div>
+                              <p className="text-sm font-bold text-gray-900">{s.value}</p>
+                              <p className="text-xs text-gray-400">{s.label}</p>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    )}
+                      <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
+                        <i className="ri-information-line shrink-0 text-gray-400"></i>
+                        <p className="text-sm text-gray-500">
+                          To cancel or change your plan, please contact your account manager or reach out to support.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -971,11 +944,10 @@ export default function CustomerAccountPage() {
                           <div
                             key={plan.id}
                             onClick={() => setSelectedUpgradePlan(plan.id)}
-                            className={`relative rounded-xl border-2 p-5 cursor-pointer transition-all ${
-                              isSelected
+                            className={`relative rounded-xl border-2 p-5 cursor-pointer transition-all ${isSelected
                                 ? 'border-[#0A3D8F] bg-[#0A3D8F]/5'
                                 : 'border-gray-200 hover:border-gray-300'
-                            }`}
+                              }`}
                           >
                             {isFeatured && (
                               <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-[#0A3D8F] text-white text-xs font-bold rounded-full whitespace-nowrap">

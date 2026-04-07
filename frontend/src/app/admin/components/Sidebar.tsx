@@ -15,7 +15,7 @@ const navItems = [
   { icon: 'ri:scan-2-line', label: 'Scan Document', slug: '/scan' },
   { icon: 'ri:mail-line', label: 'All Mails', slug: '/mails' },
   { icon: 'ri:bank-card-line', label: 'All Cheques', slug: '/cheques' },
-  { icon: 'ri:building-line', label: 'Companies', slug: '/companies' },
+  { icon: 'ri:building-line', label: 'Organizations', slug: '/companies' },
   { icon: 'ri:exchange-dollar-line', label: 'Deposit Requests', slug: '/deposits' },
   { icon: 'ri:truck-line', label: 'Delivery Requests', slug: '/deliveries' },
 ];
@@ -281,7 +281,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             ? depositLabels
             : isDeliveriesPage
               ? deliveryLabels
-            : null;
+              : null;
 
   /** Count for the main nav badge when that route is active — reflects current `?tab=` filter. */
   const getMainNavBadgeCount = (slug: string): number | null => {
@@ -391,11 +391,10 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             <Link
               key={item.path}
               href={item.path}
-              className={`relative flex items-center gap-0 transition cursor-pointer font-roboto py-3 pl-4 pr-3 sm:pl-[18px] sm:pr-3 min-h-[52px] ${
-                isActive
+              className={`relative flex items-center gap-0 transition cursor-pointer font-roboto py-3 pl-4 pr-3 sm:pl-[18px] sm:pr-3 min-h-[52px] ${isActive
                   ? 'bg-[#EFF6FF] text-[#0A3D8F] font-medium rounded-lg'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 rounded-lg'
-              }`}
+                }`}
             >
               {isActive && (
                 <div
@@ -409,9 +408,8 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
               {!collapsed && (
                 <>
                   <span
-                    className={`ml-2.5 text-[13px] sm:text-[14px] leading-snug flex-1 min-w-0 line-clamp-2 ${
-                      isActive ? 'font-semibold' : 'font-normal'
-                    }`}
+                    className={`ml-2.5 text-[13px] sm:text-[14px] leading-snug flex-1 min-w-0 line-clamp-2 ${isActive ? 'font-semibold' : 'font-normal'
+                      }`}
                   >
                     {item.label}
                   </span>
@@ -440,13 +438,12 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 href={
                   labelsPagePath
                     ? `${labelsPagePath}?tab=${encodeURIComponent(
-                        getTabValueForLabel(labelsPagePath, item.label) ?? 'All'
-                      )}`
+                      getTabValueForLabel(labelsPagePath, item.label) ?? 'All'
+                    )}`
                     : '#'
                 }
-                className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors min-h-[36px] ${
-                  item.bg || 'hover:bg-gray-50'
-                } ${tabFromUrl && getTabValueForLabel(labelsPagePath ?? '', item.label) === tabFromUrl ? 'bg-[#EFF6FF]' : ''}`}
+                className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors min-h-[36px] ${item.bg || 'hover:bg-gray-50'
+                  } ${tabFromUrl && getTabValueForLabel(labelsPagePath ?? '', item.label) === tabFromUrl ? 'bg-[#EFF6FF]' : ''}`}
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   <Icon
@@ -474,25 +471,23 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <div className="border-t border-gray-100 py-4">
         <Link
           href={settingsPath}
-          className={`relative flex items-center transition cursor-pointer font-roboto py-3 pl-4 pr-3 sm:pl-[18px] sm:pr-3 min-h-[52px] ${
-            isSettingsRoute
+          className={`relative flex items-center transition cursor-pointer font-roboto py-3 pl-4 pr-3 sm:pl-[18px] sm:pr-3 min-h-[52px] ${isSettingsRoute
               ? 'bg-[#EFF6FF] text-[#0A3D8F] font-medium rounded-lg mx-2'
               : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 rounded-lg mx-2'
-          }`}
+            }`}
         >
           {isSettingsRoute && (
             <div className="absolute left-0 top-2 bottom-2 w-1 bg-[#0A3D8F] rounded-r" />
           )}
-          <div 
+          <div
             className="flex items-center justify-center flex-shrink-0 w-[20.84px] h-[28px]"
           >
             <Icon icon="ri:settings-3-line" className="text-[20px]" />
           </div>
           {!collapsed && (
-            <span 
-              className={`whitespace-nowrap ml-[12px] text-[14px] leading-[20px] ${
-                isSettingsRoute ? 'font-medium' : 'font-normal'
-              }`}
+            <span
+              className={`whitespace-nowrap ml-[12px] text-[14px] leading-[20px] ${isSettingsRoute ? 'font-medium' : 'font-normal'
+                }`}
             >
               Settings
             </span>

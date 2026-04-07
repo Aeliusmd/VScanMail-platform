@@ -10,24 +10,24 @@ import { signAccessToken } from "@/lib/modules/auth/jwt";
 import { auditService } from "@/lib/modules/audit/audit.service";
 
 export async function POST(req: NextRequest) {
+  let user: any = null;
+  let body: any = null;
   try {
-    const body = await req.json();
+    body = await req.json();
     const { email, password, totpCode } = loginSchema.parse(body);
     console.log("Login attempt for:", email);
-
-
 
     const userRows = await db
       .select()
       .from(users)
       .where(eq(users.email, email))
       .limit(1);
-    const user = userRows[0];
+    user = userRows[0];
     if (!user) throw new Error("Invalid email or password");
 
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) throw new Error("Invalid email or password");
-
+    
     // 2. Verify 2FA if enabled
     if (totpCode) {
       const valid = await authService.verify2FA(user.id, totpCode);
@@ -64,23 +64,25 @@ export async function POST(req: NextRequest) {
       req,
     });
 
-
     return NextResponse.json({
       session: { access_token },
       user: { id: user.id, email: user.email, role, clientId },
     });
 
   } catch (error: any) {
-    // Log failed login attempt
-    const body = await req.clone().json().catch(() => ({}));
-    await auditService.log({
-      actor: "system",
-      actor_role: "admin",
-      action: "auth.login_failed",
-      entity: body.email || "unknown",
-      after: { error: error.message, email: body.email },
-      req,
-    });
+    // Log failed login attempt with extra safety
+    try {
+      await auditService.log({
+        actor: "system",
+        actor_role: "admin",
+        action: "auth.login_failed",
+        entity: user?.id || (body?.email ? String(body.email).slice(0, 36) : "unknown"),
+        after: { error: error.message, email: body?.email },
+        req,
+      });
+    } catch (logError) {
+      console.error("[LOGIN_AUTH_LOG_FAILURE]", logError);
+    }
 
     return NextResponse.json(
       { error: error.message || "Login failed" },
