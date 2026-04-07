@@ -153,6 +153,7 @@ export const manualPayments = mysqlTable(
     notes: text("notes"),
     paymentDate: date("payment_date", { mode: "date" }).notNull(),
     periodCovered: mysqlEnum("period_covered", ["monthly", "quarterly", "annual", "custom"]).notNull().default("monthly"),
+    durationMonths: int("duration_months").notNull().default(1),
     periodStart: date("period_start", { mode: "date" }).notNull(),
     periodEnd: date("period_end", { mode: "date" }).notNull(),
     createdAt: datetime("created_at", { mode: "date" }).notNull(),
@@ -162,6 +163,24 @@ export const manualPayments = mysqlTable(
     recorderIdx: index("mp_recorder_idx").on(t.recordedBy),
     dateIdx: index("mp_date_idx").on(t.paymentDate),
   })
+);
+
+export const billingPlans = mysqlTable(
+  "billing_plans",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(), // e.g., starter, professional, enterprise
+    name: varchar("name", { length: 255 }).notNull(),
+    price: decimal("price", { precision: 12, scale: 2 }).notNull(),
+    maxCompanies: int("max_companies").notNull(),
+    maxScans: int("max_scans").notNull(),
+    storage: varchar("storage", { length: 128 }).notNull(),
+    badge: varchar("badge", { length: 128 }),
+    badgeColor: varchar("badge_color", { length: 128 }),
+    features: json("features").notNull(), // string[]
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: datetime("created_at", { mode: "date" }).notNull(),
+    updatedAt: datetime("updated_at", { mode: "date" }).notNull(),
+  }
 );
 
 // --- Usage & Audit Tables ---

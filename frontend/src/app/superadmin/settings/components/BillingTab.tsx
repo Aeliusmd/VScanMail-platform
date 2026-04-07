@@ -1,144 +1,197 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { apiClient } from "@/lib/api-client";
 
 interface SubscriptionPlan {
   id: string;
   name: string;
   price: number;
-  period: string;
-  features: string[];
-  maxCompanies: number;
-  maxScans: number;
+  max_companies: number;
+  max_scans: number;
   storage: string;
-  badge?: string;
-  badgeColor?: string;
+  badge?: string | null;
+  badge_color?: string | null;
+  features: string[];
 }
 
 interface ManualPlan {
-  id: number;
-  company: string;
-  plan: string;
-  price: number;
-  startDate: string;
-  endDate: string;
-  status: 'Active' | 'Expired' | 'Pending';
-  note: string;
+  id: string;
+  client_id: string;
+  company_name?: string;
+  amount: number;
+  payment_method: string;
+  reference_no?: string | null;
+  receipt_url?: string | null;
+  notes?: string | null;
+  payment_date: string;
+  period_covered: string;
+  duration_months: number;
+  period_start: string;
+  period_end: string;
 }
 
-const initialPlans: SubscriptionPlan[] = [
-  {
-    id: 'starter',
-    name: 'Starter',
-    price: 49,
-    period: 'month',
-    features: ['Up to 5 companies', '500 scans/month', '10 GB storage', 'Email notifications', 'Basic AI summary'],
-    maxCompanies: 5,
-    maxScans: 500,
-    storage: '10 GB',
-  },
-  {
-    id: 'professional',
-    name: 'Professional',
-    price: 149,
-    period: 'month',
-    features: ['Up to 25 companies', '2,000 scans/month', '50 GB storage', 'Email + SMS notifications', 'Advanced AI summary', 'Priority support'],
-    maxCompanies: 25,
-    maxScans: 2000,
-    storage: '50 GB',
-    badge: 'Most Popular',
-    badgeColor: 'bg-red-500',
-  },
-  {
-    id: 'enterprise',
-    name: 'Enterprise',
-    price: 349,
-    period: 'month',
-    features: ['Unlimited companies', 'Unlimited scans', '200 GB storage', 'All notification channels', 'Custom AI workflows', 'Dedicated support', 'Custom integrations'],
-    maxCompanies: 999,
-    maxScans: 999999,
-    storage: '200 GB',
-  },
-];
+interface CompanyOption {
+  id: string;
+  companyName: string;
+  clientCode: string;
+}
 
-const initialManualPlans: ManualPlan[] = [
-  { id: 1, company: 'Apex Logistics Inc.', plan: '3-Month Manual', price: 299, startDate: '2026-01-15', endDate: '2026-04-15', status: 'Active', note: 'Payment received via bank transfer on Jan 14' },
-  { id: 2, company: 'Summit Holdings LLC', plan: '3-Month Manual', price: 299, startDate: '2026-02-01', endDate: '2026-05-01', status: 'Active', note: 'Quarterly renewal, paid by cheque' },
-  { id: 3, company: 'BrightPath Financial', plan: '3-Month Manual', price: 299, startDate: '2025-12-01', endDate: '2026-03-01', status: 'Expired', note: 'Renewal pending — awaiting confirmation' },
-  { id: 4, company: 'Metro Finance Group', plan: '3-Month Manual', price: 299, startDate: '2026-03-20', endDate: '2026-06-20', status: 'Pending', note: 'New registration, awaiting first payment' },
-];
 
-const emptyManualForm = { company: '', price: 299, startDate: '', note: '' };
+const emptyManualForm = { clientId: '', companyName: '', amount: 299, paymentDate: new Date().toISOString().split('T')[0], startDate: new Date().toISOString().split('T')[0], durationMonths: 3, notes: '', paymentMethod: 'bank_transfer' };
 
 export default function BillingTab() {
-  const [plans] = useState<SubscriptionPlan[]>(initialPlans);
-  const [manualPlans, setManualPlans] = useState<ManualPlan[]>(initialManualPlans);
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [manualPlans, setManualPlans] = useState<ManualPlan[]>([]);
+  const [eligibleCompanies, setEligibleCompanies] = useState<CompanyOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  
   const [editPlan, setEditPlan] = useState<SubscriptionPlan | null>(null);
   const [editPlanForm, setEditPlanForm] = useState<Partial<SubscriptionPlan>>({});
+  
   const [showManualForm, setShowManualForm] = useState(false);
   const [editManual, setEditManual] = useState<ManualPlan | null>(null);
   const [manualForm, setManualForm] = useState(emptyManualForm);
+  
+  const [companySearch, setCompanySearch] = useState("");
+  const [showCompanyList, setShowCompanyList] = useState(false);
+  
   const [savePlanSuccess, setSavePlanSuccess] = useState(false);
   const [saveManualSuccess, setSaveManualSuccess] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [plansData, manualData, companiesData] = await Promise.all([
+        apiClient<SubscriptionPlan[]>("/api/billing/plans"),
+        apiClient<ManualPlan[]>("/api/billing/manual-payments"),
+        apiClient<CompanyOption[]>("/api/billing/eligible-companies")
+      ]);
+      setPlans(plansData);
+      setManualPlans(manualData);
+      setEligibleCompanies(companiesData);
+    } catch (error) {
+      console.error("Failed to fetch billing data", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const openEditPlan = (plan: SubscriptionPlan) => {
     setEditPlan(plan);
     setEditPlanForm({ ...plan });
   };
 
-  const savePlanEdits = () => {
-    setSavePlanSuccess(true);
-    setTimeout(() => { setSavePlanSuccess(false); setEditPlan(null); }, 1200);
+  const savePlanEdits = async () => {
+    if (!editPlan) return;
+    try {
+      await apiClient(`/api/billing/plans?id=${editPlan.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(editPlanForm),
+      });
+      setSavePlanSuccess(true);
+      fetchData();
+      setTimeout(() => { setSavePlanSuccess(false); setEditPlan(null); }, 1200);
+    } catch (error) {
+      console.error("Failed to save plan edits", error);
+    }
   };
 
-  const addThreeMonths = (start: string) => {
+  const calculateEndDate = (start: string, months: number) => {
     if (!start) return '';
     const d = new Date(start);
-    d.setMonth(d.getMonth() + 3);
+    d.setMonth(d.getMonth() + months);
     return d.toISOString().split('T')[0];
   };
 
   const openAddManual = () => {
     setEditManual(null);
-    setManualForm(emptyManualForm);
+    setManualForm({
+      ...emptyManualForm,
+      startDate: new Date().toISOString().split('T')[0],
+      paymentDate: new Date().toISOString().split('T')[0],
+    });
+    setCompanySearch("");
     setShowManualForm(true);
   };
 
   const openEditManual = (mp: ManualPlan) => {
     setEditManual(mp);
-    setManualForm({ company: mp.company, price: mp.price, startDate: mp.startDate, note: mp.note });
+    setManualForm({ 
+      clientId: mp.client_id, 
+      companyName: mp.company_name || 'Unknown', 
+      amount: mp.amount, 
+      paymentDate: mp.payment_date.split('T')[0],
+      startDate: mp.period_start.split('T')[0], 
+      durationMonths: mp.duration_months,
+      notes: mp.notes || '',
+      paymentMethod: mp.payment_method || 'bank_transfer'
+    });
+    setCompanySearch(mp.company_name || "");
     setShowManualForm(true);
   };
 
-  const saveManual = () => {
-    if (!manualForm.company || !manualForm.startDate) return;
-    const end = addThreeMonths(manualForm.startDate);
-    if (editManual) {
-      setManualPlans(prev => prev.map(m => m.id === editManual.id
-        ? { ...m, company: manualForm.company, price: manualForm.price, startDate: manualForm.startDate, endDate: end, note: manualForm.note }
-        : m
-      ));
-    } else {
-      const newEntry: ManualPlan = {
-        id: Date.now(),
-        company: manualForm.company,
-        plan: '3-Month Manual',
-        price: manualForm.price,
-        startDate: manualForm.startDate,
-        endDate: end,
-        status: 'Pending',
-        note: manualForm.note,
-      };
-      setManualPlans(prev => [...prev, newEntry]);
+  const saveManual = async () => {
+    if (!manualForm.clientId || !manualForm.startDate) return;
+    
+    const endDate = calculateEndDate(manualForm.startDate, manualForm.durationMonths);
+    const payload = {
+      clientId: manualForm.clientId,
+      amount: manualForm.amount,
+      paymentMethod: manualForm.paymentMethod,
+      paymentDate: manualForm.paymentDate,
+      periodCovered: 'custom',
+      durationMonths: manualForm.durationMonths,
+      periodStart: manualForm.startDate,
+      periodEnd: endDate,
+      notes: manualForm.notes,
+    };
+
+    try {
+      if (editManual) {
+        await apiClient(`/api/billing/manual-payments?id=${editManual.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(payload),
+        });
+      } else {
+        await apiClient("/api/billing/manual-payments", {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+      }
+      setSaveManualSuccess(true);
+      fetchData();
+      setTimeout(() => { setSaveManualSuccess(false); setShowManualForm(false); }, 1200);
+    } catch (error) {
+      console.error("Failed to save manual plan", error);
     }
-    setSaveManualSuccess(true);
-    setTimeout(() => { setSaveManualSuccess(false); setShowManualForm(false); }, 1200);
   };
 
-  const deleteManual = (id: number) => {
-    setManualPlans(prev => prev.filter(m => m.id !== id));
-    setDeleteConfirm(null);
+  const deleteManual = async (id: string) => {
+    try {
+      await apiClient(`/api/billing/manual-payments?id=${id}`, {
+        method: 'DELETE',
+      });
+      fetchData();
+      setDeleteConfirm(null);
+    } catch (error) {
+      console.error("Failed to delete manual payment", error);
+    }
+  };
+
+  const getStatus = (mp: ManualPlan) => {
+    const end = new Date(mp.period_end);
+    const start = new Date(mp.period_start);
+    const now = new Date();
+    
+    if (now > end) return 'Expired';
+    if (now < start) return 'Pending';
+    return 'Active';
   };
 
   const statusColor: Record<string, string> = {
@@ -146,6 +199,14 @@ export default function BillingTab() {
     Expired: 'bg-red-100 text-red-600',
     Pending: 'bg-amber-100 text-amber-700',
   };
+
+  const filteredCompanies = useMemo(() => {
+    if (!companySearch) return eligibleCompanies;
+    return eligibleCompanies.filter(c => 
+      c.companyName.toLowerCase().includes(companySearch.toLowerCase()) ||
+      c.clientCode.toLowerCase().includes(companySearch.toLowerCase())
+    );
+  }, [companySearch, eligibleCompanies]);
 
   return (
     <div className="space-y-8">
@@ -173,7 +234,7 @@ export default function BillingTab() {
               }`}
             >
               {plan.badge && (
-                <span className={`absolute -top-2.5 left-1/2 -translate-x-1/2 text-xs font-bold text-white px-3 py-0.5 rounded-full ${plan.badgeColor}`}>
+                <span className={`absolute -top-2.5 left-1/2 -translate-x-1/2 text-xs font-bold text-white px-3 py-0.5 rounded-full ${plan.badge_color || 'bg-slate-500'}`}>
                   {plan.badge}
                 </span>
               )}
@@ -181,7 +242,7 @@ export default function BillingTab() {
                 <p className="text-sm font-bold text-slate-900">{plan.name}</p>
                 <div className="flex items-baseline space-x-1 mt-1">
                   <span className="text-2xl font-extrabold text-slate-900">${plan.price}</span>
-                  <span className="text-xs text-slate-400">/ {plan.period}</span>
+                  <span className="text-xs text-slate-400">/ month</span>
                 </div>
               </div>
               <ul className="space-y-1.5 flex-1 mb-4">
@@ -196,7 +257,7 @@ export default function BillingTab() {
                 onClick={() => openEditPlan(plan)}
                 className="w-full py-2 text-xs font-semibold rounded-lg border border-[#0A3D8F]/30 text-[#0A3D8F] hover:bg-[#0A3D8F]/5 transition-colors cursor-pointer whitespace-nowrap"
               >
-                <i className="ri-edit-line mr-1"></i>Edit Plan
+                <i className="ri-edit-line mr-1"></i>Edit Plan Tier
               </button>
             </div>
           ))}
@@ -235,9 +296,9 @@ export default function BillingTab() {
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Max Companies</label>
                   <input
                     type="number"
-                    value={editPlanForm.maxCompanies === 999 ? '' : editPlanForm.maxCompanies}
-                    placeholder={editPlanForm.maxCompanies === 999 ? 'Unlimited' : ''}
-                    onChange={e => setEditPlanForm(p => ({ ...p, maxCompanies: Number(e.target.value) }))}
+                    value={editPlanForm.max_companies === 999 ? '' : editPlanForm.max_companies}
+                    placeholder={editPlanForm.max_companies === 999 ? 'Unlimited' : ''}
+                    onChange={e => setEditPlanForm(p => ({ ...p, max_companies: Number(e.target.value) }))}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#0A3D8F] transition-colors"
                   />
                 </div>
@@ -245,9 +306,9 @@ export default function BillingTab() {
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Max Scans/Month</label>
                   <input
                     type="number"
-                    value={editPlanForm.maxScans === 999999 ? '' : editPlanForm.maxScans}
-                    placeholder={editPlanForm.maxScans === 999999 ? 'Unlimited' : ''}
-                    onChange={e => setEditPlanForm(p => ({ ...p, maxScans: Number(e.target.value) }))}
+                    value={editPlanForm.max_scans === 999999 ? '' : editPlanForm.max_scans}
+                    placeholder={editPlanForm.max_scans === 999999 ? 'Unlimited' : ''}
+                    onChange={e => setEditPlanForm(p => ({ ...p, max_scans: Number(e.target.value) }))}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#0A3D8F] transition-colors"
                   />
                 </div>
@@ -307,26 +368,29 @@ export default function BillingTab() {
                 <th className="px-5 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Company</th>
                 <th className="px-5 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Amount</th>
                 <th className="px-5 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Start Date</th>
-                <th className="px-5 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">End Date</th>
+                <th className="px-5 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Duration</th>
                 <th className="px-5 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Status</th>
                 <th className="px-5 py-3 text-right text-xs font-bold text-slate-600 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {manualPlans.map(mp => (
+              {manualPlans.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-5 py-8 text-center text-slate-400 text-xs">No manual billing records found.</td>
+                </tr>
+              ) : manualPlans.map(mp => (
                 <tr key={mp.id} className="hover:bg-slate-50 transition-colors">
                   <td className="px-5 py-3.5">
-                    <p className="font-semibold text-slate-900 text-sm">{mp.company}</p>
-                    {mp.note && <p className="text-xs text-slate-400 mt-0.5 truncate max-w-xs">{mp.note}</p>}
+                    <p className="font-semibold text-slate-900 text-sm">{mp.company_name || 'N/A'}</p>
+                    {mp.notes && <p className="text-xs text-slate-400 mt-0.5 truncate max-w-xs">{mp.notes}</p>}
                   </td>
                   <td className="px-5 py-3.5">
-                    <span className="font-bold text-slate-900">${mp.price}</span>
-                    <span className="text-xs text-slate-400 ml-1">/ 3 months</span>
+                    <span className="font-bold text-slate-900">${mp.amount}</span>
                   </td>
-                  <td className="px-5 py-3.5 text-slate-600 text-sm">{mp.startDate}</td>
-                  <td className="px-5 py-3.5 text-slate-600 text-sm">{mp.endDate}</td>
+                  <td className="px-5 py-3.5 text-slate-600 text-sm">{new Date(mp.period_start).toLocaleDateString()}</td>
+                  <td className="px-5 py-3.5 text-slate-600 text-sm">{mp.duration_months} months</td>
                   <td className="px-5 py-3.5">
-                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${statusColor[mp.status]}`}>{mp.status}</span>
+                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${statusColor[getStatus(mp)]}`}>{getStatus(mp)}</span>
                   </td>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center justify-end space-x-2">
@@ -349,78 +413,160 @@ export default function BillingTab() {
         {showManualForm && (
           <div className="fixed inset-0 z-50 flex">
             <div className="flex-1 bg-black/30" onClick={() => setShowManualForm(false)}></div>
-            <div className="w-full sm:w-[400px] bg-white h-full overflow-y-auto flex flex-col animate-[slideInRight_0.3s_ease] rounded-l-2xl">
+            <div className="w-full sm:w-[450px] bg-white h-full overflow-y-auto flex flex-col animate-[slideInRight_0.3s_ease] rounded-l-2xl shadow-2xl">
               <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
-                <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
-                    <i className="ri-file-list-3-line text-red-600 text-base"></i>
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
+                    <i className="ri-file-list-3-line text-red-600 text-xl"></i>
                   </div>
                   <div>
                     <h3 className="font-bold text-slate-900 text-sm">{editManual ? 'Update Manual Plan' : 'Add Manual Plan'}</h3>
-                    <p className="text-xs text-slate-500">3-month billing period</p>
+                    <p className="text-xs text-slate-500">Persist offline billing record</p>
                   </div>
                 </div>
                 <button onClick={() => setShowManualForm(false)} className="p-1.5 hover:bg-slate-200 rounded-lg cursor-pointer">
-                  <i className="ri-close-line text-slate-600 text-lg"></i>
+                  <i className="ri-close-line text-slate-600 text-xl"></i>
                 </button>
               </div>
 
-              <div className="flex-1 p-6 space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Company Name <span className="text-red-500">*</span></label>
-                  <input
-                    type="text"
-                    value={manualForm.company}
-                    onChange={e => setManualForm(p => ({ ...p, company: e.target.value }))}
-                    placeholder="e.g. Apex Logistics Inc."
-                    className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Plan Amount ($) <span className="text-red-500">*</span></label>
-                  <input
-                    type="number"
-                    value={manualForm.price}
-                    onChange={e => setManualForm(p => ({ ...p, price: Number(e.target.value) }))}
-                    className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] transition-colors"
-                  />
-                  <p className="text-xs text-slate-400 mt-0.5">This covers a 3-month period</p>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Start Date <span className="text-red-500">*</span></label>
-                  <input
-                    type="date"
-                    value={manualForm.startDate}
-                    onChange={e => setManualForm(p => ({ ...p, startDate: e.target.value }))}
-                    className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] bg-white cursor-pointer"
-                  />
-                  {manualForm.startDate && (
-                    <p className="text-xs text-[#0A3D8F] mt-0.5 font-medium">
-                      End date: {addThreeMonths(manualForm.startDate)}
-                    </p>
+              <div className="flex-1 p-6 space-y-5">
+                {/* Searchable Company Dropdown */}
+                <div className="relative">
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">Company Selection <span className="text-red-500">*</span></label>
+                  {editManual ? (
+                    <div className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-600 font-semibold">
+                      {manualForm.companyName}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="relative">
+                        <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input
+                          type="text"
+                          value={companySearch}
+                          onChange={e => {
+                            setCompanySearch(e.target.value);
+                            setShowCompanyList(true);
+                          }}
+                          onFocus={() => setShowCompanyList(true)}
+                          placeholder="Search company or client code..."
+                          className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] transition-colors focus:ring-2 focus:ring-[#0A3D8F]/10"
+                        />
+                      </div>
+                      
+                      {showCompanyList && companySearch && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-y-auto overflow-x-hidden">
+                          {filteredCompanies.length === 0 ? (
+                            <div className="p-4 text-center text-xs text-slate-500">No eligible companies found.</div>
+                          ) : (
+                            filteredCompanies.map(c => (
+                              <button
+                                key={c.id}
+                                onClick={() => {
+                                  setManualForm(p => ({ ...p, clientId: c.id, companyName: c.companyName }));
+                                  setCompanySearch(c.companyName);
+                                  setShowCompanyList(false);
+                                }}
+                                className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center justify-between transition-colors border-b border-slate-50 last:border-0"
+                              >
+                                <div>
+                                  <p className="text-sm font-semibold text-slate-900">{c.companyName}</p>
+                                  <p className="text-[10px] text-slate-400 font-medium uppercase tracking-tighter">Code: {c.clientCode}</p>
+                                </div>
+                                <i className="ri-arrow-right-s-line text-slate-300"></i>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">Plan Amount ($) <span className="text-red-500">*</span></label>
+                    <input
+                      type="number"
+                      value={manualForm.amount}
+                      onChange={e => setManualForm(p => ({ ...p, amount: Number(e.target.value) }))}
+                      className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">Months Covered <span className="text-red-500">*</span></label>
+                    <select
+                      value={manualForm.durationMonths}
+                      onChange={e => setManualForm(p => ({ ...p, durationMonths: Number(e.target.value) }))}
+                      className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] bg-white cursor-pointer"
+                    >
+                      <option value={1}>1 Month</option>
+                      <option value={3}>3 Months</option>
+                      <option value={6}>6 Months</option>
+                      <option value={12}>1 Year (12m)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">Start Date <span className="text-red-500">*</span></label>
+                    <input
+                      type="date"
+                      value={manualForm.startDate}
+                      onChange={e => setManualForm(p => ({ ...p, startDate: e.target.value }))}
+                      className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] bg-white cursor-pointer"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">Payment Method</label>
+                    <select
+                      value={manualForm.paymentMethod}
+                      onChange={e => setManualForm(p => ({ ...p, paymentMethod: e.target.value }))}
+                      className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] bg-white cursor-pointer"
+                    >
+                      <option value="bank_transfer">Bank Transfer</option>
+                      <option value="cheque">Cheque</option>
+                      <option value="cash">Cash</option>
+                      <option value="card">Card / Terminal</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-[#0A3D8F]/5 rounded-xl border border-[#0A3D8F]/10">
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="text-[#0A3D8F] font-bold uppercase tracking-wider">Coverage Preview</span>
+                    <i className="ri-calendar-event-line text-[#0A3D8F]"></i>
+                  </div>
+                  <p className="text-sm font-semibold text-slate-900">
+                    {new Date(manualForm.startDate).toLocaleDateString()} 
+                    <i className="ri-arrow-right-line mx-2 text-slate-400"></i>
+                    {new Date(calculateEndDate(manualForm.startDate, manualForm.durationMonths)).toLocaleDateString()}
+                  </p>
+                </div>
+
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Notes</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">Internal Notes</label>
                   <textarea
-                    value={manualForm.note}
-                    onChange={e => setManualForm(p => ({ ...p, note: e.target.value }))}
+                    value={manualForm.notes}
+                    onChange={e => setManualForm(p => ({ ...p, notes: e.target.value }))}
                     rows={3}
                     maxLength={500}
-                    placeholder="Payment method, reference notes..."
+                    placeholder="Reference numbers, payer info, etc."
                     className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] transition-colors resize-none"
                   />
-                  <p className="text-xs text-slate-400 text-right">{manualForm.note.length}/500</p>
+                  <p className="text-[10px] text-slate-400 text-right mt-1">{manualForm.notes.length}/500 characters</p>
                 </div>
               </div>
 
-              <div className="p-6 border-t border-slate-200">
+              <div className="p-6 border-t border-slate-200 bg-slate-50">
                 <button
                   onClick={saveManual}
-                  disabled={!manualForm.company || !manualForm.startDate}
-                  className="w-full py-2.5 bg-red-500 text-white text-sm font-semibold rounded-lg hover:bg-red-600 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                  disabled={!manualForm.clientId || !manualForm.startDate}
+                  className="w-full py-3 bg-[#0A3D8F] text-white text-sm font-bold rounded-xl hover:bg-[#083170] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-[#0A3D8F]/20 active:scale-[0.98]"
                 >
-                  {saveManualSuccess ? <><i className="ri-check-line mr-1"></i>Saved!</> : editManual ? 'Update Plan' : 'Add Plan'}
+                  {saveManualSuccess ? <><i className="ri-check-line mr-1"></i>Success!</> : editManual ? 'Update Billing Record' : 'Record Payment & Activate'}
                 </button>
               </div>
             </div>
@@ -428,18 +574,18 @@ export default function BillingTab() {
         )}
 
         {deleteConfirm !== null && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-            <div className="bg-white rounded-2xl overflow-hidden p-6 w-80 space-y-4">
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto">
-                <i className="ri-delete-bin-line text-red-500 text-xl"></i>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl overflow-hidden p-6 w-80 shadow-2xl animate-in fade-in zoom-in duration-200">
+              <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i className="ri-delete-bin-line text-red-500 text-2xl"></i>
               </div>
-              <div className="text-center">
-                <h3 className="font-bold text-slate-900 text-sm">Remove Manual Plan?</h3>
-                <p className="text-xs text-slate-500 mt-1">This company&apos;s manual billing record will be permanently deleted.</p>
+              <div className="text-center mb-6">
+                <h3 className="font-bold text-slate-900 text-base">Remove Billing Record?</h3>
+                <p className="text-xs text-slate-500 mt-2 leading-relaxed">This company&apos;s manual billing history will be permanently erased. This action cannot be undone.</p>
               </div>
               <div className="flex space-x-3">
-                <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2 bg-slate-100 text-slate-600 text-sm font-semibold rounded-lg hover:bg-slate-200 cursor-pointer whitespace-nowrap">Cancel</button>
-                <button onClick={() => deleteManual(deleteConfirm)} className="flex-1 py-2 bg-red-500 text-white text-sm font-semibold rounded-lg hover:bg-red-600 cursor-pointer whitespace-nowrap">Delete</button>
+                <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-xl hover:bg-slate-200 transition-colors cursor-pointer">Cancel</button>
+                <button onClick={() => deleteManual(deleteConfirm)} className="flex-1 py-2.5 bg-red-500 text-white text-xs font-bold rounded-xl hover:bg-red-600 transition-colors cursor-pointer shadow-lg shadow-red-500/20">Delete</button>
               </div>
             </div>
           </div>
