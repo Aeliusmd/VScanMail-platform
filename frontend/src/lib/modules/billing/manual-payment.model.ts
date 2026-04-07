@@ -1,11 +1,12 @@
 import { auditService } from "../audit/audit.service";
 import { db, sql } from "../core/db/mysql";
-import { manualPayments } from "../core/db/schema";
+import { manualPayments, clients } from "../core/db/schema";
 import { and, eq } from "drizzle-orm";
 
 export type ManualPayment = {
   id: string;
   client_id: string;
+  company_name?: string;
   recorded_by: string;
   amount: number;
   payment_method: "cash" | "bank_transfer" | "cheque" | "other" | "card";
@@ -20,22 +21,24 @@ export type ManualPayment = {
   created_at: string;
 };
 
-function rowToManualPayment(row: typeof manualPayments.$inferSelect): ManualPayment {
+function mapResultToManualPayment(data: { mp: typeof manualPayments.$inferSelect, companyName: string | null }): ManualPayment {
+  const { mp, companyName } = data;
   return {
-    id: row.id,
-    client_id: row.clientId,
-    recorded_by: row.recordedBy,
-    amount: Number(row.amount),
-    payment_method: row.paymentMethod as any,
-    reference_no: row.referenceNo,
-    receipt_url: row.receiptUrl,
-    notes: row.notes,
-    payment_date: row.paymentDate.toISOString(),
-    period_covered: row.periodCovered as any,
-    duration_months: row.durationMonths,
-    period_start: row.periodStart.toISOString(),
-    period_end: row.periodEnd.toISOString(),
-    created_at: row.createdAt.toISOString(),
+    id: mp.id,
+    client_id: mp.clientId,
+    company_name: companyName || 'N/A',
+    recorded_by: mp.recordedBy,
+    amount: Number(mp.amount),
+    payment_method: mp.paymentMethod as any,
+    reference_no: mp.referenceNo,
+    receipt_url: mp.receiptUrl,
+    notes: mp.notes,
+    payment_date: mp.paymentDate.toISOString(),
+    period_covered: mp.periodCovered as any,
+    duration_months: mp.durationMonths,
+    period_start: mp.periodStart.toISOString(),
+    period_end: mp.periodEnd.toISOString(),
+    created_at: mp.createdAt.toISOString(),
   };
 }
 
@@ -78,26 +81,36 @@ export const manualPaymentModel = {
   },
 
   async findById(id: string) {
-    const rows = await db.select().from(manualPayments).where(eq(manualPayments.id, id)).limit(1);
+    const rows = await db
+      .select({ mp: manualPayments, companyName: clients.companyName })
+      .from(manualPayments)
+      .leftJoin(clients, eq(manualPayments.clientId, clients.id))
+      .where(eq(manualPayments.id, id))
+      .limit(1);
+
     if (!rows[0]) throw new Error("Manual payment not found");
-    return rowToManualPayment(rows[0]);
+    return mapResultToManualPayment(rows[0]);
   },
 
   async listAll() {
     const rows = await db
-      .select()
+      .select({ mp: manualPayments, companyName: clients.companyName })
       .from(manualPayments)
+      .leftJoin(clients, eq(manualPayments.clientId, clients.id))
       .orderBy(sql`${manualPayments.paymentDate} DESC`);
-    return rows.map(rowToManualPayment);
+      
+    return rows.map(mapResultToManualPayment);
   },
 
   async listByClient(clientId: string) {
     const rows = await db
-      .select()
+      .select({ mp: manualPayments, companyName: clients.companyName })
       .from(manualPayments)
+      .leftJoin(clients, eq(manualPayments.clientId, clients.id))
       .where(eq(manualPayments.clientId, clientId))
       .orderBy(sql`${manualPayments.paymentDate} DESC`);
-    return rows.map(rowToManualPayment);
+      
+    return rows.map(mapResultToManualPayment);
   },
 
   async update(id: string, data: Partial<ManualPayment>, req?: Request) {
