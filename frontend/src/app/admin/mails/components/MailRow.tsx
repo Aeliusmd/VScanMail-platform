@@ -10,6 +10,9 @@ interface MailRowProps {
   selected: boolean;
   onSelect: (id: number) => void;
   onClick?: () => void;
+  showArchiveMeta?: boolean;
+  showUnarchive?: boolean;
+  onUnarchive?: () => void;
 }
 
 const tagStyles: Record<string, string> = {
@@ -18,7 +21,7 @@ const tagStyles: Record<string, string> = {
   Pending: 'bg-orange-100 text-orange-600',
 };
 
-export default function MailRow({ mail, selected, onSelect, onClick }: MailRowProps) {
+export default function MailRow({ mail, selected, onSelect, onClick, showArchiveMeta = false, showUnarchive = false, onUnarchive }: MailRowProps) {
   const [starred, setStarred] = useState(mail.starred);
   const [flagged, setFlagged] = useState(mail.flagged);
 
@@ -73,6 +76,11 @@ export default function MailRow({ mail, selected, onSelect, onClick }: MailRowPr
       <div className={styles.contentContainer}>
         <span className={styles.subjectText}>{mail.subject}</span>
         <span className={styles.previewText}>– {mail.preview}</span>
+        {showArchiveMeta && (mail as Mail & { archiveBox?: string }).archiveBox && (
+          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 whitespace-nowrap">
+            Box {(mail as Mail & { archiveBox?: string }).archiveBox}
+          </span>
+        )}
         {mail.hasAttachment && (
           <div className={styles.attachmentIcon}>
             <Icon icon="ri:attachment-2" className="text-sm" />
@@ -89,6 +97,18 @@ export default function MailRow({ mail, selected, onSelect, onClick }: MailRowPr
       <div className={styles.timeContainer}>
         <span className={styles.timeText}>{mail.time}</span>
       </div>
+
+      {showUnarchive && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onUnarchive?.();
+          }}
+          className="text-xs text-slate-500 hover:text-[#0A3D8F] px-2 py-1 rounded hover:bg-[#0A3D8F]/10 transition-colors cursor-pointer whitespace-nowrap ml-2"
+        >
+          Unarchive
+        </button>
+      )}
     </div>
   );
 }

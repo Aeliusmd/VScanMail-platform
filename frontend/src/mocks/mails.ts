@@ -14,20 +14,20 @@ export interface Mail {
 }
 
 export const mails: Mail[] = [
-  // {
-  //   id: 1,
-  //   starred: false,
-  //   flagged: false,
-  //   senderColor: 'bg-blue-500',
-  //   senderInitial: 'T',
-  //   sender: 'Tech Solutions Inc',
-  //   tag: 'Inbox',
-  //   subject: 'Monthly Invoice #2049',
-  //   preview: 'Please find attached the invoice for...',
-  //   hasAttachment: true,
-  //   company: 'Acme Corp',
-  //   time: '10:30 AM',
-  // },
+  {
+    id: 1,
+    starred: false,
+    flagged: false,
+    senderColor: 'bg-blue-500',
+    senderInitial: 'T',
+    sender: 'Tech Solutions Inc',
+    tag: 'Inbox',
+    subject: 'Monthly Invoice #2049',
+    preview: 'Please find attached the invoice for...',
+    hasAttachment: true,
+    company: 'Acme Corp',
+    time: '10:30 AM',
+  },
   // {
   //   id: 2,
   //   starred: true,

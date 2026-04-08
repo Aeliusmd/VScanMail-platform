@@ -302,7 +302,7 @@ function CompaniesPageContent() {
           </div>
           <input
             type="text"
-            placeholder="Search companies..."
+            placeholder="Search Organizations..."
             value={search}
             onChange={(e) => {
               setLocalSearch(e.target.value);
@@ -422,7 +422,7 @@ function CompaniesPageContent() {
         ) : paginated.length === 0 ? (
           <div className={styles.emptyState}>
             <div className={styles.emptyIcon}><Icon icon="ri:building-line" className="text-3xl" /></div>
-            <p className={styles.emptyText}>No companies found</p>
+            <p className={styles.emptyText}>No organizations found</p>
           </div>
         ) : (
           paginated.map((company) => (
@@ -455,8 +455,13 @@ function CompaniesPageContent() {
                   <i className="ri-building-line text-[#0A3D8F] text-xl"></i>
                 </div>
                 <div>
+<<<<<<< HEAD
                   <h2 className="text-base font-bold text-slate-900">{editingCompany ? 'Edit Company' : 'Add New Company'}</h2>
                   <p className="text-xs text-slate-500 mt-0.5">{editingCompany ? 'Update company details below' : 'Fill in the company details below'}</p>
+=======
+                  <h2 className="text-base font-bold text-slate-900">Add New Organization</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">Fill in the organization details below</p>
+>>>>>>> d1a4367 (Fix: Updates: Customer to Organizations, Add Archive in admin portal)
                 </div>
               </div>
               <button onClick={() => setShowAddModal(false)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer">
@@ -469,8 +474,13 @@ function CompaniesPageContent() {
                 <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
                   <i className="ri-check-line text-[#2F8F3A] text-4xl"></i>
                 </div>
+<<<<<<< HEAD
                 <p className="text-lg font-bold text-slate-900">{editingCompany ? 'Company Updated!' : 'Company Added!'}</p>
                 <p className="text-sm text-slate-500 text-center">The company details have been saved successfully.</p>
+=======
+                <p className="text-lg font-bold text-slate-900">Organization Added!</p>
+                <p className="text-sm text-slate-500 text-center">The new organization has been created successfully and is now visible in your list.</p>
+>>>>>>> d1a4367 (Fix: Updates: Customer to Organizations, Add Archive in admin portal)
               </div>
             ) : (
               <div className="flex-1 overflow-y-auto px-7 py-6 space-y-7">
@@ -479,11 +489,11 @@ function CompaniesPageContent() {
                     <div className="w-6 h-6 bg-[#0A3D8F] rounded-md flex items-center justify-center flex-shrink-0">
                       <i className="ri-building-line text-white text-xs"></i>
                     </div>
-                    <h3 className="text-sm font-bold text-slate-800">Company Information</h3>
+                    <h3 className="text-sm font-bold text-slate-800">Organization Information</h3>
                   </div>
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1.5">Company Name <span className="text-red-500">*</span></label>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1.5">Organization Name <span className="text-red-500">*</span></label>
                       <input type="text" value={newCompany.name} onChange={(e) => setNewCompany((p) => ({ ...p, name: e.target.value }))} placeholder="e.g. Acme Corporation" className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -592,7 +602,7 @@ function CompaniesPageContent() {
                   {(!newCompany.name || !newCompany.email) && (
                     <p className="text-xs text-slate-400 flex items-center space-x-1">
                       <i className="ri-information-line"></i>
-                      <span>Company name and email are required</span>
+                      <span>Organization name and email are required</span>
                     </p>
                   )}
                   {newCompany.name && newCompany.email && (
@@ -606,6 +616,7 @@ function CompaniesPageContent() {
                   <button onClick={() => setShowAddModal(false)} className="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 font-semibold rounded-xl hover:bg-slate-50 transition-colors text-sm whitespace-nowrap cursor-pointer">
                     Cancel
                   </button>
+<<<<<<< HEAD
                   <button onClick={handleAddCompany} disabled={!newCompany.name || !newCompany.email || saving} className="flex-1 py-2.5 bg-[#0A3D8F] text-white font-bold rounded-xl hover:bg-[#083170] transition-colors text-sm whitespace-nowrap cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center space-x-2">
                     {saving ? (
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -615,6 +626,11 @@ function CompaniesPageContent() {
                         <span>{editingCompany ? 'Save Changes' : 'Add Company'}</span>
                       </>
                     )}
+=======
+                  <button onClick={handleAddCompany} disabled={!newCompany.name || !newCompany.email} className="flex-1 py-2.5 bg-[#0A3D8F] text-white font-bold rounded-xl hover:bg-[#083170] transition-colors text-sm whitespace-nowrap cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center space-x-2">
+                    <i className="ri-building-line text-base"></i>
+                    <span>Add Organization</span>
+>>>>>>> d1a4367 (Fix: Updates: Customer to Organizations, Add Archive in admin portal)
                   </button>
                 </div>
               </div>

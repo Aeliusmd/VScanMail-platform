@@ -15,6 +15,7 @@ const navItems = [
   { icon: 'ri:scan-2-line', label: 'Scan Document', slug: '/scan' },
   { icon: 'ri:mail-line', label: 'All Mails', slug: '/mails' },
   { icon: 'ri:bank-card-line', label: 'All Cheques', slug: '/cheques' },
+  { icon: 'ri:archive-line', label: 'Archived Mails & Cheques', slug: '/archive' },
   { icon: 'ri:building-line', label: 'Organizations', slug: '/companies' },
   { icon: 'ri:exchange-dollar-line', label: 'Deposit Requests', slug: '/deposits' },
   { icon: 'ri:truck-line', label: 'Delivery Requests', slug: '/deliveries' },
@@ -65,7 +66,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
     // Companies page tabs: All | Active | Pending | Inactive
     if (pagePath.endsWith('/companies')) {
-      if (label === 'All Companies') return 'All';
+      if (label === 'All organizations') return 'All';
       if (label === 'Active') return 'Active';
       if (label === 'Pending') return 'Pending';
       if (label === 'Inactive') return 'Inactive';
@@ -174,7 +175,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const companyLabels = [
     {
       icon: 'ri:building-line',
-      label: 'All Companies',
+      label: 'All Organizations',
       count: companies.length,
       color: '#0F172A',
       bg: 'bg-[#F1F5F9]',

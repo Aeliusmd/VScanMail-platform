@@ -356,7 +356,7 @@ export default function SuperAdminDashboardPage() {
                     className="flex items-center gap-3 w-full px-4 py-3 bg-slate-900 text-white font-semibold rounded-lg hover:bg-slate-800 transition-all text-sm text-left min-h-[44px]"
                   >
                     <i className="ri-building-4-line text-lg"></i>
-                    Manage Companies
+                    Manage Organizations
                   </Link>
                   <Link
                     href="/superadmin/deposits"
@@ -452,7 +452,7 @@ export default function SuperAdminDashboardPage() {
             <div className="bg-white rounded-xl border border-slate-200 min-w-0">
               <div className="p-4 sm:p-6 border-b border-slate-100 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
-                  <h2 className="font-bold text-slate-900 text-sm sm:text-base">Recent Companies</h2>
+                  <h2 className="font-bold text-slate-900 text-sm sm:text-base">Recent Organizations</h2>
                   <p className="text-xs text-slate-500 mt-0.5">Newly registered or updated</p>
                 </div>
                 <Link
