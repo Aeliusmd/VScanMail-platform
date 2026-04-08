@@ -7,9 +7,11 @@ interface ChequeToolbarProps {
   perPage: number;
   onPrev: () => void;
   onNext: () => void;
+  allChecked: boolean;
+  onToggleAll: () => void;
 }
 
-export default function ChequeToolbar({ total, totalAmount, page, perPage, onPrev, onNext }: ChequeToolbarProps) {
+export default function ChequeToolbar({ total, totalAmount, page, perPage, onPrev, onNext, allChecked, onToggleAll }: ChequeToolbarProps) {
   const start = total === 0 ? 0 : (page - 1) * perPage + 1;
   const end = Math.min(page * perPage, total);
   const formattedTotal = new Intl.NumberFormat('en-US', {
@@ -23,7 +25,7 @@ export default function ChequeToolbar({ total, totalAmount, page, perPage, onPre
     <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-0.5">
-          <input type="checkbox" className="w-4 h-4 rounded border-gray-300 cursor-pointer" />
+          <input type="checkbox" checked={allChecked} onChange={onToggleAll} className="w-4 h-4 rounded border-gray-300 cursor-pointer" />
           <button className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-600 cursor-pointer">
             <Icon icon="ri:arrow-down-s-line" className="text-sm" />
           </button>

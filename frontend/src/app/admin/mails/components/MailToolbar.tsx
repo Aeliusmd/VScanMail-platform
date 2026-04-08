@@ -7,9 +7,11 @@ interface MailToolbarProps {
   perPage: number;
   onPrev: () => void;
   onNext: () => void;
+  allChecked: boolean;
+  onToggleAll: () => void;
 }
 
-export default function MailToolbar({ total, page, perPage, onPrev, onNext }: MailToolbarProps) {
+export default function MailToolbar({ total, page, perPage, onPrev, onNext, allChecked, onToggleAll }: MailToolbarProps) {
   const start = (page - 1) * perPage + 1;
   const end = Math.min(page * perPage, total);
 
@@ -17,7 +19,7 @@ export default function MailToolbar({ total, page, perPage, onPrev, onNext }: Ma
     <div className={styles.toolbar}>
       <div className={styles.leftGroup}>
         <div className={styles.checkboxGroup}>
-          <input type="checkbox" className={styles.checkbox} />
+          <input type="checkbox" checked={allChecked} onChange={onToggleAll} className={styles.checkbox} />
           <button className={styles.iconBtnSmall}>
             <Icon icon="ri:arrow-down-s-line" className="text-sm" />
           </button>

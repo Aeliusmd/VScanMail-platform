@@ -17,6 +17,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const hideTopBar =
     pathname === '/admin/mails' ||
     pathname === '/admin/cheques' ||
+    pathname === '/admin/archive' ||
     pathname === '/admin/companies' ||
     pathname === '/admin/deposits' ||
     pathname === '/admin/deliveries';

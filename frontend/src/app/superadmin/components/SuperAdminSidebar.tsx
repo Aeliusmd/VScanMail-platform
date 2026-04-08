@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 
 const navItems = [
   { label: "Dashboard", icon: "ri-dashboard-3-line", href: "/super-admin" },
-  { label: "Companies", icon: "ri-building-4-line", href: "/superadmin/companies" },
+  { label: "Organizations", icon: "ri-building-4-line", href: "/superadmin/companies" },
   { label: "Deposit Requests", icon: "ri-exchange-dollar-line", href: "/superadmin/deposits" },
   { label: "Delivery Requests", icon: "ri-truck-line", href: "/superadmin/deliveries" },
 ] as const;

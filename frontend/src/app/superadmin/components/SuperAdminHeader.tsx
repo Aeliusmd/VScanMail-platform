@@ -88,14 +88,14 @@ export default function SuperAdminHeader({
 
   const searchPlaceholder =
     pathname === "/superadmin/companies"
-      ? "Search companies..."
+      ? "Search organizations..."
       : pathname === "/superadmin/deposits"
         ? "Search deposit requests..."
         : "Search delivery requests...";
 
   const searchLabel =
     pathname === "/superadmin/companies"
-      ? "Search companies"
+      ? "Search organizations"
       : pathname === "/superadmin/deposits"
         ? "Search deposit requests"
         : "Search delivery requests";
@@ -253,7 +253,7 @@ export default function SuperAdminHeader({
                 className={primaryBtnClass}
               >
                 <i className="ri-add-line text-[15px] leading-none"></i>
-                <span className="hidden sm:inline">Add Company</span>
+                <span className="hidden sm:inline">Add Organization</span>
                 <span className="sm:hidden">Add</span>
               </button>
             )}

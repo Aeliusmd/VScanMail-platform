@@ -219,7 +219,7 @@ export default function CustomerNav() {
                 </div>
                 <div className="hidden sm:block text-left">
                   <p className="text-xs font-semibold text-gray-900 leading-tight">Acme Corporation</p>
-                  <p className="text-[10px] text-gray-500">Company Account</p>
+                  <p className="text-[10px] text-gray-500">Organization Account</p>
                 </div>
                 <i className="ri-arrow-down-s-line text-gray-500 text-sm" aria-hidden />
               </button>

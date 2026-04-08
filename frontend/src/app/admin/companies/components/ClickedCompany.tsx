@@ -86,18 +86,22 @@ export default function ClickedCompany({ company, onClose }: ClickedCompanyProps
             <span>Last activity: {company.lastActivity}</span>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2">
             <button className="w-full sm:flex-1 h-11 rounded-lg bg-[#0A3D8F] hover:bg-[#083170] text-white text-sm font-semibold flex items-center justify-center gap-2 transition">
               <Icon icon="ri:mail-line" className="text-sm" />
               View Mails
             </button>
-            <button className="w-full sm:flex-1 h-11 rounded-lg bg-[#2F8F3A] hover:bg-[#267531] text-white text-sm font-semibold flex items-center justify-center gap-2 transition">
+            <button className="w-full sm:w-auto sm:flex-none sm:px-4 h-11 rounded-lg bg-[#2F8F3A] hover:bg-[#267531] text-white text-sm font-semibold flex items-center justify-center gap-2 transition">
               <Icon icon="ri:bank-card-line" className="text-sm" />
               View Cheques
             </button>
-            <button className="w-full sm:flex-1 h-11 rounded-lg border border-[#CBD5E1] hover:bg-[#F8FAFC] text-[#475569] text-sm font-semibold flex items-center justify-center gap-2 transition">
+            <button className="w-full sm:w-auto sm:flex-none sm:px-4 h-11 rounded-lg border border-[#CBD5E1] hover:bg-[#F8FAFC] text-[#475569] text-sm font-semibold flex items-center justify-center gap-2 transition">
               <Icon icon="ri:edit-line" className="text-sm" />
               Edit
+            </button>
+             <button className="w-full sm:flex-1 h-11 rounded-lg border border-[#CBD5E1] hover:bg-[#F8FAFC] text-[#475569] text-sm font-semibold flex items-center justify-center gap-2 transition">
+              
+              Delete
             </button>
             <button onClick={onClose} className="w-full sm:w-20 h-11 rounded-lg bg-[#E2E8F0] hover:bg-[#CBD5E1] text-[#475569] text-sm font-semibold transition">
               Close

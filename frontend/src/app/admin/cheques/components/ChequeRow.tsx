@@ -9,6 +9,9 @@ interface ChequeRowProps {
   selected: boolean;
   onSelect: (id: number) => void;
   onOpen: () => void;
+  showArchiveMeta?: boolean;
+  showUnarchive?: boolean;
+  onUnarchive?: () => void;
 }
 
 const statusStyles: Record<string, string> = {
@@ -21,7 +24,7 @@ const statusStyles: Record<string, string> = {
   Inactive: 'bg-gray-100 text-gray-600',
 };
 
-export default function ChequeRow({ cheque, selected, onSelect, onOpen }: ChequeRowProps) {
+export default function ChequeRow({ cheque, selected, onSelect, onOpen, showArchiveMeta = false, showUnarchive = false, onUnarchive }: ChequeRowProps) {
   const [starred, setStarred] = useState(cheque.starred);
   const [flagged, setFlagged] = useState(cheque.flagged);
   const formattedAmount = new Intl.NumberFormat('en-US', {
@@ -82,6 +85,11 @@ export default function ChequeRow({ cheque, selected, onSelect, onOpen }: Cheque
         <span className="text-sm font-medium text-slate-700 truncate block">
           {cheque.bankName} - {cheque.chequeNumber}
         </span>
+        {showArchiveMeta && (cheque as Cheque & { archiveBox?: string }).archiveBox && (
+          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 mt-1 inline-flex">
+            Box {(cheque as Cheque & { archiveBox?: string }).archiveBox}
+          </span>
+        )}
       </div>
 
       {/* Description */}
@@ -108,6 +116,18 @@ export default function ChequeRow({ cheque, selected, onSelect, onOpen }: Cheque
       <div className="w-[70px] flex-shrink-0 text-right">
         <span className="text-xs text-slate-500 whitespace-nowrap">{cheque.time}</span>
       </div>
+
+      {showUnarchive && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onUnarchive?.();
+          }}
+          className="text-xs text-slate-500 hover:text-[#0A3D8F] px-2 py-1 rounded hover:bg-[#0A3D8F]/10 transition-colors cursor-pointer whitespace-nowrap ml-2"
+        >
+          Unarchive
+        </button>
+      )}
     </div>
   );
 }

@@ -263,7 +263,7 @@ export default function CustomerAccountPage() {
   };
 
   const tabs: { key: AccountTab; label: string; icon: string }[] = [
-    { key: "profile", label: "Company Profile", icon: "ri-building-line" },
+    { key: "profile", label: "Organization Profile", icon: "ri-building-line" },
     { key: "bank-accounts", label: "Bank Accounts", icon: "ri-bank-line" },
     { key: "billing", label: "Billing & Plan", icon: "ri-price-tag-3-line" },
     { key: "security", label: "Security", icon: "ri-shield-check-line" },
@@ -275,7 +275,7 @@ export default function CustomerAccountPage() {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Account Settings</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage your company profile, bank accounts, and preferences</p>
+          <p className="text-sm text-gray-500 mt-1">Manage your Organization profile, bank accounts, and preferences</p>
         </div>
 
         
@@ -345,13 +345,13 @@ export default function CustomerAccountPage() {
             {activeTab === 'profile' && (
               <div className="bg-white rounded-xl border border-gray-200">
                 <div className="p-6 border-b border-gray-200">
-                  <h2 className="text-lg font-bold text-gray-900">Company Profile</h2>
-                  <p className="text-sm text-gray-500 mt-0.5">Update your company information and contact details</p>
+                  <h2 className="text-lg font-bold text-gray-900">Organization Profile</h2>
+                  <p className="text-sm text-gray-500 mt-0.5">Update your organization information and contact details</p>
                 </div>
                 <div className="p-6 space-y-5">
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Company Name</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Organization Name</label>
                       <input type="text" value={profile.companyName} onChange={e => { setProfile(p => ({...p, companyName: e.target.value})); setProfileDirty(true); }}
                         className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                     </div>

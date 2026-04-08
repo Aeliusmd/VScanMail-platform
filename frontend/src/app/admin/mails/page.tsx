@@ -11,13 +11,10 @@ import Link from 'next/link';
 import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 
 type TabType = 'All' | 'Processed' | 'Delivered' | 'Pending Delivery';
+type FolderType = 'inbox' | 'archived';
+type MailItem = Mail & { archived?: boolean; archiveBox?: string };
 
-const TABS: { label: TabType; count: number }[] = [
-  { label: 'All', count: 10 },
-  { label: 'Processed', count: 6 },
-  { label: 'Delivered', count: 3 },
-  { label: 'Pending Delivery', count: 1 },
-];
+const TABS: TabType[] = ['All', 'Processed', 'Delivered', 'Pending Delivery'];
 
 const PER_PAGE = 10;
 
@@ -30,6 +27,8 @@ export default function AllMailsPage() {
 }
 
 function AllMailsPageContent() {
+  const [mailItems, setMailItems] = useState<MailItem[]>(mails);
+  const [activeFolder, setActiveFolder] = useState<FolderType>('inbox');
   const [activeTab, setActiveTab] = useState<TabType>('All');
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [page, setPage] = useState(1);
@@ -37,6 +36,10 @@ function AllMailsPageContent() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [openedMail, setOpenedMail] = useState<Mail | null>(null);
+  const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [archiveBoxNumber, setArchiveBoxNumber] = useState('');
+  const [archiveSuccess, setArchiveSuccess] = useState(false);
+  const [archivedCount, setArchivedCount] = useState(0);
 
   const searchParams = useSearchParams();
   const tabFromUrl = searchParams.get('tab');
@@ -48,7 +51,7 @@ function AllMailsPageContent() {
   // Keep the tab UI in sync when selecting filters via sidebar labels.
   useEffect(() => {
     if (!tabFromUrl) return;
-    const nextTab = TABS.find((t) => t.label === tabFromUrl)?.label;
+    const nextTab = TABS.find((t) => t === tabFromUrl);
     if (nextTab && nextTab !== activeTab) {
       setActiveTab(nextTab);
       setPage(1);
@@ -63,7 +66,9 @@ function AllMailsPageContent() {
     { id: 4, text: 'New company registration pending approval', time: '1 hour ago', unread: false },
   ];
 
-  const filtered = mails.filter((m) => {
+  const visibleMails = mailItems.filter((m) => (activeFolder === 'inbox' ? !m.archived : !!m.archived));
+
+  const filtered = visibleMails.filter((m) => {
     const matchTab =
       activeTab === 'All' ||
       (activeTab === 'Processed' && m.tag === 'Inbox') ||
@@ -78,6 +83,58 @@ function AllMailsPageContent() {
   });
 
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+
+  const tabCount = (tab: TabType) => {
+    if (tab === 'All') return visibleMails.length;
+    if (tab === 'Processed') return visibleMails.filter((m) => m.tag === 'Inbox').length;
+    if (tab === 'Delivered') return visibleMails.filter((m) => m.tag === 'Delivered').length;
+    return visibleMails.filter((m) => m.tag === 'Pending').length;
+  };
+
+  const allVisibleSelected = filtered.length > 0 && filtered.every((m) => selectedIds.includes(m.id));
+
+  const toggleSelectAll = () => {
+    if (allVisibleSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !filtered.some((m) => m.id === id)));
+      return;
+    }
+
+    const pageIds = filtered.map((m) => m.id);
+    setSelectedIds((prev) => Array.from(new Set([...prev, ...pageIds])));
+  };
+
+  const handleArchiveConfirm = () => {
+    if (!archiveBoxNumber.trim()) return;
+    const currentSelectedCount = selectedIds.length;
+    setArchivedCount(currentSelectedCount);
+    setMailItems((prev) =>
+      prev.map((m) =>
+        selectedIds.includes(m.id)
+          ? { ...m, archived: true, archiveBox: archiveBoxNumber.trim() }
+          : m
+      )
+    );
+    setSelectedIds([]);
+    setArchiveSuccess(true);
+    setPage(1);
+    setTimeout(() => {
+      setArchiveSuccess(false);
+      setShowArchiveModal(false);
+      setArchiveBoxNumber('');
+      setArchivedCount(0);
+    }, 1800);
+  };
+
+  const handleUnarchiveSelected = () => {
+    setMailItems((prev) =>
+      prev.map((m) =>
+        selectedIds.includes(m.id)
+          ? { ...m, archived: false, archiveBox: undefined }
+          : m
+      )
+    );
+    setSelectedIds([]);
+  };
 
   const handleSelect = (id: number) => {
     setSelectedIds((prev) =>
@@ -204,24 +261,78 @@ function AllMailsPageContent() {
         perPage={PER_PAGE}
         onPrev={() => setPage((p) => Math.max(1, p - 1))}
         onNext={() => setPage((p) => p + 1)}
+        allChecked={allVisibleSelected}
+        onToggleAll={toggleSelectAll}
       />
+
+      {selectedIds.length > 0 && (
+        <div className="px-4 py-2 border-b border-gray-100 bg-gray-50 flex items-center gap-2">
+          {activeFolder === 'inbox' ? (
+            <button
+              onClick={() => setShowArchiveModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer"
+            >
+              <Icon icon="ri:archive-line" className="text-sm" />
+              Archive
+            </button>
+          ) : (
+            <button
+              onClick={handleUnarchiveSelected}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer"
+            >
+              <Icon icon="ri:inbox-unarchive-line" className="text-sm" />
+              Unarchive
+            </button>
+          )}
+          <span className="text-xs text-slate-500">{selectedIds.length} selected</span>
+        </div>
+      )}
+
+      <div className="px-4 border-b border-gray-100 flex items-center gap-1">
+        <button
+          onClick={() => {
+            setActiveFolder('inbox');
+            setSelectedIds([]);
+            setPage(1);
+          }}
+          className={`px-4 py-3 text-sm font-medium border-b-2 transition cursor-pointer whitespace-nowrap ${activeFolder === 'inbox' ? 'border-[#1E40AF] text-[#1E40AF]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+        >
+          Inbox
+          <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${activeFolder === 'inbox' ? 'bg-[#DBEAFE] text-[#1E40AF]' : 'bg-gray-100 text-gray-500'}`}>
+            {mailItems.filter((m) => !m.archived).length}
+          </span>
+        </button>
+        <button
+          onClick={() => {
+            setActiveFolder('archived');
+            setSelectedIds([]);
+            setPage(1);
+          }}
+          className={`px-4 py-3 text-sm font-medium border-b-2 transition cursor-pointer whitespace-nowrap ${activeFolder === 'archived' ? 'border-[#1E40AF] text-[#1E40AF]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+        >
+          Archived
+          <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${activeFolder === 'archived' ? 'bg-[#DBEAFE] text-[#1E40AF]' : 'bg-gray-100 text-gray-500'}`}>
+            {mailItems.filter((m) => m.archived).length}
+          </span>
+        </button>
+      </div>
 
       {/* Tabs */}
       <div className={styles.tabsContainer}>
         {TABS.map((tab) => (
           <button
-            key={tab.label}
+            key={tab}
                 onClick={() => {
-                  setActiveTab(tab.label);
+                  setActiveTab(tab);
                   setPage(1);
-                  router.replace(`${pathname}?tab=${encodeURIComponent(tab.label)}`);
+                  router.replace(`${pathname}?tab=${encodeURIComponent(tab)}`);
                 }}
-            className={activeTab === tab.label ? styles.tabActive : styles.tab}
+            className={activeTab === tab ? styles.tabActive : styles.tab}
           >
-            {tab.label}
-            {tab.count > 0 && (
-              <span className={activeTab === tab.label ? styles.badgeActive : styles.badge}>
-                {tab.count}
+            {tab}
+            {tabCount(tab) > 0 && (
+              <span className={activeTab === tab ? styles.badgeActive : styles.badge}>
+                {tabCount(tab)}
               </span>
             )}
           </button>
@@ -246,11 +357,93 @@ function AllMailsPageContent() {
               selected={selectedIds.includes(mail.id)}
               onSelect={handleSelect}
               onClick={() => setOpenedMail(mail)}
+              showArchiveMeta={activeFolder === 'archived'}
+              showUnarchive={activeFolder === 'archived'}
+              onUnarchive={() =>
+                setMailItems((prev) =>
+                  prev.map((m) =>
+                    m.id === mail.id ? { ...m, archived: false, archiveBox: undefined } : m
+                  )
+                )
+              }
             />
           ))
         )}
         </div>
       </div>
+
+      {showArchiveModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-6" onClick={() => setShowArchiveModal(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            {archiveSuccess ? (
+              <div className="p-10 flex flex-col items-center space-y-4">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                  <i className="ri-check-line text-[#2F8F3A] text-3xl"></i>
+                </div>
+                <p className="text-lg font-bold text-slate-900">Archived Successfully</p>
+                <p className="text-sm text-slate-500 text-center">
+                  {archivedCount > 0 ? `${archivedCount} mail(s)` : 'Selected mails'} archived to Box <strong>{archiveBoxNumber}</strong>
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between p-6 border-b border-slate-200">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center">
+                      <i className="ri-archive-line text-slate-600 text-xl"></i>
+                    </div>
+                    <div>
+                      <h2 className="text-base font-bold text-slate-900">Archive Mails</h2>
+                      <p className="text-xs text-slate-500">{selectedIds.length} mail(s) selected</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setShowArchiveModal(false)} className="p-2 hover:bg-slate-100 rounded-lg cursor-pointer">
+                    <i className="ri-close-line text-slate-600 text-xl"></i>
+                  </button>
+                </div>
+                <div className="p-6 space-y-5">
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                    <div className="flex items-start space-x-3">
+                      <i className="ri-information-line text-amber-600 text-lg mt-0.5"></i>
+                      <p className="text-sm text-amber-700">
+                        Please enter the physical box number where these mails will be stored. This helps track the physical location of archived documents.
+                      </p>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Box Number <span className="text-red-500">*</span></label>
+                    <input
+                      type="text"
+                      placeholder="e.g. BOX-2025-A1, Box 14, Archive-Q2..."
+                      value={archiveBoxNumber}
+                      onChange={e => setArchiveBoxNumber(e.target.value)}
+                      className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#0A3D8F] focus:ring-2 focus:ring-[#0A3D8F]/10"
+                      autoFocus
+                      onKeyDown={e => e.key === 'Enter' && handleArchiveConfirm()}
+                    />
+                    <p className="text-xs text-slate-400 mt-1.5">Enter the box or folder label for physical storage reference</p>
+                  </div>
+                  <div className="flex space-x-3 pt-1">
+                    <button
+                      onClick={() => setShowArchiveModal(false)}
+                      className="flex-1 py-3 bg-slate-100 text-slate-700 font-semibold rounded-xl hover:bg-slate-200 transition-colors text-sm whitespace-nowrap cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleArchiveConfirm}
+                      disabled={!archiveBoxNumber.trim()}
+                      className="flex-1 py-3 bg-[#0A3D8F] text-white font-semibold rounded-xl hover:bg-[#083170] transition-colors text-sm whitespace-nowrap cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <i className="ri-archive-line mr-2"></i>Confirm Archive
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Popup */}
       {openedMail && (
