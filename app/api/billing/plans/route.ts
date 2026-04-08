@@ -9,6 +9,8 @@ const billingPlanSchema = z.object({
   max_companies: z.number().int().positive().optional(),
   max_scans: z.number().int().positive().optional(),
   storage: z.string().optional(),
+  ai_magic: z.string().nullable().optional(),
+  cheque_handling: z.string().nullable().optional(),
   badge: z.string().nullable().optional(),
   badge_color: z.string().nullable().optional(),
   features: z.array(z.string()).optional(),

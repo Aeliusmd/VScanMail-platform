@@ -350,13 +350,8 @@ export default function CustomerAccountPage() {
                 <div className="p-6 space-y-5">
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div className="md:col-span-2">
-<<<<<<< HEAD
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Company Name</label>
-                      <input type="text" value={profile.companyName} onChange={e => { setProfile(p => ({ ...p, companyName: e.target.value })); setProfileDirty(true); }}
-=======
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">Organization Name</label>
-                      <input type="text" value={profile.companyName} onChange={e => { setProfile(p => ({...p, companyName: e.target.value})); setProfileDirty(true); }}
->>>>>>> d1a4367 (Fix: Updates: Customer to Organizations, Add Archive in admin portal)
+                      <input type="text" value={profile.companyName} onChange={e => { setProfile(p => ({ ...p, companyName: e.target.value })); setProfileDirty(true); }}
                         className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                     </div>
                     <div>

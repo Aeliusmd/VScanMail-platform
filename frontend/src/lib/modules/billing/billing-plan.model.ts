@@ -10,6 +10,8 @@ export type BillingPlan = {
   max_companies: number;
   max_scans: number;
   storage: string;
+  ai_magic?: string | null;
+  cheque_handling?: string | null;
   badge?: string | null;
   badge_color?: string | null;
   features: string[];
@@ -26,6 +28,8 @@ function rowToBillingPlan(row: typeof billingPlans.$inferSelect): BillingPlan {
     max_companies: row.maxCompanies,
     max_scans: row.maxScans,
     storage: row.storage,
+    ai_magic: row.aiMagic,
+    cheque_handling: row.chequeHandling,
     badge: row.badge,
     badge_color: row.badgeColor,
     features: row.features as string[],
@@ -59,6 +63,8 @@ export const billingPlanModel = {
     if (data.max_companies !== undefined) toUpdate.maxCompanies = data.max_companies;
     if (data.max_scans !== undefined) toUpdate.maxScans = data.max_scans;
     if (data.storage !== undefined) toUpdate.storage = data.storage;
+    if (data.ai_magic !== undefined) toUpdate.aiMagic = data.ai_magic;
+    if (data.cheque_handling !== undefined) toUpdate.chequeHandling = data.cheque_handling;
     if (data.badge !== undefined) toUpdate.badge = data.badge;
     if (data.badge_color !== undefined) toUpdate.badgeColor = data.badge_color;
     if (data.features !== undefined) toUpdate.features = data.features;

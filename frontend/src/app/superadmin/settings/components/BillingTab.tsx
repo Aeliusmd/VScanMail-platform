@@ -7,9 +7,10 @@ interface SubscriptionPlan {
   id: string;
   name: string;
   price: number;
-  max_companies: number;
   max_scans: number;
   storage: string;
+  ai_magic?: string | null;
+  cheque_handling?: string | null;
   badge?: string | null;
   badge_color?: string | null;
   features: string[];
@@ -245,13 +246,23 @@ export default function BillingTab() {
                   <span className="text-xs text-slate-400">/ month</span>
                 </div>
               </div>
-              <ul className="space-y-1.5 flex-1 mb-4">
-                {plan.features.map((f, i) => (
-                  <li key={i} className="flex items-start space-x-1.5">
-                    <i className="ri-check-line text-emerald-500 text-sm mt-0.5 flex-shrink-0"></i>
-                    <span className="text-xs text-slate-600">{f}</span>
-                  </li>
-                ))}
+              <ul className="space-y-3 flex-1 mb-4">
+                <li className="flex items-start space-x-2">
+                  <i className="ri-checkbox-circle-line text-emerald-500 text-sm mt-0.5"></i>
+                  <span className="text-xs text-slate-600 font-medium">Monthly Scans: <span className="text-slate-900 font-bold">{plan.max_scans === 999999 ? 'Unlimited' : plan.max_scans}</span></span>
+                </li>
+                <li className="flex items-start space-x-2">
+                  <i className="ri-cloud-line text-[#0A3D8F] text-sm mt-0.5"></i>
+                  <span className="text-xs text-slate-600 font-medium">Cloud Storage: <span className="text-slate-900 font-bold">{plan.storage}</span></span>
+                </li>
+                <li className="flex items-start space-x-2">
+                  <i className="ri-magic-line text-purple-500 text-sm mt-0.5"></i>
+                  <span className="text-xs text-slate-600 font-medium">AI Magic: <span className="text-slate-900 font-bold">{plan.ai_magic || 'N/A'}</span></span>
+                </li>
+                <li className="flex items-start space-x-2">
+                  <i className="ri-bank-card-line text-blue-500 text-sm mt-0.5"></i>
+                  <span className="text-xs text-slate-600 font-medium">Cheque Handling: <span className="text-slate-900 font-bold">{plan.cheque_handling || 'N/A'}</span></span>
+                </li>
               </ul>
               <button
                 onClick={() => openEditPlan(plan)}
@@ -293,16 +304,6 @@ export default function BillingTab() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Max Companies</label>
-                  <input
-                    type="number"
-                    value={editPlanForm.max_companies === 999 ? '' : editPlanForm.max_companies}
-                    placeholder={editPlanForm.max_companies === 999 ? 'Unlimited' : ''}
-                    onChange={e => setEditPlanForm(p => ({ ...p, max_companies: Number(e.target.value) }))}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#0A3D8F] transition-colors"
-                  />
-                </div>
-                <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Max Scans/Month</label>
                   <input
                     type="number"
@@ -312,12 +313,32 @@ export default function BillingTab() {
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#0A3D8F] transition-colors"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Storage</label>
+                <div className="col-span-2">
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Cloud Storage</label>
                   <input
                     type="text"
                     value={editPlanForm.storage || ''}
                     onChange={e => setEditPlanForm(p => ({ ...p, storage: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#0A3D8F] transition-colors"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">AI Magic Capabilities</label>
+                  <input
+                    type="text"
+                    value={editPlanForm.ai_magic || ''}
+                    onChange={e => setEditPlanForm(p => ({ ...p, ai_magic: e.target.value }))}
+                    placeholder="e.g., Basic OCR, Advanced AI Summary..."
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#0A3D8F] transition-colors"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Cheque Handling Features</label>
+                  <input
+                    type="text"
+                    value={editPlanForm.cheque_handling || ''}
+                    onChange={e => setEditPlanForm(p => ({ ...p, cheque_handling: e.target.value }))}
+                    placeholder="e.g., Basic Validation, Priority Deposits..."
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#0A3D8F] transition-colors"
                   />
                 </div>

@@ -95,7 +95,7 @@ export default function CompanyRow({ company, selected, onSelect, onEdit, onDele
             onEdit?.(company);
           }}
           className={styles.actionBtnEdit}
-          title="Edit Company"
+          title="Edit Organization"
         >
           <Icon icon="ri:pencil-line" />
         </button>
@@ -105,7 +105,7 @@ export default function CompanyRow({ company, selected, onSelect, onEdit, onDele
             onDelete?.(company.id);
           }}
           className={styles.actionBtnDelete}
-          title="Delete Company"
+          title="Delete Organization"
         >
           <Icon icon="ri:delete-bin-line" />
         </button>

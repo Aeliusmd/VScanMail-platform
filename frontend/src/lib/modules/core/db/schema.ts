@@ -174,6 +174,8 @@ export const billingPlans = mysqlTable(
     maxCompanies: int("max_companies").notNull(),
     maxScans: int("max_scans").notNull(),
     storage: varchar("storage", { length: 128 }).notNull(),
+    aiMagic: varchar("ai_magic", { length: 255 }),
+    chequeHandling: varchar("cheque_handling", { length: 255 }),
     badge: varchar("badge", { length: 128 }),
     badgeColor: varchar("badge_color", { length: 128 }),
     features: json("features").notNull(), // string[]
