@@ -116,6 +116,7 @@ export default function AdminScanPage() {
   const [analysisResult, setAnalysisResult] = useState<any>(null);
   const [clients, setClients] = useState<any[]>([]);
   const [confirmedClientId, setConfirmedClientId] = useState<string>('');
+  const [manualDocType, setManualDocType] = useState<'letter' | 'cheque'>('letter');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -185,7 +186,8 @@ export default function AdminScanPage() {
           front: scannedImages.front,
           back: scannedImages.back,
           content: scannedImages.content,
-          isSkipped
+          isSkipped,
+          manualDocType
         }),
       });
 
@@ -380,6 +382,26 @@ export default function AdminScanPage() {
                   </div>
                 </div>
                 <div className="flex flex-col gap-3">
+                  {phase === 'step3_ready' && (
+                    <div className="mb-6">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">Document Type</label>
+                      <div className="flex gap-3">
+                        <button 
+                          onClick={() => setManualDocType('letter')}
+                          className={`flex-1 py-3 px-4 rounded-xl border-2 font-bold text-sm transition-all flex items-center justify-center gap-2 ${manualDocType === 'letter' ? 'bg-[#0A3D8F] text-white border-[#0A3D8F]' : 'bg-white text-slate-500 border-slate-200'}`}
+                        >
+                          <i className="ri-file-text-line"></i> Letter
+                        </button>
+                        <button 
+                          onClick={() => setManualDocType('cheque')}
+                          className={`flex-1 py-3 px-4 rounded-xl border-2 font-bold text-sm transition-all flex items-center justify-center gap-2 ${manualDocType === 'cheque' ? 'bg-[#0A3D8F] text-white border-[#0A3D8F]' : 'bg-white text-slate-500 border-slate-200'}`}
+                        >
+                          <i className="ri-bank-card-line"></i> Cheque
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <button onClick={() => fileInputRef.current?.click()} className="w-full py-4 bg-[#0A3D8F] text-white font-bold rounded-xl hover:bg-[#083170] transition-colors flex items-center justify-center gap-2">
                     <i className="ri-scan-2-line text-lg"></i>
                     {currentStepConfig.scanLabel}
@@ -441,7 +463,7 @@ export default function AdminScanPage() {
                  {/* 1. Security & Tampering */}
                  <div className={`p-5 rounded-2xl border ${analysisResult.tampering?.tamper_detected ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
                     <div className="flex items-center justify-between mb-3">
-                       <p className="text-sm font-bold flex items-center gap-2">
+                       <p className="text-sm font-bold flex items-center gap-2 text-slate-800">
                           <i className={analysisResult.tampering?.tamper_detected ? 'ri-shield-cross-line text-red-600' : 'ri-shield-check-line text-green-600'}></i>
                           Envelope Security Audit
                        </p>
@@ -466,7 +488,7 @@ export default function AdminScanPage() {
 
                  {/* 2. Content Intel */}
                  <div className="p-5 bg-white border border-slate-200 rounded-2xl shadow-sm">
-                    <p className="text-sm font-bold mb-4 flex items-center gap-2">
+                    <p className="text-sm font-bold mb-4 flex items-center gap-2 text-slate-800">
                        <i className="ri-lightbulb-line text-orange-400"></i>
                        Content Intelligence
                     </p>
@@ -474,22 +496,25 @@ export default function AdminScanPage() {
                        <div className="space-y-3">
                           <div className="grid grid-cols-2 gap-3">
                              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                <p className="text-[10px] text-slate-400 font-bold uppercase">Payee</p>
-                                <p className="text-xs font-bold text-slate-800">{analysisResult.aiResults?.extracted?.payee_name || 'N/A'}</p>
+                                <p className="text-[10px] text-slate-600 font-bold uppercase">Payee</p>
+                                <p className="text-xs font-bold text-slate-900">{analysisResult.aiResults?.payee_name || 'N/A'}</p>
                              </div>
                              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                <p className="text-[10px] text-slate-400 font-bold uppercase">Amount</p>
-                                <p className="text-xs font-bold text-slate-800">${analysisResult.aiResults?.extracted?.amount_figures?.toLocaleString() || '0'}</p>
+                                <p className="text-[10px] text-slate-600 font-bold uppercase">Amount</p>
+                                <p className="text-xs font-bold text-slate-900">${analysisResult.aiResults?.amount_figures?.toLocaleString() || '0'}</p>
                              </div>
                           </div>
+                          
+                          {/* 6-Point Validation ONLY for Cheques */}
                           <div className="p-3 bg-blue-50/50 rounded-xl border border-blue-100">
                              <p className="text-[10px] text-blue-600 font-bold uppercase mb-2">6-Point Validation Engine</p>
                              <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                                 {analysisResult.aiResults?.validation?.checks?.map((c:any, i:number) => (
                                    <div key={i} className="flex items-center justify-between text-[11px]">
                                       <span className="text-slate-500 capitalize">{c.check.replace(/_/g, ' ')}</span>
-                                      <i className={c.passed ? "ri-checkbox-circle-fill text-green-50" : "ri-error-warning-fill text-red-50"}></i>
-                                      <i className={c.passed ? "ri-checkbox-circle-fill text-green-500" : "ri-close-circle-fill text-red-500"}></i>
+                                      <div className="flex items-center">
+                                        <i className={c.passed ? "ri-checkbox-circle-fill text-green-500" : "ri-close-circle-fill text-red-500"}></i>
+                                      </div>
                                    </div>
                                 ))}
                              </div>

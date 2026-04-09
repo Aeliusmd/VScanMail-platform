@@ -63,7 +63,7 @@ export default function SuperAdminSidebar({ collapsed, onToggle }: Props) {
           <button
             type="button"
             onClick={onToggle}
-            className={`flex shrink-0 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-700/60 hover:text-white cursor-pointer ${
+            className={`flex shrink-0 items-center justify-center rounded-md text-slate-200 transition hover:bg-slate-700/60 hover:text-white cursor-pointer ${
               collapsed ? "h-6 w-6 p-0" : "h-8 w-8 rounded-lg"
             }`}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -85,7 +85,7 @@ export default function SuperAdminSidebar({ collapsed, onToggle }: Props) {
               className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors min-h-[48px] ${
                 active
                   ? "bg-[#0A3D8F] text-white"
-                  : "text-slate-400 hover:bg-slate-700/60 hover:text-white"
+                  : "text-slate-200 hover:bg-slate-700/60 hover:text-white"
               }`}
             >
               <i className={`${item.icon} text-lg flex-shrink-0`} aria-hidden />
@@ -101,7 +101,7 @@ export default function SuperAdminSidebar({ collapsed, onToggle }: Props) {
           className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors min-h-[48px] ${
             isSettingsRoute
               ? "bg-slate-700/80 text-white"
-              : "text-slate-400 hover:bg-slate-700/60 hover:text-white"
+              : "text-slate-200 hover:bg-slate-700/60 hover:text-white"
           }`}
         >
           <i className="ri-settings-3-line text-lg flex-shrink-0" aria-hidden />
@@ -109,7 +109,7 @@ export default function SuperAdminSidebar({ collapsed, onToggle }: Props) {
         </Link>
         <Link
           href="/login"
-          className="flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-slate-400 hover:bg-red-900/40 hover:text-red-400 transition-colors min-h-[48px]"
+          className="flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-slate-200 hover:bg-red-900/40 hover:text-red-400 transition-colors min-h-[48px]"
         >
           <i className="ri-logout-box-line text-lg flex-shrink-0" aria-hidden />
           {!collapsed && <span>Sign Out</span>}

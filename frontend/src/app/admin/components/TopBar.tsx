@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Icon } from '@iconify/react';
 import Link from 'next/link';
 
@@ -14,6 +14,41 @@ interface TopBarProps {
 export default function TopBar({ title, subtitle, hideSearch }: TopBarProps) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+
+  const [userData, setUserData] = useState<{ firstName: string, lastName: string, avatarUrl: string, email: string, role: string } | null>(null);
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        const { getProfile } = await import("../settings/profile/actions");
+        const res = await getProfile();
+        if (res.success && res.data) {
+          setUserData({
+            firstName: res.data.firstName || '',
+            lastName: res.data.lastName || '',
+            avatarUrl: res.data.avatarUrl || '',
+            email: res.data.email || '',
+            role: res.data.role || '',
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch profile in header", err);
+      }
+    };
+    fetchUserProfile();
+
+    const handleUpdate = () => fetchUserProfile();
+    window.addEventListener('profileUpdated', handleUpdate);
+    return () => window.removeEventListener('profileUpdated', handleUpdate);
+  }, []);
+
+  const initials = userData?.firstName && userData?.lastName 
+    ? `${userData.firstName[0].toUpperCase()}${userData.lastName[0].toUpperCase()}`
+    : 'AD';
+
+  const displayName = userData?.firstName 
+    ? `${userData.firstName} ${userData.lastName}`
+    : 'Admin User';
 
   const notifications = [
     { id: 1, text: 'New mail received from Tech Solutions Inc', time: '5 mins ago', unread: true },
@@ -96,12 +131,14 @@ export default function TopBar({ title, subtitle, hideSearch }: TopBarProps) {
             onClick={() => { setShowUserMenu(!showUserMenu); setShowNotifications(false); }}
             className="flex items-center gap-2 hover:bg-gray-50 rounded-lg px-2 py-1.5 transition cursor-pointer"
           >
-            <div className="w-8 h-8 rounded-full bg-[#1E40AF] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-              AD
+            <div className="w-8 h-8 rounded-full bg-[#1E40AF] flex items-center justify-center text-white font-bold text-sm flex-shrink-0 overflow-hidden">
+              {userData?.avatarUrl ? (
+                <img src={userData.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+              ) : initials}
             </div>
             <div className="text-left hidden sm:block">
-              <p className="text-sm font-semibold text-gray-900 leading-4">Admin User</p>
-              <p className="text-xs text-gray-500">Administrator</p>
+              <p className="text-sm font-semibold text-gray-900 leading-4">{displayName}</p>
+              <p className="text-xs text-gray-500 uppercase">{userData?.role ? userData.role.replace('_', ' ') : 'Administrator'}</p>
             </div>
             <div className="w-4 h-4 items-center justify-center text-gray-400 hidden sm:flex">
               <Icon icon="ri:arrow-down-s-line" className="text-base" />

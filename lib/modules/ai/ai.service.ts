@@ -136,7 +136,8 @@ export const aiService = {
   "micr_line": "string or null",
   "bank_name": "string or null",
   "cheque_number": "string or null",
-  "overall_condition": "clean|worn|damaged"
+  "overall_condition": "clean|worn|damaged",
+  "summary": "Generate a concise 2-sentence executive summary (e.g. 'Cheque issued by Bank of America for $X payable to Y. Pending deposit on Z. Transaction reference: ...')"
 }`,
             },
             {
@@ -268,7 +269,7 @@ Return:
   "tamper_detected": true,
   "confidence": 0.0-1.0,
   "findings": [{"type": "string", "confidence": 0.0-1.0, "location": "string", "description": "string"}],
-  "risk_level": "none|low|medium|high",
+  "risk_level": "none|low|medium|high|critical",
   "recommendation": "string"
 }`,
             },

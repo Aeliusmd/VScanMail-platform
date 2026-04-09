@@ -7,18 +7,30 @@ import { clients } from "@/lib/modules/core/db/schema";
 import { eq, count } from "drizzle-orm";
 
 function timeAgo(date: Date) {
-  const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
-  let interval = seconds / 31536000;
-  if (interval > 1) return Math.floor(interval) + " years ago";
-  interval = seconds / 2592000;
-  if (interval > 1) return Math.floor(interval) + " months ago";
-  interval = seconds / 86400;
-  if (interval > 1) return Math.floor(interval) + " days ago";
-  interval = seconds / 3600;
-  if (interval > 1) return Math.floor(interval) + " hours ago";
-  interval = seconds / 60;
-  if (interval > 1) return Math.floor(interval) + " mins ago";
-  return Math.floor(seconds) + " seconds ago";
+  const diffInSeconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+  const seconds = Math.abs(diffInSeconds);
+  
+  if (seconds < 45) return "Just now";
+  
+  const intervals = [
+    { label: 'year', seconds: 31536000 },
+    { label: 'month', seconds: 2592000 },
+    { label: 'week', seconds: 604800 },
+    { label: 'day', seconds: 86400 },
+    { label: 'hour', seconds: 3600 },
+    { label: 'min', seconds: 60 }
+  ];
+
+  for (const interval of intervals) {
+    const count = Math.floor(seconds / interval.seconds);
+    if (count >= 1) {
+       // If it was a negative diff (timezone/clock drift), we still show it as "ago" 
+       // but we've fixed the major timezone offset in the model.
+      return `${count} ${interval.label}${count !== 1 ? 's' : ''} ago`;
+    }
+  }
+  
+  return `${seconds} seconds ago`;
 }
 
 export async function GET(req: NextRequest) {
@@ -26,11 +38,15 @@ export async function GET(req: NextRequest) {
     const user = await withAuth(req);
     withRole(user, ["admin", "super_admin"]);
 
-    // 1. Get recent mails and total mail count
-    const mailsResponse = await mailItemModel.listAllGlobal({ limit: 5 });
+    // 1. Get total letters count (excluding cheques)
+    const lettersResponse = await mailItemModel.listAllGlobal({ type: 'letter', limit: 1 });
+    // Also consider other types that aren't cheques
+    const pkgResponse = await mailItemModel.listAllGlobal({ type: 'package', limit: 1 });
+    const totalMails = lettersResponse.total + pkgResponse.total;
     
-    // 2. Get recent cheques and total cheque count
-    const chequesResponse = await chequeModel.listAllGlobal({ limit: 5 });
+    // 2. Get total cheques count
+    const chequesResponse = await mailItemModel.listAllGlobal({ type: 'cheque', limit: 1 });
+    const totalCheques = chequesResponse.total;
 
     // 3. Get total active companies
     const activeCompaniesRaw = await db
@@ -39,46 +55,33 @@ export async function GET(req: NextRequest) {
       .where(eq(clients.status, "active"));
     const activeCompanies = activeCompaniesRaw[0]?.value || 0;
 
-    // 4. Calculate Pending Requests (Mails pending action + Cheques pending action)
-    // We didn't do specific filtered counts to keep it fast, but for an estimate we'll query pending explicitly
+    // 4. Calculate Pending Requests (filtered by status)
     const pendingMails = await mailItemModel.listAllGlobal({ status: "action_required", limit: 1 });
-    const pendingCheques = await chequeModel.listAllGlobal({ status: "flagged", limit: 1 });
+    const pendingCheques = await mailItemModel.listAllGlobal({ status: "flagged", limit: 1 });
     const pendingRequests = pendingMails.total + pendingCheques.total;
 
-    // 5. Combine and format Recent Activity
-    const recentMails = mailsResponse.items.map((mail: any) => ({
-      id: `mail-${mail.id}`,
-      company: mail.company_name || "Unknown Company",
-      type: "Mail",
-      time: mail.scanned_at ? timeAgo(new Date(mail.scanned_at)) : "recently",
-      dateVal: new Date(mail.scanned_at || mail.created_at).getTime(),
-      status: mapMailStatus(mail.status),
-      statusColor: mapMailColor(mail.status),
-      icon: "ri:mail-line"
-    }));
-
-    const recentCheques = chequesResponse.cheques.map((cheque: any) => ({
-      id: `cheque-${cheque.id}`,
-      company: cheque.company_name || "Unknown Company",
-      type: "Cheque",
-      time: cheque.created_at ? timeAgo(new Date(cheque.created_at)) : "recently",
-      dateVal: new Date(cheque.created_at).getTime(),
-      status: mapChequeStatus(cheque.status),
-      statusColor: mapChequeColor(cheque.status),
-      icon: "iconamoon:cheque"
-    }));
-
-    const combinedActivities = [...recentMails, ...recentCheques]
-      .sort((a, b) => b.dateVal - a.dateVal)
-      .slice(0, 5)
-      .map(({ dateVal, ...rest }) => rest);
+    // 5. Get Combined Recent Activity (Fetch all together to avoid duplicates)
+    const activityResponse = await mailItemModel.listAllGlobal({ limit: 10 });
+    
+    const recentActivity = activityResponse.items.map((item: any) => {
+      const isCheque = item.type === 'cheque';
+      return {
+        id: isCheque ? `cheque-${item.id}` : `mail-${item.id}`,
+        company: item.company_name || "Unknown Company",
+        type: isCheque ? "Cheque" : "Mail",
+        time: item.scanned_at ? timeAgo(new Date(item.scanned_at)) : "recently",
+        status: isCheque ? mapChequeStatus(item.status) : mapMailStatus(item.status),
+        statusColor: isCheque ? mapChequeColor(item.status) : mapMailColor(item.status),
+        icon: isCheque ? "iconamoon:cheque" : "ri:mail-line"
+      };
+    }).slice(0, 5);
 
     return NextResponse.json({
-      totalMails: mailsResponse.total,
-      totalCheques: chequesResponse.total,
+      totalMails,
+      totalCheques,
       activeCompanies,
       pendingRequests,
-      recentActivity: combinedActivities
+      recentActivity
     });
   } catch (error: any) {
     if (error instanceof Response) return error as any;

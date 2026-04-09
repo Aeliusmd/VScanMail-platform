@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
     withRole(user, ["admin", "super_admin"]);
 
     const body = await req.json();
-    const { front, back, content, isSkipped } = body;
+    const { front, back, content, isSkipped, manualDocType } = body;
 
     if (!front || !back) {
       return NextResponse.json({ error: "Envelope scans are required" }, { status: 400 });
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     // 1. Detect Tampering (Using GPT-4o Vision exclusively)
     const tampering = await aiService.detectTampering(front, back);
 
-    let docType: "letter" | "cheque" = "letter";
+    let docType: "letter" | "cheque" = manualDocType || "letter";
     let aiResults: any = {};
     let ocrTextForIdentification = "";
     
@@ -80,8 +80,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Failed to upload content image.' }, { status: 500 });
       }
 
-      // 2. Detect Document Type
-      docType = await aiService.detectDocumentType(content);
+      // 2. Detect Document Type (Only if not manually specified)
+      if (!manualDocType) {
+        docType = await aiService.detectDocumentType(content);
+      }
 
       if (docType === "cheque") {
         aiResults = await aiService.extractChequeFields(content);

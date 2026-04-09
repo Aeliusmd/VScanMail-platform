@@ -13,9 +13,14 @@ export async function POST(
     const { id } = await params;
     const item = await mailItemModel.findById(id);
 
-    // Resend based on tamper state.
+    // Resend based on type and tamper state.
     if (item.tamper_detected) {
       await notificationService.sendTamperAlert(item.client_id, item);
+    } else if (item.type === 'cheque') {
+      await notificationService.sendChequeAlert(item.client_id, item, {
+        status: item.cheque_status || 'validated',
+        confidence: item.cheque_ai_confidence || 0.95
+      });
     } else {
       await notificationService.sendNewMailAlert(item.client_id, item);
     }

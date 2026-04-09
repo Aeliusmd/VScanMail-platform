@@ -5,6 +5,12 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Fix for "too light" text: Redefine default shades to be much darker for contrast */
+  --color-gray-400: #1e293b; /* Previously light grey, now deep slate-800 */
+  --color-gray-500: #0f172a; /* Previously medium grey, now deep slate-900 */
+  --color-slate-400: #1e293b; 
+  --color-slate-500: #0f172a;
 }
 
 @layer base {
@@ -15,6 +21,21 @@
   @keyframes scaleIn {
     from { transform: scale(0.95); opacity: 0; }
     to { transform: scale(1); opacity: 1; }
+  }
+
+  /* Global Typography Fixes */
+  body {
+    @apply text-slate-900 antialiased; /* Ensure primary text is sharp and dark */
+  }
+
+  /* Force light-colored labels and secondary text to be more readable */
+  p, span, label {
+    @apply leading-relaxed;
+  }
+
+  /* Ensure placeholders are visible */
+  ::placeholder {
+    @apply text-slate-500 opacity-100;
   }
 }
 
@@ -35,6 +56,18 @@
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+  }
+}
+
+@utility custom-scrollbar {
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    @apply bg-gray-200 rounded-full hover:bg-gray-300 transition-colors;
   }
 }
 

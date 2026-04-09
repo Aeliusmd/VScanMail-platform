@@ -19,7 +19,7 @@ export async function createClientTable(tableName: string) {
       \`ocr_text\`                    TEXT         NULL,
       \`ai_summary\`                  TEXT         NULL,
       \`ai_actions\`                  JSON         NULL,
-      \`ai_risk_level\`               ENUM('low','medium','high','critical') NULL,
+      \`ai_risk_level\`               ENUM('none','low','medium','high','critical') NULL,
 
       \`retention_until\`             DATETIME     NOT NULL,
       \`scanned_by\`                  VARCHAR(36)  NOT NULL,

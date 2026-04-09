@@ -5,7 +5,11 @@
 }
 
 .modal {
-  @apply bg-white rounded-2xl shadow-2xl w-full max-w-[580px] overflow-hidden;
+  @apply bg-white rounded-2xl shadow-2xl w-full max-w-[620px] max-h-[90vh] flex flex-col overflow-hidden;
+}
+
+.modalBody {
+  @apply overflow-y-auto flex-1 custom-scrollbar;
 }
 
 .header {
@@ -49,7 +53,23 @@
 }
 
 .documentOverlay {
-  @apply absolute inset-0 bg-white/10;
+  @apply absolute inset-0 bg-black/5;
+}
+
+.carouselBtn {
+  @apply absolute top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center bg-white/90 hover:bg-white text-gray-800 rounded-full shadow-lg transition-all z-10 cursor-pointer;
+}
+
+.carouselBtnLeft {
+  @apply left-3;
+}
+
+.carouselBtnRight {
+  @apply right-3;
+}
+
+.imageIndicator {
+  @apply absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/50 text-white text-[10px] font-bold px-2 py-0.5 rounded-full;
 }
 
 .detailsGrid {
@@ -107,6 +127,48 @@
 .tagPending {
   @apply bg-orange-100 text-orange-600;
 }
+
+/* Security Status styles */
+.securityBanner {
+  @apply mx-6 mb-4 p-3 rounded-xl flex items-center gap-3 border;
+}
+
+.securityBannerNone { @apply bg-green-50 border-green-100 text-green-800; }
+.securityBannerLow { @apply bg-blue-50 border-blue-100 text-blue-800; }
+.securityBannerHigh { @apply bg-red-50 border-red-100 text-red-800; }
+
+.securityIcon {
+  @apply w-8 h-8 flex items-center justify-center rounded-lg bg-white/50;
+}
+
+/* Validation Grid styles */
+.validationGrid {
+  @apply mx-6 mb-5 grid grid-cols-2 gap-3;
+}
+
+.validationItem {
+  @apply p-3 border border-gray-100 rounded-xl bg-gray-50/50 flex flex-col gap-1;
+}
+
+.validationHeader {
+  @apply flex items-center justify-between;
+}
+
+.validationLabel {
+  @apply text-[11px] font-medium text-gray-500 uppercase tracking-wider;
+}
+
+.validationValue {
+  @apply text-sm font-semibold text-gray-900;
+}
+
+.statusIcon {
+  @apply text-sm;
+}
+
+.statusSuccess { @apply text-green-500; }
+.statusError { @apply text-red-500; }
+.statusPending { @apply text-amber-500; }
 
 .aiSummaryBox {
   @apply mx-6 mb-5 bg-[#EFF6FF] rounded-xl p-4;
