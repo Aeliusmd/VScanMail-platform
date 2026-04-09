@@ -68,6 +68,57 @@ async function locateChequeById(id: string) {
 }
 
 export const chequeModel = {
+  async listAllGlobal(
+    opts: { page?: number; limit?: number; status?: string } = {}
+  ) {
+    const { page = 1, limit = 100, status } = opts;
+    const from = (page - 1) * limit;
+
+    const allClientsRaw = await db.select({ id: clients.id, tableName: clients.tableName }).from(clients);
+    if (!allClientsRaw.length) return { cheques: [], total: 0 };
+
+    const [tablesResult] = await db.execute(sql`SHOW TABLES`);
+    const existingTableNames = new Set(((tablesResult as unknown) as any[]).map(row => Object.values(row)[0] as string));
+    
+    const allClients = allClientsRaw.filter(c => existingTableNames.has(c.tableName));
+    if (!allClients.length) return { cheques: [], total: 0 };
+
+    const conditionParts: string[] = ["record_type = 'cheque'"];
+    if (status) conditionParts.push(`cheque_status = '${status.replace(/'/g, "''")}'`);
+    const whereStr = `WHERE ${conditionParts.join(' AND ')}`;
+
+    // Column list matches rowToCheque dependencies + id, record_type, created_at
+    const columnList = `id, record_type, cheque_amount_figures, cheque_amount_words, cheque_amounts_match, cheque_date_on_cheque, cheque_date_valid, cheque_beneficiary, cheque_beneficiary_match, cheque_signature_present, cheque_alteration_detected, cheque_crossing_present, cheque_ai_confidence, cheque_ai_raw_result, cheque_decision, cheque_decided_by, cheque_decided_at, cheque_status, created_at`;
+
+    const unionParts = allClients.map(c => 
+      `SELECT ${columnList}, '${c.id}' AS _client_id FROM \`${c.tableName}\` ${whereStr}`
+    );
+    const unionSql = unionParts.join(' UNION ALL ');
+
+    try {
+      const [rows] = await db.execute(sql.raw(`
+        SELECT q.*, cl.company_name as _client_name 
+        FROM (${unionSql}) q
+        INNER JOIN \`clients\` cl ON q._client_id = cl.id
+        ORDER BY q.created_at DESC
+        LIMIT ${limit} OFFSET ${from}
+      `)) as any;
+
+      const [countRows] = await db.execute(sql.raw(`SELECT COUNT(*) as count FROM (${unionSql}) q`)) as any;
+      
+      return {
+        cheques: rows.map((r: any) => ({
+          ...rowToCheque(r, r._client_id),
+          company_name: r._client_name
+        })),
+        total: Number(countRows[0]?.count || 0),
+      };
+    } catch (dbErr: any) {
+      console.error('[chequeModel.listAllGlobal] DB Error:', dbErr?.message);
+      throw dbErr;
+    }
+  },
+
   async create(data: Partial<Cheque>, actorId?: string, req?: Request) {
     const row = await locateChequeById(data.mail_item_id!);
     if (!row) throw new Error("Base mail item not found for cheque");

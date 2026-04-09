@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState, useCallback } from 'react';
 import { Icon } from '@iconify/react';
-import { mails, type Mail } from '../../../mocks/mails';
+import { apiClient } from '@/lib/api-client';
 import MailToolbar from './components/MailToolbar';
 import MailRow from './components/MailRow';
 import ClickedMail from './clickedmail/clickedmail';
@@ -12,10 +12,8 @@ import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 
 type TabType = 'All' | 'Processed' | 'Delivered' | 'Pending Delivery';
 type FolderType = 'inbox' | 'archived';
-type MailItem = Mail & { archived?: boolean; archiveBox?: string };
 
 const TABS: TabType[] = ['All', 'Processed', 'Delivered', 'Pending Delivery'];
-
 const PER_PAGE = 10;
 
 export default function AllMailsPage() { 
@@ -27,19 +25,22 @@ export default function AllMailsPage() {
 }
 
 function AllMailsPageContent() {
-  const [mailItems, setMailItems] = useState<MailItem[]>(mails);
+  const [mailItems, setMailItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
   const [activeFolder, setActiveFolder] = useState<FolderType>('inbox');
   const [activeTab, setActiveTab] = useState<TabType>('All');
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [openedMail, setOpenedMail] = useState<Mail | null>(null);
+  const [openedMail, setOpenedMail] = useState<any | null>(null);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [archiveBoxNumber, setArchiveBoxNumber] = useState('');
   const [archiveSuccess, setArchiveSuccess] = useState(false);
   const [archivedCount, setArchivedCount] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
   const searchParams = useSearchParams();
   const tabFromUrl = searchParams.get('tab');
@@ -47,6 +48,56 @@ function AllMailsPageContent() {
   const pathname = usePathname();
   const isSuperadminRoute = pathname.startsWith('/superadmin');
   const scanPath = isSuperadminRoute ? '/superadmin/scan' : '/admin/scan';
+
+  const fetchMails = useCallback(async () => {
+    setLoading(true);
+    try {
+      let status;
+      if (activeTab === 'Processed') status = 'processed';
+      if (activeTab === 'Delivered') status = 'delivered';
+      if (activeTab === 'Pending Delivery') status = 'scanned';
+
+      const data = await apiClient<{ items: any[]; total: number }>('/api/records/mail', {
+        params: {
+          page,
+          limit: PER_PAGE,
+          status: status,
+          search: search || undefined
+        }
+      } as any);
+
+      // Map API items to the UI Mail interface
+      const mappedItems = data.items.map(item => ({
+        id: item.id,
+        sender: item.company_name, 
+        subject: `${item.type.charAt(0).toUpperCase() + item.type.slice(1)} - ${item.irn}`,
+        preview: item.ai_summary || 'No preview available.',
+        time: new Date(item.scanned_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        date: new Date(item.scanned_at).toLocaleDateString(),
+        company: item.company_name,
+        tag: item.status.charAt(0).toUpperCase() + item.status.slice(1),
+        archived: item.status === 'delivered',
+        senderInitial: item.company_name.charAt(0).toUpperCase(),
+        senderColor: 'bg-blue-600',
+        raw: item 
+      }));
+
+      setMailItems(mappedItems);
+      setTotalCount(data.total);
+      setError(null);
+    } catch (err: any) {
+      console.error('Failed to fetch mails:', err);
+      // err.body contains the JSON body from the backend — use it for better diagnostics
+      const detail = err?.body?.error || err?.message || 'Failed to connect to the recording system.';
+      setError(detail);
+    } finally {
+      setLoading(false);
+    }
+  }, [page, activeTab, search]);
+
+  useEffect(() => {
+    fetchMails();
+  }, [fetchMails]);
 
   // Keep the tab UI in sync when selecting filters via sidebar labels.
   useEffect(() => {
@@ -66,47 +117,28 @@ function AllMailsPageContent() {
     { id: 4, text: 'New company registration pending approval', time: '1 hour ago', unread: false },
   ];
 
-  const visibleMails = mailItems.filter((m) => (activeFolder === 'inbox' ? !m.archived : !!m.archived));
-
-  const filtered = visibleMails.filter((m) => {
-    const matchTab =
-      activeTab === 'All' ||
-      (activeTab === 'Processed' && m.tag === 'Inbox') ||
-      (activeTab === 'Delivered' && m.tag === 'Delivered') ||
-      (activeTab === 'Pending Delivery' && m.tag === 'Pending');
-    const matchSearch =
-      search === '' ||
-      m.sender.toLowerCase().includes(search.toLowerCase()) ||
-      m.subject.toLowerCase().includes(search.toLowerCase()) ||
-      m.company.toLowerCase().includes(search.toLowerCase());
-    return matchTab && matchSearch;
-  });
-
-  const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+  const visibleMails = mailItems; // Already filtered by server
 
   const tabCount = (tab: TabType) => {
-    if (tab === 'All') return visibleMails.length;
-    if (tab === 'Processed') return visibleMails.filter((m) => m.tag === 'Inbox').length;
-    if (tab === 'Delivered') return visibleMails.filter((m) => m.tag === 'Delivered').length;
-    return visibleMails.filter((m) => m.tag === 'Pending').length;
+    if (activeTab === tab) return totalCount;
+    return 0; // For simplicity, only active tab shows count, or we need more API calls
   };
 
-  const allVisibleSelected = filtered.length > 0 && filtered.every((m) => selectedIds.includes(m.id));
+  const allVisibleSelected = visibleMails.length > 0 && visibleMails.every((m) => selectedIds.includes(m.id));
 
   const toggleSelectAll = () => {
     if (allVisibleSelected) {
-      setSelectedIds((prev) => prev.filter((id) => !filtered.some((m) => m.id === id)));
+      setSelectedIds((prev) => prev.filter((id) => !visibleMails.some((m) => m.id === id)));
       return;
     }
 
-    const pageIds = filtered.map((m) => m.id);
+    const pageIds = visibleMails.map((m) => m.id);
     setSelectedIds((prev) => Array.from(new Set([...prev, ...pageIds])));
   };
 
   const handleArchiveConfirm = () => {
     if (!archiveBoxNumber.trim()) return;
-    const currentSelectedCount = selectedIds.length;
-    setArchivedCount(currentSelectedCount);
+    // Note: Local update only for UI feel, real archive should be an API call
     setMailItems((prev) =>
       prev.map((m) =>
         selectedIds.includes(m.id)
@@ -116,12 +148,10 @@ function AllMailsPageContent() {
     );
     setSelectedIds([]);
     setArchiveSuccess(true);
-    setPage(1);
     setTimeout(() => {
       setArchiveSuccess(false);
       setShowArchiveModal(false);
       setArchiveBoxNumber('');
-      setArchivedCount(0);
     }, 1800);
   };
 
@@ -136,7 +166,7 @@ function AllMailsPageContent() {
     setSelectedIds([]);
   };
 
-  const handleSelect = (id: number) => {
+  const handleSelect = (id: string) => {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
     );
@@ -256,7 +286,7 @@ function AllMailsPageContent() {
 
       {/* Toolbar */}
       <MailToolbar
-        total={filtered.length}
+        total={totalCount}
         page={page}
         perPage={PER_PAGE}
         onPrev={() => setPage((p) => Math.max(1, p - 1))}
@@ -339,10 +369,29 @@ function AllMailsPageContent() {
         ))}
       </div>
 
+        {/* Error State */}
+        {error && (
+          <div className="mx-6 mt-4 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center justify-between text-red-800">
+            <div className="flex items-center gap-3">
+              <Icon icon="ri:error-warning-fill" className="text-xl" />
+              <div>
+                <p className="text-sm font-bold">Failed to load records</p>
+                <p className="text-xs">{error}</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => fetchMails()}
+              className="px-3 py-1 bg-red-100 hover:bg-red-200 rounded-lg text-xs font-bold transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        )}
+
       {/* Mail List */}
       <div className={styles.listContainer}>
         <div className={styles.listInner}>
-        {paginated.length === 0 ? (
+        {visibleMails.length === 0 ? (
           <div className={styles.emptyState}>
             <div className={styles.emptyIcon}>
               <Icon icon="ri:mail-open-line" className="text-3xl" />
@@ -350,12 +399,12 @@ function AllMailsPageContent() {
             <p className={styles.emptyText}>No mails found</p>
           </div>
         ) : (
-          paginated.map((mail) => (
+          visibleMails.map((mail: any) => (
             <MailRow
               key={mail.id}
               mail={mail}
               selected={selectedIds.includes(mail.id)}
-              onSelect={handleSelect}
+              onSelect={(id: any) => handleSelect(String(id))}
               onClick={() => setOpenedMail(mail)}
               showArchiveMeta={activeFolder === 'archived'}
               showUnarchive={activeFolder === 'archived'}

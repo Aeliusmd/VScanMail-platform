@@ -25,26 +25,40 @@ export type MailItem = {
 };
 
 // Helper: map MySQL raw row to MailItem
+/** Safely convert a raw DB value to ISO string, returning null if value is absent */
+function toISOSafe(value: any): string {
+  if (!value) return new Date().toISOString();
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+}
+
+/** Safely parse a JSON string, returning fallback on any error */
+function parseJsonSafe(value: any, fallback: any = null): any {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value !== 'string') return value;
+  try { return JSON.parse(value); } catch { return fallback; }
+}
+
 function rowToMailItem(row: any, clientId: string): MailItem {
   return {
     id: row.id,
     client_id: clientId,
-    irn: row.irn,
-    type: row.record_type,
-    envelope_front_url: row.envelope_front_url,
-    envelope_back_url: row.envelope_back_url,
-    content_scan_urls: typeof row.content_scan_urls === 'string' ? JSON.parse(row.content_scan_urls) : row.content_scan_urls || [],
+    irn: row.irn ?? '',
+    type: row.record_type ?? 'letter',
+    envelope_front_url: row.envelope_front_url ?? '',
+    envelope_back_url: row.envelope_back_url ?? '',
+    content_scan_urls: parseJsonSafe(row.content_scan_urls, []),
     tamper_detected: Boolean(row.tamper_detected),
-    tamper_annotations: typeof row.tamper_annotations === 'string' ? JSON.parse(row.tamper_annotations) : row.tamper_annotations,
-    ocr_text: row.ocr_text,
-    ai_summary: row.ai_summary,
-    ai_actions: typeof row.ai_actions === 'string' ? JSON.parse(row.ai_actions) : row.ai_actions,
-    ai_risk_level: row.ai_risk_level,
-    retention_until: new Date(row.retention_until).toISOString(),
-    scanned_by: row.scanned_by,
-    scanned_at: new Date(row.scanned_at).toISOString(),
-    status: row.mail_status,
-    created_at: new Date(row.created_at).toISOString(),
+    tamper_annotations: parseJsonSafe(row.tamper_annotations, null),
+    ocr_text: row.ocr_text ?? null,
+    ai_summary: row.ai_summary ?? null,
+    ai_actions: parseJsonSafe(row.ai_actions, null),
+    ai_risk_level: row.ai_risk_level ?? null,
+    retention_until: toISOSafe(row.retention_until),
+    scanned_by: row.scanned_by ?? '',
+    scanned_at: toISOSafe(row.scanned_at),
+    status: row.mail_status ?? 'received',
+    created_at: toISOSafe(row.created_at),
   };
 }
 
@@ -75,10 +89,23 @@ export const mailItemModel = {
         tamper_detected, tamper_annotations, ocr_text, ai_summary, ai_actions, ai_risk_level,
         retention_until, scanned_by, scanned_at, mail_status, created_at
       ) VALUES (
-        ${id}, ${data.irn}, ${data.type}, ${data.envelope_front_url}, ${data.envelope_back_url}, ${JSON.stringify(data.content_scan_urls || [])},
-        ${data.tamper_detected ? 1 : 0}, ${data.tamper_annotations ? JSON.stringify(data.tamper_annotations) : null},
-        ${data.ocr_text || null}, ${data.ai_summary || null}, ${data.ai_actions ? JSON.stringify(data.ai_actions) : null},
-        ${data.ai_risk_level || null}, ${new Date(data.retention_until!)}, ${data.scanned_by}, ${new Date(data.scanned_at!)}, ${data.status || 'received'}, ${created}
+        ${id}, 
+        ${data.irn || ""}, 
+        ${data.type || "letter"}, 
+        ${data.envelope_front_url || ""}, 
+        ${data.envelope_back_url || ""}, 
+        ${JSON.stringify(data.content_scan_urls || [])},
+        ${data.tamper_detected ? 1 : 0}, 
+        ${data.tamper_annotations ? JSON.stringify(data.tamper_annotations) : null},
+        ${data.ocr_text || null}, 
+        ${data.ai_summary || null}, 
+        ${data.ai_actions ? JSON.stringify(data.ai_actions) : null},
+        ${data.ai_risk_level || null}, 
+        ${new Date(data.retention_until || Date.now())}, 
+        ${data.scanned_by || ""}, 
+        ${new Date(data.scanned_at || Date.now())}, 
+        ${data.status || 'scanned'}, 
+        ${created}
       )
     `;
 
@@ -137,6 +164,61 @@ export const mailItemModel = {
       items: rows.map((r: any) => rowToMailItem(r, clientId)),
       total: Number(countRows[0]?.count || 0),
     };
+  },
+
+  async listAllGlobal(
+    opts: { page?: number; limit?: number; type?: string; status?: string } = {}
+  ) {
+    const { page = 1, limit = 100, type, status } = opts;
+    const from = (page - 1) * limit;
+
+    const allClientsRaw = await db.select({ id: clients.id, tableName: clients.tableName }).from(clients);
+    if (!allClientsRaw.length) return { items: [], total: 0 };
+
+    // Check which tables actually exist to avoid querying missing tables
+    const [tablesResult] = await db.execute(sql`SHOW TABLES`);
+    const existingTableNames = new Set(((tablesResult as unknown) as any[]).map(row => Object.values(row)[0] as string));
+    
+    const allClients = allClientsRaw.filter(c => existingTableNames.has(c.tableName));
+    if (!allClients.length) return { items: [], total: 0 };
+
+    // Build WHERE clause conditions as raw strings
+    const conditionParts: string[] = [];
+    if (type) conditionParts.push(`record_type = '${type.replace(/'/g, "''")}'`);
+    if (status) conditionParts.push(`mail_status = '${status.replace(/'/g, "''")}'`);
+    const whereStr = conditionParts.length > 0 ? `WHERE ${conditionParts.join(' AND ')}` : '';
+
+    // Column list as a raw string — Drizzle sql template cannot embed sql fragments as column selectors
+    const columnList = `id, irn, record_type, envelope_front_url, envelope_back_url, content_scan_urls, tamper_detected, tamper_annotations, ai_actions, ocr_text, ai_summary, ai_risk_level, retention_until, scanned_by, scanned_at, mail_status, created_at`;
+
+    // Build UNION ALL query as a plain SQL string
+    const unionParts = allClients.map(c => 
+      `SELECT ${columnList}, '${c.id}' AS _client_id FROM \`${c.tableName}\` ${whereStr}`
+    );
+    const unionSql = unionParts.join(' UNION ALL ');
+
+    try {
+      const [rows] = await db.execute(sql.raw(`
+        SELECT q.*, cl.company_name as _client_name 
+        FROM (${unionSql}) q
+        INNER JOIN \`clients\` cl ON q._client_id = cl.id
+        ORDER BY q.scanned_at DESC
+        LIMIT ${limit} OFFSET ${from}
+      `)) as any;
+
+      const [countRows] = await db.execute(sql.raw(`SELECT COUNT(*) as count FROM (${unionSql}) q`)) as any;
+      
+      return {
+        items: rows.map((r: any) => ({
+          ...rowToMailItem(r, r._client_id),
+          company_name: r._client_name
+        })),
+        total: Number(countRows[0]?.count || 0),
+      };
+    } catch (dbErr: any) {
+      console.error('[mailItemModel.listAllGlobal] DB Error:', dbErr?.message, '\nSQL (union):', unionSql.substring(0, 500));
+      throw dbErr;
+    }
   },
 
   async update(id: string, data: Partial<MailItem>, actorId?: string, req?: Request) {

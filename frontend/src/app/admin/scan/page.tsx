@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef, ChangeEvent } from 'react';
 import Link from 'next/link';
+import { apiClient } from '@/lib/api-client';
 
 type ScanPhase =
   | 'step1_ready'
@@ -79,7 +80,7 @@ function getStepIndex(phase: ScanPhase): number {
   if (phase.startsWith('step1')) return 0;
   if (phase.startsWith('step2')) return 1;
   if (phase.startsWith('step3')) return 2;
-  return 3; // processing / complete
+  return 3;
 }
 
 function isStepCompleted(stepIndex: number, phase: ScanPhase): boolean {
@@ -94,7 +95,7 @@ function isStepCompleted(stepIndex: number, phase: ScanPhase): boolean {
   return false;
 }
 
-const PROCESSING_MSGS = ['Merging scanned images…', 'Running AI analysis…', 'Detecting company & recipient…', 'Finalizing document…'];
+const PROCESSING_MSGS = ['Uploading encrypted scans…', 'GPT-4o Vision Analysis…', 'Security & Tamper Audit…', 'Identifying Organization…', '6-Point Cheque Validation…'];
 
 export default function AdminScanPage() {
   const [phase, setPhase] = useState<ScanPhase>('step1_ready');
@@ -104,6 +105,28 @@ export default function AdminScanPage() {
   const [emailSent, setEmailSent] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+
+  // AI & Client State
+  const [scannedImages, setScannedImages] = useState<{
+    front: string | null;
+    back: string | null;
+    content: string | null;
+  }>({ front: null, back: null, content: null });
+  const [isSkipped, setIsSkipped] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<any>(null);
+  const [clients, setClients] = useState<any[]>([]);
+  const [confirmedClientId, setConfirmedClientId] = useState<string>('');
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch all clients for the override dropdown
+  useEffect(() => {
+    apiClient<{ clients: any[] }>('/api/clients')
+      .then(data => {
+        if (data.clients) setClients(data.clients);
+      })
+      .catch(err => console.error('Failed to load clients:', err));
+  }, []);
 
   // Run scanning animation for any scanning phase.
   useEffect(() => {
@@ -118,8 +141,8 @@ export default function AdminScanPage() {
     setScanMsgIndex(0);
 
     const msgInterval = window.setInterval(() => {
-      setScanMsgIndex((prev) => Math.min(prev + 1, 3));
-    }, 1100);
+      setScanMsgIndex((prev) => Math.min(prev + 1, 4));
+    }, 1200);
 
     const progressInterval = window.setInterval(() => {
       setScanProgress((prev) => {
@@ -131,21 +154,75 @@ export default function AdminScanPage() {
             else if (phase === 'step2_scanning') setPhase('step2_done');
             else if (phase === 'step3_scanning') setPhase('step3_done');
             else if (phase === 'processing') {
-              setPhase('complete');
-              window.setTimeout(() => setShowPopup(true), 500);
+              handleAnalyzeAll();
             }
           }, 300);
           return 100;
         }
-        return prev + 2;
+        return prev + (phase === 'processing' ? 1 : 2);
       });
-    }, 90);
+    }, 80);
 
     return () => {
       window.clearInterval(msgInterval);
       window.clearInterval(progressInterval);
     };
   }, [phase]);
+
+  const handleAnalyzeAll = async () => {
+    // Validation: Ensure we actually have front and back images before calling AI
+    if (!scannedImages.front || !scannedImages.back) {
+      console.warn("AI Analysis aborted: Missing envelope images.");
+      setPhase('step1_ready'); // Reset to step 1
+      alert("AI Analysis aborted: Front and Back envelope images are required.");
+      return;
+    }
+
+    try {
+      const result = await apiClient<{ success: boolean; data: any }>('/api/records/analyze', {
+        method: 'POST',
+        body: JSON.stringify({
+          front: scannedImages.front,
+          back: scannedImages.back,
+          content: scannedImages.content,
+          isSkipped
+        }),
+      });
+
+      setAnalysisResult(result.data);
+      if (result.data.suggestedClient) {
+        setConfirmedClientId(result.data.suggestedClient.id);
+      }
+      setPhase('complete');
+    } catch (err: any) {
+      console.error("Analysis failed:", err);
+      setPhase('step3_done');
+      alert(`AI Analysis failed: ${err.message || 'Please try again.'}`);
+    }
+  };
+
+  const handleFinalize = async () => {
+    setSendingEmail(true);
+    try {
+      await apiClient<{ success: boolean; recordId: string }>('/api/records/finalize', {
+        method: 'POST',
+        body: JSON.stringify({
+          clientId: confirmedClientId,
+          docType: analysisResult.docType || 'letter',
+          urls: analysisResult.urls,
+          tampering: analysisResult.tampering,
+          aiResults: analysisResult.aiResults,
+          ocrText: analysisResult.ocrText
+        }),
+      });
+
+      setSendingEmail(false);
+      setShowSuccess(true);
+    } catch (err: any) {
+      setSendingEmail(false);
+      alert(`Finalization failed: ${err.message || 'Please try again.'}`);
+    }
+  };
 
   const handleReset = () => {
     setPhase('step1_ready');
@@ -155,16 +232,41 @@ export default function AdminScanPage() {
     setEmailSent(false);
     setSendingEmail(false);
     setShowSuccess(false);
+    setScannedImages({ front: null, back: null, content: null });
+    setIsSkipped(false);
+    setAnalysisResult(null);
+    setConfirmedClientId('');
   };
 
-  const handleSend = () => {
-    setSendingEmail(true);
-    window.setTimeout(() => {
-      setSendingEmail(false);
-      setEmailSent(true);
-      setShowPopup(false);
-      setShowSuccess(true);
-    }, 1800);
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      const stepIdx = getStepIndex(phase);
+
+      setScannedImages(prev => {
+        const next = { ...prev };
+        if (stepIdx === 0) next.front = base64;
+        else if (stepIdx === 1) next.back = base64;
+        else if (stepIdx === 2) next.content = base64;
+        return next;
+      });
+
+      if (phase === 'step1_ready') setPhase('step1_done');
+      else if (phase === 'step2_ready') setPhase('step2_done');
+      else if (phase === 'step3_ready') setPhase('step3_done');
+    };
+    reader.readAsDataURL(file);
+    // Reset the input so the same file can be selected again later
+    e.target.value = '';
+  };
+
+  const handleSkipContent = () => {
+    setIsSkipped(true);
+    setPhase('processing');
   };
 
   const currentStepIndex = getStepIndex(phase);
@@ -174,24 +276,26 @@ export default function AdminScanPage() {
     return phase === 'processing' ? PROCESSING_MSGS : currentStepConfig.scanningMessages;
   }, [phase, currentStepConfig.scanningMessages]);
 
-  const STEPS_NAV = useMemo(
-    () => [
-      { label: 'Front Side', icon: 'ri-file-line' },
-      { label: 'Back Side', icon: 'ri-file-copy-line' },
-      { label: 'Content', icon: 'ri-file-text-line' },
-      { label: 'Processing', icon: 'ri-cpu-line' },
-    ],
-    []
-  );
+  const selectedClient = useMemo(() => {
+    return clients.find(c => c.id === confirmedClientId);
+  }, [clients, confirmedClientId]);
 
   return (
     <div className="p-4 sm:p-6 min-h-full flex flex-col gap-4">
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        className="hidden" 
+        accept="image/*"
+        onChange={handleFileChange}
+      />
+
       {/* Light Blue Scan Area */}
       <div className="bg-[#DAEAF7] rounded-2xl p-6 sm:p-8 flex flex-col min-h-[calc(100vh-200px)]">
         {/* Step Progress Bar */}
         <div className="mb-6 sm:mb-10 overflow-x-auto">
           <div className="flex items-center justify-between min-w-[720px] max-w-3xl mx-auto w-full">
-            {STEPS_NAV.map((s, i) => {
+            {['Front Side', 'Back Side', 'Content', 'Processing'].map((label, i) => {
               const completed = isStepCompleted(i, phase);
               const isActive = currentStepIndex === i;
               return (
@@ -206,22 +310,14 @@ export default function AdminScanPage() {
                             : 'bg-white/70 text-slate-400 border-2 border-slate-300'
                       }`}
                     >
-                      {completed ? <i className="ri-check-line text-xl"></i> : <i className={`${s.icon} text-xl`}></i>}
+                      {completed ? <i className="ri-check-line text-xl"></i> : <i className={`${STEPS_CONFIG[Math.min(i, 2)]?.icon || 'ri-cpu-line'} text-xl`}></i>}
                     </div>
-                    <p
-                      className={`text-xs font-semibold mt-2 whitespace-nowrap transition-colors ${
-                        isActive ? 'text-[#0A3D8F]' : completed ? 'text-[#2F8F3A]' : 'text-slate-400'
-                      }`}
-                    >
-                      {s.label}
+                    <p className={`text-xs font-semibold mt-2 whitespace-nowrap ${isActive ? 'text-[#0A3D8F]' : completed ? 'text-[#2F8F3A]' : 'text-slate-400'}`}>
+                      {label}
                     </p>
                   </div>
-                  {i < STEPS_NAV.length - 1 && (
-                    <div
-                      className={`flex-1 h-1 mx-3 rounded-full transition-all duration-500 ${
-                        isStepCompleted(i, phase) ? 'bg-[#2F8F3A]' : 'bg-slate-300/60'
-                      }`}
-                    ></div>
+                  {i < 3 && (
+                    <div className={`flex-1 h-1 mx-3 rounded-full transition-all duration-500 ${isStepCompleted(i, phase) ? 'bg-[#2F8F3A]' : 'bg-slate-300/60'}`}></div>
                   )}
                 </div>
               );
@@ -236,552 +332,248 @@ export default function AdminScanPage() {
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 lg:mb-4">Scan Progress</p>
 
             {STEPS_CONFIG.map((cfg, i) => {
-              const isCompleted = isStepCompleted(i, phase);
-              const isCurrentReady = phase === `step${i + 1}_ready`;
-              const isCurrentScanning = phase === `step${i + 1}_scanning`;
-              const isCurrentDone = phase === `step${i + 1}_done`;
-              const isActive = isCurrentReady || isCurrentScanning || isCurrentDone;
-
+              const isComp = isStepCompleted(i, phase);
+              const idAct = getStepIndex(phase) === i;
               return (
-                <div
-                  key={i}
-                  className={`rounded-xl p-4 border transition-all duration-300 ${
-                    isCompleted
-                      ? 'bg-green-50 border-green-200'
-                      : isActive
-                        ? 'bg-white border-[#0A3D8F]/30 shadow-sm'
-                        : 'bg-white/40 border-slate-200'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <div
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                        isCompleted
-                          ? 'bg-[#2F8F3A] text-white'
-                          : isCurrentScanning
-                            ? 'bg-[#0A3D8F] text-white'
-                            : isCurrentDone
-                              ? 'bg-[#2F8F3A] text-white'
-                              : isActive
-                                ? 'bg-[#0A3D8F]/10 text-[#0A3D8F]'
-                                : 'bg-slate-100 text-slate-400'
-                      }`}
-                    >
-                      {isCompleted || isCurrentDone ? (
-                        <i className="ri-check-line text-sm"></i>
-                      ) : isCurrentScanning ? (
-                        <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      ) : (
-                        <i className={`${cfg.icon} text-sm`}></i>
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <p
-                        className={`text-xs font-bold truncate ${
-                          isCompleted || isCurrentDone ? 'text-[#2F8F3A]' : isActive ? 'text-[#0A3D8F]' : 'text-slate-400'
-                        }`}
-                      >
-                        Step {cfg.stepNumber}
-                      </p>
-                      <p
-                        className={`text-xs truncate ${
-                          isCompleted || isCurrentDone ? 'text-[#2F8F3A]' : isActive ? 'text-slate-700' : 'text-slate-400'
-                        }`}
-                      >
-                        {cfg.label}
-                      </p>
-                    </div>
-                  </div>
-
-                  {(isCurrentDone || isCompleted) && (
-                    <div className="mt-2 pt-2 border-t border-green-200">
-                      <p className="text-xs text-[#2F8F3A] font-medium">✓ {cfg.doneLabel}</p>
-                    </div>
-                  )}
-
-                  {isCurrentScanning && (
-                    <div className="mt-2 pt-2 border-t border-slate-100">
-                      <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-[#0A3D8F] rounded-full transition-all duration-100" style={{ width: `${scanProgress}%` }}></div>
+                <div key={i} className={`rounded-xl p-4 border transition-all duration-300 ${isComp ? 'bg-green-50 border-green-200' : idAct ? 'bg-white border-[#0A3D8F]/30 shadow-sm' : 'bg-white/40 border-slate-200'}`}>
+                   <div className="flex items-center space-x-3">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isComp ? 'bg-[#2F8F3A] text-white' : idAct ? 'bg-[#0A3D8F] text-white' : 'bg-slate-100 text-slate-400'}`}>
+                         {isComp ? <i className="ri-check-line text-sm"></i> : <i className={`${cfg.icon} text-sm`}></i>}
                       </div>
-                    </div>
-                  )}
+                      <div>
+                        <p className={`text-xs font-bold ${isComp ? 'text-[#2F8F3A]' : idAct ? 'text-[#0A3D8F]' : 'text-slate-400'}`}>Step {cfg.stepNumber}</p>
+                        <p className={`text-xs ${isComp ? 'text-[#2F8F3A]' : idAct ? 'text-slate-700' : 'text-slate-400'}`}>{cfg.label}</p>
+                      </div>
+                   </div>
                 </div>
               );
             })}
-
-            {/* Processing block */}
-            <div
-              className={`rounded-xl p-4 border transition-all duration-300 ${
-                phase === 'complete'
-                  ? 'bg-green-50 border-green-200'
-                  : phase === 'processing'
-                    ? 'bg-white border-[#0A3D8F]/30 shadow-sm'
-                    : 'bg-white/40 border-slate-200'
-              }`}
-            >
-              <div className="flex items-center space-x-3">
-                <div
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                    phase === 'complete'
-                      ? 'bg-[#2F8F3A] text-white'
-                      : phase === 'processing'
-                        ? 'bg-[#0A3D8F] text-white'
-                        : 'bg-slate-100 text-slate-400'
-                  }`}
-                >
-                  {phase === 'complete' ? (
-                    <i className="ri-check-line text-sm"></i>
-                  ) : phase === 'processing' ? (
-                    <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    <i className="ri-cpu-line text-sm"></i>
-                  )}
-                </div>
-                <div>
-                  <p className={`text-xs font-bold ${phase === 'complete' ? 'text-[#2F8F3A]' : phase === 'processing' ? 'text-[#0A3D8F]' : 'text-slate-400'}`}>
-                    Step 4
-                  </p>
-                  <p className={`text-xs ${phase === 'complete' ? 'text-[#2F8F3A]' : phase === 'processing' ? 'text-slate-700' : 'text-slate-400'}`}>AI Processing</p>
-                </div>
-              </div>
-
-              {phase === 'processing' && (
-                <div className="mt-2 pt-2 border-t border-slate-100">
-                  <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-[#0A3D8F] rounded-full transition-all duration-100" style={{ width: `${scanProgress}%` }}></div>
+            
+            <div className={`rounded-xl p-4 border transition-all duration-300 ${phase === 'complete' ? 'bg-green-50 border-green-200' : phase === 'processing' ? 'bg-white border-[#0A3D8F]/30 shadow-sm' : 'bg-white/40 border-slate-200'}`}>
+               <div className="flex items-center space-x-3">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${phase === 'complete' ? 'bg-[#2F8F3A] text-white' : phase === 'processing' ? 'bg-[#0A3D8F] text-white' : 'bg-slate-100 text-slate-400'}`}>
+                     {phase === 'complete' ? <i className="ri-check-line text-sm"></i> : <i className="ri-cpu-line text-sm"></i>}
                   </div>
-                </div>
-              )}
+                  <div>
+                    <p className={`text-xs font-bold ${phase === 'complete' ? 'text-[#2F8F3A]' : phase === 'processing' ? 'text-[#0A3D8F]' : 'text-slate-400'}`}>Step 4</p>
+                    <p className={`text-xs ${phase === 'complete' ? 'text-[#2F8F3A]' : phase === 'processing' ? 'text-slate-700' : 'text-slate-400'}`}>AI Analysis</p>
+                  </div>
+               </div>
             </div>
           </div>
 
-          {/* Right: Main action card */}
+          {/* Right: Main Action Card */}
           <div className="flex-1">
-            {/* READY STATE */}
+            {/* READY PHASE */}
             {(phase === 'step1_ready' || phase === 'step2_ready' || phase === 'step3_ready') && (
               <div className="bg-white/85 backdrop-blur-sm rounded-2xl p-6 sm:p-10 border border-white/60 h-full flex flex-col justify-between">
                 <div>
                   <span className="inline-flex items-center px-4 py-1.5 bg-[#0A3D8F]/10 text-[#0A3D8F] text-xs font-bold rounded-full mb-6 uppercase tracking-wide">
                     Step {currentStepConfig.stepNumber} of 4
                   </span>
-
                   <h2 className="text-2xl font-bold text-slate-900 mb-3">{currentStepConfig.readyTitle}</h2>
                   <p className="text-slate-600 text-sm leading-relaxed mb-8">{currentStepConfig.readyMessage}</p>
-
-                  {/* Visual scanner illustration */}
-                  <div className="bg-slate-50 rounded-xl p-5 sm:p-6 mb-8 flex items-center justify-center">
-                    <div className="relative w-full max-w-xs h-40 flex items-center justify-center">
-                      <div className="w-full h-24 bg-gradient-to-b from-slate-200 to-slate-300 rounded-xl border-2 border-slate-400 flex items-center justify-center relative overflow-hidden shadow-md">
-                        <div className="w-4/5 h-1.5 bg-slate-500 rounded-full opacity-60"></div>
-                        <div className="absolute top-3 left-4 w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-                        <div className="absolute bottom-3 right-4 flex space-x-1">
-                          <div className="w-8 h-2 bg-slate-500 rounded-sm"></div>
-                          <div className="w-4 h-2 bg-slate-400 rounded-sm"></div>
-                        </div>
-                      </div>
-
-                      <div
-                        className={`absolute -top-4 left-1/2 -translate-x-1/2 w-20 h-14 border-2 rounded-lg flex items-center justify-center ${currentStepConfig.envelopeColor}`}
-                      >
-                        <i
-                          className={`text-3xl ${
-                            phase === 'step1_ready' ? 'ri-mail-line' : phase === 'step2_ready' ? 'ri-mail-unread-line' : 'ri-file-text-line'
-                          }`}
-                        ></i>
-                        {phase === 'step2_ready' && <span className="absolute -top-2 -right-2 bg-orange-400 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">↩</span>}
-                      </div>
-
-                      <div className="absolute top-6 left-1/2 -translate-x-1/2 flex flex-col items-center animate-bounce">
-                        <div className="w-0.5 h-4 bg-[#0A3D8F]/40"></div>
-                        <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-[#0A3D8F]/40"></div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-2 bg-blue-50 rounded-xl p-4 border border-blue-100">
-                    <div className="w-5 h-5 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <i className="ri-information-line text-[#0A3D8F] text-lg"></i>
-                    </div>
-                    <p className="text-sm text-[#0A3D8F] font-medium">{currentStepConfig.helperText}</p>
+                  <div className="bg-slate-50 rounded-xl p-8 mb-8 flex items-center justify-center">
+                     <div className={`w-32 h-20 border-3 border-dashed rounded-xl flex items-center justify-center ${currentStepConfig.envelopeColor}`}>
+                        <i className={`${currentStepConfig.icon} text-4xl animate-pulse`}></i>
+                     </div>
                   </div>
                 </div>
-
-                <div className="flex items-center space-x-4 mt-8">
-                  {phase !== 'step1_ready' && (
-                    <button
-                      onClick={() => {
-                        if (phase === 'step2_ready') setPhase('step1_done');
-                        else if (phase === 'step3_ready') setPhase('step2_done');
-                      }}
-                      className="px-6 py-3 border-2 border-slate-300 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 transition-colors text-sm whitespace-nowrap cursor-pointer"
-                    >
-                      <i className="ri-arrow-left-line mr-2"></i>Back
-                    </button>
-                  )}
-                  <button
-                    onClick={() => {
-                      if (phase === 'step1_ready') setPhase('step1_scanning');
-                      else if (phase === 'step2_ready') setPhase('step2_scanning');
-                      else if (phase === 'step3_ready') setPhase('step3_scanning');
-                    }}
-                    className="flex-1 py-4 bg-[#0A3D8F] text-white font-bold rounded-xl hover:bg-[#083170] transition-colors text-sm whitespace-nowrap cursor-pointer flex items-center justify-center"
-                  >
-                    <i className="ri-scan-2-line mr-2 text-lg"></i>
+                <div className="flex flex-col gap-3">
+                  <button onClick={() => fileInputRef.current?.click()} className="w-full py-4 bg-[#0A3D8F] text-white font-bold rounded-xl hover:bg-[#083170] transition-colors flex items-center justify-center gap-2">
+                    <i className="ri-scan-2-line text-lg"></i>
                     {currentStepConfig.scanLabel}
                   </button>
+                  <button onClick={() => fileInputRef.current?.click()} className="w-full py-3 border border-dashed border-[#0A3D8F]/50 text-[#0A3D8F] text-xs font-bold rounded-xl hover:bg-[#0A3D8F]/5">
+                    <i className="ri-upload-2-line mr-1"></i> Manual Upload (Hardware Free)
+                  </button>
+                  {phase === 'step3_ready' && (
+                    <button onClick={handleSkipContent} className="w-full py-2.5 text-slate-500 text-xs font-bold hover:bg-slate-100 rounded-xl">Skip Content Scan (Process Envelope Only)</button>
+                  )}
                 </div>
               </div>
             )}
 
-            {/* SCANNING STATE */}
-            {(phase === 'step1_scanning' || phase === 'step2_scanning' || phase === 'step3_scanning') && (
+            {/* SCANNING PHASE */}
+            {(phase === 'step1_scanning' || phase === 'step2_scanning' || phase === 'step3_scanning' || phase === 'processing') && (
               <div className="bg-white/85 backdrop-blur-sm rounded-2xl p-6 sm:p-10 border border-white/60 h-full flex flex-col items-center justify-center text-center">
-                <span className="inline-flex items-center px-4 py-1.5 bg-[#0A3D8F]/10 text-[#0A3D8F] text-xs font-bold rounded-full mb-6 uppercase tracking-wide">
-                  Scanning Step {currentStepConfig.stepNumber} — {currentStepConfig.label}
-                </span>
-
-                <div className="w-64 h-44 bg-slate-100 rounded-xl border-2 border-[#0A3D8F]/30 flex items-center justify-center relative overflow-hidden mb-8">
-                  <div className="w-44 h-32 bg-white border border-slate-300 rounded-lg flex items-center justify-center relative overflow-hidden shadow-sm">
-                    <i className={`${currentStepConfig.icon} text-slate-200 text-5xl`}></i>
-                    <div
-                      className="absolute left-0 right-0 h-0.5 bg-[#0A3D8F]"
-                      style={{
-                        top: `${scanProgress}%`,
-                        transition: 'top 0.09s linear',
-                        boxShadow: '0 0 10px 3px rgba(10,61,143,0.35)',
-                      }}
-                    ></div>
-                    <div className="absolute left-0 top-0 right-0 bg-[#0A3D8F]/5" style={{ height: `${scanProgress}%`, transition: 'height 0.09s linear' }}></div>
-                  </div>
-                  <div className="absolute top-2 left-2 w-5 h-5 border-t-2 border-l-2 border-[#0A3D8F]"></div>
-                  <div className="absolute top-2 right-2 w-5 h-5 border-t-2 border-r-2 border-[#0A3D8F]"></div>
-                  <div className="absolute bottom-2 left-2 w-5 h-5 border-b-2 border-l-2 border-[#0A3D8F]"></div>
-                  <div className="absolute bottom-2 right-2 w-5 h-5 border-b-2 border-r-2 border-[#0A3D8F]"></div>
+                <div className="w-24 h-24 bg-[#0A3D8F]/10 rounded-full flex items-center justify-center mb-8 relative">
+                   <i className={`${phase === 'processing' ? 'ri-cpu-line' : currentStepConfig.icon} text-[#0A3D8F] text-5xl`}></i>
+                   <div className="absolute inset-0 rounded-full border-4 border-[#0A3D8F]/20 border-t-[#0A3D8F] animate-spin"></div>
                 </div>
-
-                <h2 className="text-xl font-bold text-slate-900 mb-1">Scanning {currentStepConfig.label}…</h2>
-                <p className="text-sm text-[#0A3D8F] font-medium mb-6 h-5">{activeScanMsgs[scanMsgIndex]}</p>
-
-                <div className="w-full max-w-sm mb-3">
-                  <div className="flex justify-between text-xs text-slate-500 mb-2">
-                    <span>Progress</span>
-                    <span className="font-semibold text-[#0A3D8F]">{scanProgress}%</span>
-                  </div>
-                  <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-[#0A3D8F] to-[#1a6dd4] rounded-full transition-all duration-100" style={{ width: `${scanProgress}%` }}></div>
-                  </div>
-                </div>
-
-                <div className="w-full max-w-xs mt-6 space-y-2">
-                  {activeScanMsgs.map((msg, i) => (
-                    <div
-                      key={i}
-                      className={`flex items-center space-x-2 text-xs transition-all ${
-                        i < scanMsgIndex ? 'text-[#2F8F3A]' : i === scanMsgIndex ? 'text-[#0A3D8F] font-semibold' : 'text-slate-300'
-                      }`}
-                    >
-                      <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
-                        {i < scanMsgIndex ? (
-                          <i className="ri-checkbox-circle-fill text-[#2F8F3A] text-base"></i>
-                        ) : i === scanMsgIndex ? (
-                          <div className="w-3 h-3 border-2 border-[#0A3D8F] border-t-transparent rounded-full animate-spin"></div>
-                        ) : (
-                          <i className="ri-circle-line text-slate-300 text-base"></i>
-                        )}
-                      </div>
-                      <span>{msg}</span>
-                    </div>
-                  ))}
+                <h2 className="text-xl font-bold text-slate-900 mb-2">{phase === 'processing' ? 'AI Analysis in Progress…' : `Scanning ${currentStepConfig.label}…`}</h2>
+                <p className="text-sm text-[#0A3D8F] font-medium mb-6">{activeScanMsgs[scanMsgIndex]}</p>
+                <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden max-w-sm">
+                   <div className="h-full bg-[#0A3D8F] transition-all duration-100" style={{ width: `${scanProgress}%` }}></div>
                 </div>
               </div>
             )}
 
-            {/* DONE STATE */}
+            {/* DONE PHASE */}
             {(phase === 'step1_done' || phase === 'step2_done' || phase === 'step3_done') && (
-              <div className="bg-white/85 backdrop-blur-sm rounded-2xl p-6 sm:p-10 border border-white/60 h-full flex flex-col justify-between">
-                <div className="flex flex-col items-center text-center">
-                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-5">
-                    <i className="ri-checkbox-circle-fill text-[#2F8F3A] text-4xl"></i>
-                  </div>
-                  <span className="inline-flex items-center px-4 py-1.5 bg-green-100 text-[#2F8F3A] text-xs font-bold rounded-full mb-4 uppercase tracking-wide">
-                    ✓ {currentStepConfig.doneLabel}
-                  </span>
-                  <h2 className="text-2xl font-bold text-slate-900 mb-3">Scan Successful!</h2>
-                  <p className="text-slate-600 text-sm leading-relaxed mb-8 max-w-md">{currentStepConfig.doneMessage}</p>
-
-                  <div className="w-full bg-slate-50 rounded-xl p-4 sm:p-5 border border-slate-200 flex flex-col sm:flex-row items-start gap-4">
-                    <div className={`w-12 h-16 border-2 rounded-lg flex items-center justify-center flex-shrink-0 ${currentStepConfig.envelopeColor}`}>
-                      <i className={`${currentStepConfig.icon} text-2xl`}></i>
-                    </div>
-                    <div className="text-left min-w-0">
-                      <p className="text-sm font-bold text-slate-900">
-                        {currentStepConfig.label} — Scanned
-                      </p>
-                      <p className="text-xs text-slate-500 mt-0.5">Resolution: 300 DPI &nbsp;·&nbsp; Format: PDF/TIFF</p>
-                      <div className="flex items-center space-x-2 mt-2 flex-wrap">
-                        <span className="px-2 py-0.5 bg-red-100 text-red-600 text-xs font-semibold rounded-full">Image is damaged</span>
-                        <span className="px-2 py-0.5 bg-blue-100 text-[#0A3D8F] text-xs font-semibold rounded-full">Saved</span>
-                      </div>
-                    </div>
-                    <div className="sm:ml-auto text-slate-300">
-                      <i className="ri-image-2-line text-3xl"></i>
-                    </div>
-                  </div>
+              <div className="bg-white/85 backdrop-blur-sm rounded-2xl p-6 sm:p-10 border border-white/60 h-full flex flex-col justify-between text-center items-center">
+                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-5">
+                   <i className="ri-check-line text-[#2F8F3A] text-5xl"></i>
                 </div>
+                <h2 className="text-2xl font-bold text-slate-900 mb-3">{currentStepConfig.label} Captured</h2>
+                <p className="text-slate-600 text-sm mb-8">{currentStepConfig.doneMessage}</p>
+                <button 
+                  onClick={() => {
+                    if (phase === 'step1_done') setPhase('step2_ready');
+                    else if (phase === 'step2_done') setPhase('step3_ready');
+                    else if (phase === 'step3_done') setPhase('processing');
+                  }}
+                  className="w-full py-4 bg-[#0A3D8F] text-white font-bold rounded-xl"
+                >
+                  {phase === 'step3_done' ? 'Run Intelligent Intelligence' : 'Next Step'}
+                </button>
+              </div>
+            )}
 
-                <div className="flex items-center space-x-4 mt-8">
-                  <button
-                    onClick={() => {
-                      if (phase === 'step1_done') setPhase('step1_scanning');
-                      else if (phase === 'step2_done') setPhase('step2_scanning');
-                      else if (phase === 'step3_done') setPhase('step3_scanning');
-                    }}
-                    className="px-6 py-3 border-2 border-slate-300 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 transition-colors text-sm whitespace-nowrap cursor-pointer"
-                  >
-                    <i className="ri-refresh-line mr-2"></i>Rescan
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (phase === 'step1_done') setPhase('step2_ready');
-                      else if (phase === 'step2_done') setPhase('step3_ready');
-                      else if (phase === 'step3_done') setPhase('processing');
-                    }}
-                    className="flex-1 py-3.5 bg-[#0A3D8F] text-white font-bold rounded-xl hover:bg-[#083170] transition-colors text-sm whitespace-nowrap cursor-pointer flex items-center justify-center"
-                  >
-                    {phase === 'step3_done' ? (
-                      <>
-                        <i className="ri-cpu-line mr-2"></i>Process All Scans
-                      </>
-                    ) : (
-                      <>
-                        Continue to Next Step<i className="ri-arrow-right-line ml-2"></i>
-                      </>
+            {/* COMPLETE PHASE - THE RESULT REPORT */}
+            {phase === 'complete' && analysisResult && (
+              <div className="bg-white/85 backdrop-blur-sm rounded-2xl p-6 sm:p-8 border border-white/60 h-full flex flex-col gap-6 overflow-y-auto max-h-[700px]">
+                 <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-bold text-slate-900">Digitization Report</h2>
+                    <span className="px-3 py-1 bg-[#2F8F3A]/10 text-[#2F8F3A] text-xs font-bold rounded-full uppercase tracking-tighter">AI Verified</span>
+                 </div>
+
+                 {/* 1. Security & Tampering */}
+                 <div className={`p-5 rounded-2xl border ${analysisResult.tampering?.tamper_detected ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+                    <div className="flex items-center justify-between mb-3">
+                       <p className="text-sm font-bold flex items-center gap-2">
+                          <i className={analysisResult.tampering?.tamper_detected ? 'ri-shield-cross-line text-red-600' : 'ri-shield-check-line text-green-600'}></i>
+                          Envelope Security Audit
+                       </p>
+                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${analysisResult.tampering?.tamper_detected ? 'bg-red-600 text-white' : 'bg-green-600 text-white'}`}>
+                          {analysisResult.tampering?.tamper_detected ? 'Tamper Detected' : 'Passed'}
+                       </span>
+                    </div>
+                    {analysisResult.tampering?.findings?.length > 0 && (
+                      <ul className="space-y-2">
+                         {analysisResult.tampering.findings.map((f:any, i:number) => (
+                           <li key={i} className="text-xs text-slate-600 flex items-start gap-2">
+                              <i className="ri-error-warning-fill text-red-400 mt-0.5"></i>
+                              <div>
+                                 <span className="font-bold text-slate-800">{f.type}:</span> {f.description} ({f.location})
+                              </div>
+                           </li>
+                         ))}
+                      </ul>
                     )}
-                  </button>
-                </div>
-              </div>
-            )}
+                    <p className="mt-3 text-[11px] italic text-slate-500 italic">Recommendation: {analysisResult.tampering?.recommendation}</p>
+                 </div>
 
-            {/* PROCESSING STATE */}
-            {phase === 'processing' && (
-              <div className="bg-white/85 backdrop-blur-sm rounded-2xl p-6 sm:p-10 border border-white/60 h-full flex flex-col items-center justify-center text-center">
-                <span className="inline-flex items-center px-4 py-1.5 bg-[#0A3D8F]/10 text-[#0A3D8F] text-xs font-bold rounded-full mb-6 uppercase tracking-wide">
-                  Step 4 — AI Processing
-                </span>
+                 {/* 2. Content Intel */}
+                 <div className="p-5 bg-white border border-slate-200 rounded-2xl shadow-sm">
+                    <p className="text-sm font-bold mb-4 flex items-center gap-2">
+                       <i className="ri-lightbulb-line text-orange-400"></i>
+                       Content Intelligence
+                    </p>
+                    {analysisResult.docType === 'cheque' ? (
+                       <div className="space-y-3">
+                          <div className="grid grid-cols-2 gap-3">
+                             <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                <p className="text-[10px] text-slate-400 font-bold uppercase">Payee</p>
+                                <p className="text-xs font-bold text-slate-800">{analysisResult.aiResults?.extracted?.payee_name || 'N/A'}</p>
+                             </div>
+                             <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                <p className="text-[10px] text-slate-400 font-bold uppercase">Amount</p>
+                                <p className="text-xs font-bold text-slate-800">${analysisResult.aiResults?.extracted?.amount_figures?.toLocaleString() || '0'}</p>
+                             </div>
+                          </div>
+                          <div className="p-3 bg-blue-50/50 rounded-xl border border-blue-100">
+                             <p className="text-[10px] text-blue-600 font-bold uppercase mb-2">6-Point Validation Engine</p>
+                             <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                                {analysisResult.aiResults?.validation?.checks?.map((c:any, i:number) => (
+                                   <div key={i} className="flex items-center justify-between text-[11px]">
+                                      <span className="text-slate-500 capitalize">{c.check.replace(/_/g, ' ')}</span>
+                                      <i className={c.passed ? "ri-checkbox-circle-fill text-green-50" : "ri-error-warning-fill text-red-50"}></i>
+                                      <i className={c.passed ? "ri-checkbox-circle-fill text-green-500" : "ri-close-circle-fill text-red-500"}></i>
+                                   </div>
+                                ))}
+                             </div>
+                          </div>
+                       </div>
+                    ) : (
+                       <div className="space-y-4">
+                          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                             <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Executive Summary</p>
+                             <p className="text-xs text-slate-700 leading-relaxed font-medium">{analysisResult.aiResults?.summary || 'No summary available'}</p>
+                          </div>
+                          {analysisResult.aiResults?.actions?.length > 0 && (
+                             <div className="space-y-2">
+                                {analysisResult.aiResults.actions.map((a:any, i:number) => (
+                                   <div key={i} className="flex items-center gap-2 p-2 bg-orange-50/50 rounded-lg border border-orange-100 text-[10px] font-bold text-orange-700">
+                                      <i className="ri-notification-3-line"></i> {a.action} {a.deadline && `(By ${a.deadline})`}
+                                   </div>
+                                ))}
+                             </div>
+                          )}
+                       </div>
+                    )}
+                 </div>
 
-                <div className="w-24 h-24 bg-[#0A3D8F]/10 rounded-full flex items-center justify-center mx-auto mb-8 relative">
-                  <i className="ri-cpu-line text-[#0A3D8F] text-5xl"></i>
-                  <div className="absolute inset-0 rounded-full border-4 border-[#0A3D8F]/20 border-t-[#0A3D8F] animate-spin"></div>
-                </div>
-
-                <h2 className="text-xl font-bold text-slate-900 mb-2">Processing All Scans…</h2>
-                <p className="text-sm text-[#0A3D8F] font-medium mb-6 h-5">{activeScanMsgs[scanMsgIndex]}</p>
-
-                <div className="flex items-center justify-center flex-wrap gap-3 mb-8">
-                  {STEPS_CONFIG.map((cfg, i) => (
-                    <div key={i} className={`w-16 h-20 border-2 rounded-lg flex flex-col items-center justify-center ${cfg.envelopeColor} opacity-80`}>
-                      <i className={`${cfg.icon} text-xl`}></i>
-                      <p className="text-xs font-semibold mt-1">{cfg.label.split(' ')[0]}</p>
+                 {/* 3. Organization Confirmation */}
+                 <div className="p-5 bg-[#0A3D8F]/5 border border-[#0A3D8F]/20 rounded-2xl">
+                    <p className="text-sm font-bold text-[#0A3D8F] mb-3 flex items-center gap-2">
+                       <i className="ri-building-line text-[#0A3D8F]"></i>
+                       Assign to Organization
+                    </p>
+                    <div className="space-y-4">
+                       <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-[#0A3D8F] text-white flex items-center justify-center rounded-lg font-bold">
+                             {selectedClient?.company_name?.[0] || '?'}
+                          </div>
+                          <div className="flex-1">
+                             <p className="text-[10px] text-slate-400 font-bold uppercase">AI Ssuggested</p>
+                             <p className="text-sm font-bold text-slate-800">{selectedClient?.company_name || 'Unidentified'}</p>
+                          </div>
+                       </div>
+                       
+                       <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">Change/Correct Organization</label>
+                          <select 
+                            className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-700 focus:outline-none focus:border-[#0A3D8F] shadow-sm"
+                            value={confirmedClientId}
+                            onChange={(e) => setConfirmedClientId(e.target.value)}
+                          >
+                             <option value="">Select Organization Manually...</option>
+                             {clients.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
+                          </select>
+                       </div>
                     </div>
-                  ))}
-                  <div className="flex items-center">
-                    <i className="ri-arrow-right-line text-slate-400 text-2xl mx-2"></i>
-                  </div>
-                  <div className="w-16 h-20 border-2 border-[#0A3D8F] rounded-lg bg-[#0A3D8F]/5 flex flex-col items-center justify-center">
-                    <div className="w-5 h-5 border-2 border-[#0A3D8F] border-t-transparent rounded-full animate-spin mb-1"></div>
-                    <p className="text-xs font-semibold text-[#0A3D8F]">AI</p>
-                  </div>
-                </div>
+                 </div>
 
-                <div className="w-full max-w-sm mb-2">
-                  <div className="flex justify-between text-xs text-slate-500 mb-2">
-                    <span>Processing</span>
-                    <span className="font-semibold text-[#0A3D8F]">{scanProgress}%</span>
-                  </div>
-                  <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-[#0A3D8F] to-[#1a6dd4] rounded-full transition-all duration-100" style={{ width: `${scanProgress}%` }}></div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* COMPLETE STATE */}
-            {phase === 'complete' && (
-              <div className="bg-white/85 backdrop-blur-sm rounded-2xl p-6 sm:p-10 border border-white/60 h-full flex flex-col justify-between">
-                <div className="flex flex-col items-center text-center">
-                  <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-5">
-                    <i className="ri-checkbox-circle-fill text-[#2F8F3A] text-5xl"></i>
-                  </div>
-                  <span className="inline-flex items-center px-4 py-1.5 bg-green-100 text-[#2F8F3A] text-xs font-bold rounded-full mb-4 uppercase tracking-wide">
-                    All Documents Scanned Successfully
-                  </span>
-                  <h2 className="text-2xl font-bold text-slate-900 mb-3">Scanning Complete!</h2>
-                  <p className="text-slate-600 text-sm leading-relaxed mb-8 max-w-md">
-                    All 3 scans have been processed. AI has identified the recipient and prepared the forwarding summary.
-                  </p>
-
-                  <div className="flex items-center justify-center flex-wrap gap-3 mb-8">
-                    {['Front Side Scanned', 'Back Side Scanned', 'Content Scanned', 'AI Analysis Done'].map((item, i) => (
-                      <span key={i} className="flex items-center space-x-1.5 px-4 py-2 bg-green-50 border border-green-200 rounded-full text-xs font-semibold text-[#2F8F3A]">
-                        <i className="ri-check-line"></i>
-                        <span>{item}</span>
-                      </span>
-                    ))}
-                  </div>
-
-                  <div className="w-full bg-slate-50 rounded-xl p-5 border border-slate-200 text-left">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">AI Identified</p>
-                    <div className="flex items-center space-x-3 flex-wrap">
-                      <div className="w-11 h-11 bg-[#0A3D8F] rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                        TS
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-slate-900">Tech Solutions Inc</p>
-                        <p className="text-xs text-slate-500">info@techsolutions.com · Document: Mail/Invoice</p>
-                      </div>
-                      <span className="ml-auto px-2.5 py-1 bg-blue-100 text-[#0A3D8F] text-xs font-bold rounded-full whitespace-nowrap">
-                        Verified
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-4 mt-8">
-                  <button
-                    onClick={handleReset}
-                    className="px-6 py-3 border-2 border-slate-300 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 transition-colors text-sm whitespace-nowrap cursor-pointer"
-                  >
-                    <i className="ri-refresh-line mr-2"></i>Scan Another
-                  </button>
-                  <button
-                    onClick={() => setShowPopup(true)}
-                    className="flex-1 py-3.5 bg-[#0A3D8F] text-white font-bold rounded-xl hover:bg-[#083170] transition-colors text-sm whitespace-nowrap cursor-pointer flex items-center justify-center"
-                  >
-                    <i className="ri-send-plane-fill mr-2"></i>Forward Scanned Copy
-                  </button>
-                </div>
+                 <div className="flex items-center gap-4 pt-4 mt-auto">
+                    <button onClick={handleReset} className="px-6 py-4 border-2 border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-white transition-all">Scan New</button>
+                    <button 
+                       disabled={!confirmedClientId || sendingEmail}
+                       onClick={handleFinalize} 
+                       className="flex-1 py-4 bg-[#0A3D8F] text-white font-bold rounded-xl hover:bg-[#083170] shadow-lg shadow-blue-200 disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                       {sendingEmail ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <i className="ri-send-plane-fill"></i>}
+                       Confirm & Forward
+                    </button>
+                 </div>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Send Popup */}
-      {showPopup && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-6" onClick={() => setShowPopup(false)}>
-          <div className="bg-white rounded-2xl overflow-hidden p-8 w-full max-w-[448px]" onClick={(e) => e.stopPropagation()}>
-            <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-5">
-              <i className="ri-mail-send-line text-[#0A3D8F] text-[30px]"></i>
-            </div>
-            <h2 className="text-[28px] leading-7 font-bold text-slate-900 text-center mb-3">Forward Scanned Copy</h2>
-            <p className="text-slate-600 text-sm text-center mb-6 leading-[23px]">
-              We&apos;ve pre-selected a company for you. <strong>Not quite right?</strong> Choose the correct one.
-            </p>
-
-            <div className="bg-slate-50 rounded-xl p-4 mb-4 border border-slate-200 space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 bg-[#0A3D8F] rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                    TS
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-900 truncate">Tech Solutions Inc</p>
-                    <p className="text-xs text-slate-500 truncate">info@techsolutions.com</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="px-2 py-1 bg-blue-100 text-[#0A3D8F] text-xs font-semibold rounded-full whitespace-nowrap">
-                    AI Detected
-                  </span>
-                  <button type="button" className="w-5 h-5 rounded bg-slate-200 text-slate-600 flex items-center justify-center">
-                    <i className="ri-arrow-down-s-line text-sm"></i>
-                  </button>
-                </div>
-              </div>
-
-              <div className="h-px bg-slate-200"></div>
-
-              {[
-                { initial: 'T', name: 'Tech Solutions Inc', email: 'info@techsolutions.com', bg: 'bg-[#0A3D8F]' },
-                { initial: 'I', name: 'Innovatech Co', email: 'contact@innovatech.co', bg: 'bg-[#2F8F3A]' },
-                { initial: '2', name: 'NextGen Systems', email: 'support@nextgensystems.com', bg: 'bg-[#D97706]' },
-                { initial: '3', name: 'SmartTech Ltd', email: 'hello@smarttechltd.com', bg: 'bg-[#0A3D8F]' },
-                { initial: '4', name: 'Digital Dynamics', email: 'info@digitaldynamics.com', bg: 'bg-[#EF4444]' },
-              ].map((company) => (
-                <div key={company.email} className="flex items-center py-1">
-                  <div className="flex items-center gap-2 min-w-0 w-[58%]">
-                    <div className={`w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center ${company.bg}`}>
-                      {company.initial}
-                    </div>
-                    <p className="text-[14px] leading-5 font-semibold text-slate-900 truncate">{company.name}</p>
-                  </div>
-                  <p className="text-[14px] leading-5 text-slate-400 truncate w-[42%] text-right">{company.email}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="bg-slate-50 rounded-xl p-4 mb-6 border border-slate-200">
-              <p className="text-xs text-slate-400 mb-1 font-semibold">Subject</p>
-              <p className="text-slate-800 font-medium text-sm">New Mail Scanned - Requires Your Attention</p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setShowPopup(false)}
-                className="flex-1 py-3 border-2 border-slate-300 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 transition-colors text-sm whitespace-nowrap cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={sendingEmail}
-                onClick={handleSend}
-                className={`flex-1 py-3 font-semibold rounded-xl transition-all text-sm whitespace-nowrap flex items-center justify-center ${
-                  sendingEmail ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-[#0A3D8F] text-white hover:bg-[#083170] cursor-pointer'
-                }`}
-              >
-                {sendingEmail ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin mr-2"></div>Sending…
-                  </>
-                ) : (
-                  <>
-                    <i className="ri-send-plane-fill mr-2"></i>Send
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Success Modal */}
       {showSuccess && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-6">
-          <div className="bg-white rounded-2xl overflow-hidden p-6 sm:p-8 max-w-md w-full text-center">
-            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <i className="ri-checkbox-circle-fill text-[#2F8F3A] text-5xl"></i>
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-6 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl p-10 max-w-sm w-full text-center shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-2 bg-[#2F8F3A]"></div>
+            <div className="w-20 h-20 bg-green-100 text-[#2F8F3A] rounded-full flex items-center justify-center text-5xl mx-auto mb-6">
+               <i className="ri-checkbox-circle-fill"></i>
             </div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">Successfully Sent!</h2>
-            <p className="text-slate-600 mb-6 text-sm leading-relaxed">
-              The scanned copy has been forwarded to <strong>Tech Solutions Inc</strong> at info@techsolutions.com.
-            </p>
-            <div className="flex items-center space-x-3">
-              <Link
-                href="/admin/mails"
-                className="flex-1 py-3 bg-[#0A3D8F] text-white font-semibold rounded-xl hover:bg-[#083170] transition-colors text-sm whitespace-nowrap text-center"
-              >
-                View All Mails
-              </Link>
-              <button
-                type="button"
-                onClick={handleReset}
-                className="flex-1 py-3 bg-white border-2 border-slate-300 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 transition-colors text-sm whitespace-nowrap cursor-pointer"
-              >
-                Scan Another
-              </button>
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">Success!</h2>
+            <p className="text-slate-500 mb-8 text-sm">Digitization confirmed. The record is now permanently stored for {selectedClient?.company_name}.</p>
+            <div className="flex flex-col gap-3">
+               <Link href="/admin/mails" className="w-full py-4 bg-[#0A3D8F] text-white font-bold rounded-2xl shadow-lg shadow-blue-100">View Active Records</Link>
+               <button onClick={handleReset} className="w-full py-4 text-[#0A3D8F] font-bold rounded-2xl border border-[#0A3D8F]/20 hover:bg-[#0A3D8F]/5">Scan Next Item</button>
             </div>
           </div>
         </div>
@@ -789,4 +581,3 @@ export default function AdminScanPage() {
     </div>
   );
 }
-

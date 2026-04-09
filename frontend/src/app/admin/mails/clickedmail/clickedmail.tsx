@@ -5,7 +5,7 @@ import { Icon } from '@iconify/react';
 import styles from './clickedmail.module.css';
 
 interface ClickedMailProps {
-  mail: Mail;
+  mail: any;
   onClose: () => void;
 }
 
@@ -13,12 +13,20 @@ const tagStyles: Record<string, string> = {
   Inbox: styles.tagInbox,
   Delivered: styles.tagDelivered,
   Pending: styles.tagPending,
+  Processed: styles.tagInbox,
+  Scanned: styles.tagPending,
+  Received: styles.tagDelivered,
 };
 
 const tagLabel: Record<string, string> = {
   Inbox: 'Processed',
   Delivered: 'Delivered',
   Pending: 'Pending',
+  Processed: 'Processed',
+  Scanned: 'Scanned',
+  Received: 'Received',
+  Processed_delivery: 'Processed',
+  Scanned_delivery: 'Scanned',
 };
 
 export default function ClickedMail({ mail, onClose }: ClickedMailProps) {
@@ -53,7 +61,7 @@ export default function ClickedMail({ mail, onClose }: ClickedMailProps) {
         {/* Document Preview */}
         <div className={styles.documentPreviewBox}>
           <img
-            src="https://readdy.ai/api/search-image?query=official%20government%20tax%20document%20letter%20with%20formal%20text%20paragraphs%2C%20white%20paper%2C%20black%20ink%2C%20clean%20document%20layout%2C%20IRS%20notice%20form%2C%20professional%20legal%20document&width=540&height=180&seq=mailpreview1&orientation=landscape"
+            src={mail.raw?.envelope_front_url || "https://readdy.ai/api/search-image?query=official%20government%20tax%20document%20letter&width=540&height=180"}
             alt="Document preview"
             className={styles.documentPreviewImg}
           />
@@ -92,7 +100,7 @@ export default function ClickedMail({ mail, onClose }: ClickedMailProps) {
             </div>
             <span className={styles.aiTitle}>AI-Generated Summary</span>
           </div>
-          <p className={styles.aiPreviewText}>{mail.preview}</p>
+          <p className={styles.aiPreviewText}>{mail.raw?.ai_summary || mail.preview || 'No summary available for this record.'}</p>
           <div className={styles.aiFooter}>
             <div className={styles.aiShieldWrapper}>
               <Icon icon="ri:shield-check-line" className={styles.iconShield} />

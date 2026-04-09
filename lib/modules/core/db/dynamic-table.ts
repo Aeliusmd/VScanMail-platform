@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
-import { db } from "@/lib/modules/core/db/mysql";
-import { clients } from "@/lib/modules/core/db/schema";
+import { db } from "./mysql";
+import { clients } from "./schema";
 import { eq } from "drizzle-orm";
 
 export async function createClientTable(tableName: string) {

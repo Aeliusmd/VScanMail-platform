@@ -1,17 +1,21 @@
 import { Icon } from '@iconify/react';
 import Link from 'next/link';
 
-const activities = [
-  { id: 1, company: 'Tech Solutions Inc', type: 'Mail', time: '5 mins ago', status: 'Processed', statusColor: 'bg-[#DBEAFE] text-[#1E40AF]', icon: 'ri:mail-line' },
-  { id: 2, company: 'Global Enterprises', type: 'Cheque', time: '12 mins ago', status: 'Pending', statusColor: 'bg-yellow-100 text-yellow-700', icon: 'iconamoon:cheque' },
-  { id: 3, company: 'Innovate Corp', type: 'Mail', time: '25 mins ago', status: 'Delivered', statusColor: 'bg-green-100 text-green-700', icon: 'ri:mail-line' },
-  { id: 4, company: 'Prime Industries', type: 'Cheque', time: '1 hour ago', status: 'Deposited', statusColor: 'bg-purple-100 text-purple-700', icon: 'iconamoon:cheque' },
-  { id: 5, company: 'Summit LLC', type: 'Mail', time: '2 hours ago', status: 'Processed', statusColor: 'bg-[#DBEAFE] text-[#1E40AF]', icon: 'ri:mail-line' },
-  { id: 6, company: 'Apex Holdings', type: 'Mail', time: '3 hours ago', status: 'Pending', statusColor: 'bg-yellow-100 text-yellow-700', icon: 'ri:mail-line' },
-  { id: 7, company: 'Nexus Corp', type: 'Cheque', time: '4 hours ago', status: 'Deposited', statusColor: 'bg-purple-100 text-purple-700', icon: 'iconamoon:cheque' },
-];
+export type ActivityItem = {
+  id: string;
+  company: string;
+  type: string;
+  time: string;
+  status: string;
+  statusColor: string;
+  icon: string;
+};
 
-export default function RecentActivity() {
+interface RecentActivityProps {
+  activities: ActivityItem[];
+}
+
+export default function RecentActivity({ activities = [] }: RecentActivityProps) {
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 flex-1 min-w-0">
       <div className="flex items-center justify-between mb-5">
@@ -20,7 +24,9 @@ export default function RecentActivity() {
       </div>
 
       <div className="space-y-1">
-        {activities.map((item) => (
+        {activities.length === 0 ? (
+          <p className="text-sm text-gray-500 py-4 text-center">No recent activity found.</p>
+        ) : activities.map((item) => (
           <Link
             key={item.id}
             href={item.type === 'Cheque' ? '/admin/cheques' : '/admin/mails'}

@@ -6,9 +6,9 @@ import type { Mail } from '../../../../mocks/mails';
 import styles from './MailRow.module.css';
 
 interface MailRowProps {
-  mail: Mail;
+  mail: any;
   selected: boolean;
-  onSelect: (id: number) => void;
+  onSelect: (id: string) => void;
   onClick?: () => void;
   showArchiveMeta?: boolean;
   showUnarchive?: boolean;
@@ -19,11 +19,17 @@ const tagStyles: Record<string, string> = {
   Inbox: 'bg-[#DBEAFE] text-[#1E40AF]',
   Delivered: 'bg-green-100 text-green-700',
   Pending: 'bg-orange-100 text-orange-600',
+  Processed: 'bg-[#DBEAFE] text-[#1E40AF]',
+  Scanned: 'bg-orange-100 text-orange-600',
+  Received: 'bg-gray-100 text-gray-700',
 };
 
 export default function MailRow({ mail, selected, onSelect, onClick, showArchiveMeta = false, showUnarchive = false, onUnarchive }: MailRowProps) {
-  const [starred, setStarred] = useState(mail.starred);
-  const [flagged, setFlagged] = useState(mail.flagged);
+  const [starred, setStarred] = useState(mail.starred || false);
+  const [flagged, setFlagged] = useState(mail.flagged || false);
+
+  const senderInitial = mail.senderInitial || (mail.sender ? mail.sender.charAt(0).toUpperCase() : '?');
+  const senderColor = mail.senderColor || 'bg-blue-500';
 
   return (
     <div
@@ -55,8 +61,8 @@ export default function MailRow({ mail, selected, onSelect, onClick, showArchive
 
       {/* Avatar */}
       <div className={styles.avatarContainer}>
-        <div className={`${styles.avatar} ${mail.senderColor}`}>
-          {mail.senderInitial}
+        <div className={`${styles.avatar} ${senderColor}`}>
+          {senderInitial}
         </div>
       </div>
 
@@ -67,7 +73,7 @@ export default function MailRow({ mail, selected, onSelect, onClick, showArchive
 
       {/* Tag */}
       <div className={styles.tagContainer}>
-        <span className={`${styles.tag} ${tagStyles[mail.tag]}`}>
+        <span className={`${styles.tag} ${tagStyles[mail.tag] || tagStyles.Received}`}>
           {mail.tag}
         </span>
       </div>

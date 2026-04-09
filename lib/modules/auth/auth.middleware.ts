@@ -7,7 +7,7 @@ import { eq } from "drizzle-orm";
 export type AuthUser = {
   id: string;
   email: string;
-  role: "admin" | "operator" | "client";
+  role: "super_admin" | "admin" | "operator" | "client";
   clientId?: string;
 };
 
