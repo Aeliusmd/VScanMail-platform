@@ -9,6 +9,7 @@ import ClickedMail from './clickedmail/clickedmail';
 import styles from './page.module.css';
 import Link from 'next/link';
 import { usePathname, useSearchParams, useRouter } from 'next/navigation';
+import { useAdminProfile } from '../components/useAdminProfile';
 
 type TabType = 'All' | 'Processed' | 'Delivered' | 'Pending Delivery';
 type FolderType = 'inbox' | 'archived';
@@ -25,6 +26,7 @@ export default function AllMailsPage() {
 }
 
 function AllMailsPageContent() {
+  const { userData, initials, displayName, displayRole } = useAdminProfile();
   const [mailItems, setMailItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
@@ -245,12 +247,12 @@ function AllMailsPageContent() {
               onClick={() => { setShowUserMenu(!showUserMenu); setShowNotifications(false); }}
               className="flex items-center gap-2 hover:bg-gray-50 rounded-lg px-2 py-1.5 transition cursor-pointer"
             >
-              <div className="w-8 h-8 rounded-full bg-[#1E40AF] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                AD
+              <div className="w-8 h-8 rounded-full bg-[#1E40AF] flex items-center justify-center text-white font-bold text-sm flex-shrink-0 overflow-hidden">
+                {userData?.avatarUrl ? <img src={userData.avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : initials}
               </div>
               <div className="text-left">
-                <p className="text-sm font-semibold text-gray-900 leading-4">Admin User</p>
-                <p className="text-xs text-gray-500">Administrator</p>
+                <p className="text-sm font-semibold text-gray-900 leading-4">{displayName}</p>
+                <p className="text-xs text-gray-500 uppercase">{displayRole}</p>
               </div>
               <div className="w-4 h-4 flex items-center justify-center text-gray-400">
                 <Icon icon="ri:arrow-down-s-line" className="text-base" />

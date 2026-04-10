@@ -155,7 +155,7 @@ export const chequeModel = {
     if (actorId) {
       await auditService.log({
         actor: actorId,
-        actor_role: "operator",
+        actor_role: "admin",
         action: "cheque.validated",
         entity: data.mail_item_id!,
         clientId,
@@ -252,7 +252,7 @@ export const chequeModel = {
     if (actorId) {
       await auditService.log({
         actor: actorId,
-        actor_role: "operator",
+        actor_role: "admin",
         action: "cheque.batch_deposited",
         entity: batchId,
         after: { chequeIds },

@@ -11,6 +11,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useSuperAdminToolbarOptional } from '../../superadmin/components/SuperAdminToolbarContext';
 import { apiClient } from '@/lib/api-client';
+import { useAdminProfile } from '../components/useAdminProfile';
 
 type TabType = 'All' | 'Active' | 'Pending' | 'Inactive';
 
@@ -26,6 +27,7 @@ export default function CompaniesPage() {
 }
 
 function CompaniesPageContent() {
+  const { userData, initials, displayName, displayRole } = useAdminProfile();
   const [activeTab, setActiveTab] = useState<TabType>('All');
   const [companyList, setCompanyList] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
@@ -344,10 +346,12 @@ function CompaniesPageContent() {
               }}
               className="flex items-center gap-2 hover:bg-gray-50 rounded-lg px-2 py-1.5 transition cursor-pointer"
             >
-              <div className="w-8 h-8 rounded-full bg-[#1E40AF] flex items-center justify-center text-white font-bold text-sm">AD</div>
+              <div className="w-8 h-8 rounded-full bg-[#1E40AF] flex items-center justify-center text-white font-bold text-sm overflow-hidden flex-shrink-0">
+                {userData?.avatarUrl ? <img src={userData.avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : initials}
+              </div>
               <div className="text-left">
-                <p className="text-sm font-semibold text-gray-900 leading-4">Admin User</p>
-                <p className="text-xs text-gray-500">Administrator</p>
+                <p className="text-sm font-semibold text-gray-900 leading-4">{displayName}</p>
+                <p className="text-xs text-gray-500 uppercase">{displayRole}</p>
               </div>
             </button>
 

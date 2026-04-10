@@ -20,7 +20,8 @@ export async function POST(
       user.id,
       input.annotations,
       input.tamperDetected,
-      input.tamperNotes
+      input.tamperNotes,
+      req
     );
 
     return NextResponse.json(result);

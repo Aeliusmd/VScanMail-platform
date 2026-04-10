@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import { useAdminProfile } from '../components/useAdminProfile';
 
 interface ArchivedMail {
   id: string;
@@ -234,6 +235,7 @@ const chequeStatusColors: Record<ArchivedCheque['status'], string> = {
 };
 
 export default function AdminArchivedMailsPage() {
+  const { userData, initials, displayName, displayRole } = useAdminProfile();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [activeTab, setActiveTab] = useState<'mails' | 'cheques'>('mails');
@@ -413,12 +415,12 @@ export default function AdminArchivedMailsPage() {
                   }}
                   className="flex items-center space-x-2 hover:bg-slate-50 rounded-lg px-2 py-1.5 transition cursor-pointer"
                 >
-                  <div className="w-8 h-8 bg-gradient-to-br from-[#0A3D8F] to-[#083170] rounded-full flex items-center justify-center text-white font-semibold text-xs">
-                    AD
+                  <div className="w-8 h-8 bg-gradient-to-br from-[#0A3D8F] to-[#083170] rounded-full flex items-center justify-center text-white font-semibold text-xs overflow-hidden flex-shrink-0">
+                    {userData?.avatarUrl ? <img src={userData.avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : initials}
                   </div>
                   <div className="hidden lg:block text-left">
-                    <p className="text-sm font-semibold text-slate-900 leading-none">Admin User</p>
-                    <p className="text-xs text-slate-500">Administrator</p>
+                    <p className="text-sm font-semibold text-slate-900 leading-none">{displayName}</p>
+                    <p className="text-xs text-slate-500 uppercase">{displayRole}</p>
                   </div>
                   <i className="ri-arrow-down-s-line text-slate-400 text-base hidden lg:block"></i>
                 </button>

@@ -24,7 +24,7 @@ function mapEntityType(type: string): string {
   const t = type.toLowerCase();
   if (t.includes('auth') || t.includes('user')) return 'Auth';
   if (t.includes('company') || t.includes('client')) return 'Client';
-  if (t.includes('scan') || t.includes('mail')) return 'Records';
+  if (t === 'record' || t.includes('scan') || t.includes('mail')) return 'Records';
   if (t.includes('delivery')) return 'Delivery';
   if (t.includes('deposit') || t.includes('cheque')) return 'Cheque';
   if (t.includes('admin') || t.includes('profile')) return 'System';
@@ -48,6 +48,9 @@ function mapActionToLabel(action: string): string {
     'admin.deleted': 'Admin Deleted',
     'mail.created': 'Mail Item Ingested',
     'mail.updated': 'Mail Item Updated',
+    'record.created': 'Mail Item Ingested',
+    'record.updated': 'Mail Item Updated',
+    'cheque.validated': 'Cheque AI Validation',
     'cheque.decided': 'Cheque Decision Made',
     'cheque.batch_deposited': 'Cheque Batch Deposited',
     'billing.manual_payment': 'Manual Payment Recorded',
@@ -271,21 +274,36 @@ function LogDetailsPopup({ log, onClose }: { log: ActivityEntry; onClose: () => 
     return (
       <div className="space-y-3">
         {allKeys.map(key => {
-          const bVal = JSON.stringify(before[key]);
-          const aVal = JSON.stringify(after[key]);
-          if (bVal === aVal) return null; // No change for this key
+          const bValObj = before[key] === undefined ? null : before[key];
+          const aValObj = after[key] === undefined ? null : after[key];
+          
+          if (JSON.stringify(bValObj) === JSON.stringify(aValObj)) return null;
+
+          const renderValue = (val: any) => {
+            if (val === null) return "null";
+            if (typeof val === 'object') {
+              return (
+                <pre className="mt-1.5 whitespace-pre-wrap font-mono text-[10px] bg-white/50 p-2 rounded border border-current/20 overflow-x-auto max-h-48 overflow-y-auto w-full no-scrollbar">
+                  {JSON.stringify(val, null, 2)}
+                </pre>
+              );
+            }
+            return String(val);
+          };
 
           return (
-            <div key={key} className="border-b border-slate-100 pb-2">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-tight">{key}</p>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-xs bg-red-50 text-red-600 px-1.5 py-0.5 rounded line-through opacity-70">
-                  {bVal === 'undefined' ? 'null' : bVal}
-                </span>
-                <Icon icon="ri:arrow-right-line" className="text-slate-300" />
-                <span className="text-xs bg-emerald-50 text-emerald-700 font-semibold px-1.5 py-0.5 rounded">
-                  {aVal === 'undefined' ? 'null' : aVal}
-                </span>
+            <div key={key} className="border-b border-slate-100 pb-3 mt-1">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">{key}</p>
+              <div className="flex flex-col sm:flex-row sm:items-start gap-2">
+                <div className="flex-1 bg-red-50/50 text-red-600 px-2 py-1.5 rounded line-through opacity-70 text-xs w-full overflow-hidden break-words">
+                  {renderValue(bValObj)}
+                </div>
+                <div className="flex items-center justify-center py-2 sm:py-0">
+                  <Icon icon="ri:arrow-right-line" className="text-slate-300 transform sm:rotate-0 rotate-90" />
+                </div>
+                <div className="flex-1 bg-emerald-50/50 text-emerald-700 font-medium px-2 py-1.5 rounded text-xs w-full overflow-hidden break-words">
+                  {renderValue(aValObj)}
+                </div>
               </div>
             </div>
           );

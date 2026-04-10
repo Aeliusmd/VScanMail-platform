@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(await imageFile.arrayBuffer());
     const base64 = buffer.toString("base64");
 
-    const result = await chequeService.processAndValidate(mailItemId, base64);
+    const result = await chequeService.processAndValidate(mailItemId, base64, user.id, req);
     return NextResponse.json(result);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

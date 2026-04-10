@@ -5,6 +5,7 @@ import { Icon } from '@iconify/react';
 import { cheques, type Cheque } from '../../../mocks/cheques';
 import ChequeToolbar from './components/ChequeToolbar';
 import ChequeRow from './components/ChequeRow';
+import { useAdminProfile } from '../components/useAdminProfile';
 import ClickedCheque from './components/ClickedCheque';
 import styles from './page.module.css';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -33,6 +34,7 @@ export default function AllChequesPage() {
 }
 
 function AllChequesPageContent() {
+  const { userData, initials, displayName, displayRole } = useAdminProfile();
   const [chequeItems, setChequeItems] = useState<ChequeItem[]>(cheques);
   const [activeFolder, setActiveFolder] = useState<FolderType>('active');
   const [activeTab, setActiveTab] = useState<TabType>('All');
@@ -217,12 +219,12 @@ function AllChequesPageContent() {
               }}
               className="flex items-center gap-2 hover:bg-gray-50 rounded-lg px-2 py-1.5 transition cursor-pointer"
             >
-              <div className="w-8 h-8 rounded-full bg-[#1E40AF] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                AD
+              <div className="w-8 h-8 rounded-full bg-[#1E40AF] flex items-center justify-center text-white font-bold text-sm overflow-hidden flex-shrink-0">
+                {userData?.avatarUrl ? <img src={userData.avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : initials}
               </div>
               <div className="text-left">
-                <p className="text-sm font-semibold text-gray-900 leading-4">Admin User</p>
-                <p className="text-xs text-gray-500">Administrator</p>
+                <p className="text-sm font-semibold text-gray-900 leading-4">{displayName}</p>
+                <p className="text-xs text-gray-500 uppercase">{displayRole}</p>
               </div>
             </button>
 

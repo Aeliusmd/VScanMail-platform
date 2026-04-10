@@ -185,7 +185,7 @@ export const mailItemModel = {
     if (actorId) {
       await auditService.log({
         actor: actorId,
-        actor_role: "operator", // Usually operators ingest mail
+        actor_role: "admin", // Matches db enum
         action: "record.created",
         entity: id,
         clientId: data.client_id,
@@ -356,7 +356,7 @@ export const mailItemModel = {
     if (actorId) {
       await auditService.log({
         actor: actorId,
-        actor_role: "operator",
+        actor_role: "admin",
         action: "record.updated",
         entity: id,
         clientId,

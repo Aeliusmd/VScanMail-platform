@@ -9,6 +9,7 @@ import {
   type DepositRequest,
 } from '../../../mocks/depositRequests';
 import { useSuperAdminToolbarOptional } from '../../superadmin/components/SuperAdminToolbarContext';
+import { useAdminProfile } from '../components/useAdminProfile';
 
 const statusColors: Record<DepositRequest['status'], string> = {
   Pending: 'bg-amber-100 text-amber-700',
@@ -30,6 +31,7 @@ export default function DepositsPage() {
 }
 
 function DepositsPageContent() {
+  const { userData, initials, displayName, displayRole } = useAdminProfile();
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -363,12 +365,12 @@ function DepositsPageContent() {
                     }}
                     className="flex items-center gap-2 hover:bg-slate-50 rounded-lg px-1 py-1 transition cursor-pointer"
                   >
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#0A3D8F] to-[#083170] flex items-center justify-center text-white font-semibold text-xs">
-                      AD
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#0A3D8F] to-[#083170] flex items-center justify-center text-white font-semibold text-xs overflow-hidden flex-shrink-0">
+                      {userData?.avatarUrl ? <img src={userData.avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : initials}
                     </div>
                     <div className="text-left hidden lg:block">
-                      <p className="text-sm font-semibold text-slate-900 leading-none">Admin User</p>
-                      <p className="text-xs text-slate-500">Administrator</p>
+                      <p className="text-sm font-semibold text-slate-900 leading-none">{displayName}</p>
+                      <p className="text-xs text-slate-500 uppercase">{displayRole}</p>
                     </div>
                     <Icon icon="ri:arrow-down-s-line" className="text-slate-400 text-base hidden lg:block" />
                   </button>

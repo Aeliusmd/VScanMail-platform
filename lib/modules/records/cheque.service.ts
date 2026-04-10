@@ -10,7 +10,7 @@ export const chequeService = {
   /**
    * Process a cheque: extract fields, run 6-point validation, store results.
    */
-  async processAndValidate(mailItemId: string, imageBase64: string, req?: Request) {
+  async processAndValidate(mailItemId: string, imageBase64: string, actorId: string, req?: Request) {
 
     const mailItem = await mailItemModel.findById(mailItemId);
     const client = await clientModel.findById(mailItem.client_id);
@@ -57,7 +57,7 @@ export const chequeService = {
       ai_raw_result: validation,
       client_decision: "pending",
       status: validation.status as any,
-    });
+    }, actorId, req);
 
     // 5. Track usage
     await billingService.trackUsage(
