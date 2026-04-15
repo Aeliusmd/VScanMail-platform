@@ -1,7 +1,7 @@
 @reference "../../globals.css";
 
 .pageContainer {
-  @apply flex flex-col h-full bg-white;
+  @apply flex flex-col h-full bg-white w-full min-w-0 overflow-x-hidden;
 }
 
 .topBar {
@@ -58,11 +58,11 @@
 }
 
 .listContainer {
-  @apply flex-1 overflow-y-auto overflow-x-auto;
+  @apply flex-1 overflow-y-auto overflow-x-hidden;
 }
 
 .listInner {
-  @apply min-w-[1180px];
+  @apply w-full min-w-0;
 }
 
 .emptyState {
@@ -114,6 +114,6 @@
   }
 
   .listInner {
-    @apply min-w-[980px];
+    @apply w-full min-w-0;
   }
 }

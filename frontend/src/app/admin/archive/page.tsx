@@ -1,8 +1,10 @@
 "use client";
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAdminProfile } from '../components/useAdminProfile';
+import { mailApi, type MailItem as ApiMailItem } from '@/lib/api/mail';
+import { chequeApi, type Cheque as ApiCheque } from '@/lib/api/cheques';
 
 interface ArchivedMail {
   id: string;
@@ -48,179 +50,31 @@ interface ArchivedCheque {
   depositToggle: boolean;
 }
 
-const archivedMailsData: ArchivedMail[] = [
-  {
-    id: 'ML-A001', serialNumber: 'SN-2025-00045',
-    company: 'Meridian Holdings', companyEmail: 'legal@meridianholdings.com',
-    sender: 'IRS Department', subject: 'Tax Audit Notice – FY 2023',
-    preview: 'IRS audit notice for fiscal year 2023. All records have been reviewed and archived.',
-    scannedAt: 'May 20, 2025', scannedDate: '2025-05-20', timeShort: 'May 20',
-    archivedAt: 'May 22, 2025', archiveBox: 'BOX-2025-A1',
-    status: 'Processed',
-    aiSummary: 'IRS audit notice for fiscal year 2023. All financial records reviewed. No discrepancies found. Case closed. Archived per company request.',
-    emailSent: true, thumbnail: 'https://readdy.ai/api/search-image?query=official%20IRS%20tax%20audit%20notice%20document%20on%20white%20paper%20with%20government%20letterhead%20formal%20correspondence%20archived%20scanned%20professional&width=160&height=110&seq=arch-thumb-1&orientation=landscape',
-    starred: false, hasAttachment: true, tag: 'Inbox', tagColor: 'bg-[#0A3D8F]/10 text-[#0A3D8F]',
-  },
-  {
-    id: 'ML-A002', serialNumber: 'SN-2025-00046',
-    company: 'Pinnacle Corp', companyEmail: 'finance@pinnaclecorp.com',
-    sender: 'Wells Fargo Bank', subject: 'Annual Account Summary – 2024',
-    preview: 'Annual account summary for 2024. Total transactions: 1,240. Net balance: $892,400.',
-    scannedAt: 'May 18, 2025', scannedDate: '2025-05-18', timeShort: 'May 18',
-    archivedAt: 'May 19, 2025', archiveBox: 'BOX-2025-A1',
-    status: 'Delivered',
-    aiSummary: 'Annual account summary from Wells Fargo for 2024. Total transactions: 1,240. Net balance: $892,400. No suspicious activity. Delivered to client and archived.',
-    emailSent: true, thumbnail: 'https://readdy.ai/api/search-image?query=annual%20bank%20account%20summary%20financial%20document%20on%20white%20background%20with%20tables%20and%20balance%20figures%20professional%20banking%20correspondence%20scanned&width=160&height=110&seq=arch-thumb-2&orientation=landscape',
-    starred: true, hasAttachment: false, tag: 'Delivered', tagColor: 'bg-green-100 text-[#2F8F3A]',
-  },
-  {
-    id: 'ML-A003', serialNumber: 'SN-2025-00047',
-    company: 'Crestview LLC', companyEmail: 'ops@crestviewllc.com',
-    sender: 'State Labor Board', subject: 'Compliance Certificate – Q4 2024',
-    preview: 'Labor compliance certificate for Q4 2024. All requirements met. Certificate valid through Dec 2025.',
-    scannedAt: 'May 15, 2025', scannedDate: '2025-05-15', timeShort: 'May 15',
-    archivedAt: 'May 16, 2025', archiveBox: 'BOX-2025-B2',
-    status: 'Processed',
-    aiSummary: 'State Labor Board compliance certificate for Q4 2024. All labor requirements met. Certificate valid through December 2025. No violations recorded.',
-    emailSent: true, thumbnail: 'https://readdy.ai/api/search-image?query=state%20labor%20board%20compliance%20certificate%20official%20document%20on%20white%20paper%20with%20seal%20and%20signature%20professional%20government%20correspondence%20scanned&width=160&height=110&seq=arch-thumb-3&orientation=landscape',
-    starred: false, hasAttachment: false, tag: 'Inbox', tagColor: 'bg-[#0A3D8F]/10 text-[#0A3D8F]',
-  },
-  {
-    id: 'ML-A004', serialNumber: 'SN-2025-00048',
-    company: 'Orion Dynamics', companyEmail: 'ceo@oriondynamics.com',
-    sender: 'SEC – Enforcement Division', subject: 'Quarterly Filing Confirmation',
-    preview: 'SEC confirmation of quarterly filing receipt. Form 10-Q accepted. No further action required.',
-    scannedAt: 'May 12, 2025', scannedDate: '2025-05-12', timeShort: 'May 12',
-    archivedAt: 'May 14, 2025', archiveBox: 'BOX-2025-B2',
-    status: 'Delivered',
-    aiSummary: 'SEC confirmation of quarterly filing receipt. Form 10-Q accepted without issues. Filing timestamp: May 12, 2025 at 3:42 PM EST. No further action required.',
-    emailSent: true, thumbnail: 'https://readdy.ai/api/search-image?query=SEC%20securities%20exchange%20commission%20quarterly%20filing%20confirmation%20document%20on%20white%20paper%20with%20official%20seal%20professional%20regulatory%20correspondence%20scanned&width=160&height=110&seq=arch-thumb-4&orientation=landscape',
-    starred: true, hasAttachment: true, tag: 'Delivered', tagColor: 'bg-green-100 text-[#2F8F3A]',
-  },
-  {
-    id: 'ML-A005', serialNumber: 'SN-2025-00049',
-    company: 'Vantage Group', companyEmail: 'admin@vantagegroup.com',
-    sender: 'City Planning Office', subject: 'Zoning Permit Approval – 2025',
-    preview: 'Zoning permit approved for commercial expansion at 450 Harbor Blvd. Valid through 2026.',
-    scannedAt: 'May 8, 2025', scannedDate: '2025-05-08', timeShort: 'May 8',
-    archivedAt: 'May 10, 2025', archiveBox: 'BOX-2025-C3',
-    status: 'Processed',
-    aiSummary: 'City Planning Office zoning permit approved for commercial expansion at 450 Harbor Blvd. Permit valid through December 2026. Construction may commence after final inspection.',
-    emailSent: true, thumbnail: 'https://readdy.ai/api/search-image?query=city%20planning%20zoning%20permit%20approval%20document%20on%20white%20paper%20with%20municipal%20seal%20professional%20government%20correspondence%20scanned%20clean&width=160&height=110&seq=arch-thumb-5&orientation=landscape',
-    starred: false, hasAttachment: false, tag: 'Inbox', tagColor: 'bg-[#0A3D8F]/10 text-[#0A3D8F]',
-  },
-  {
-    id: 'ML-A006', serialNumber: 'SN-2025-00050',
-    company: 'Solaris Partners', companyEmail: 'billing@solarispartners.com',
-    sender: 'Chase Bank', subject: 'Loan Payoff Confirmation Letter',
-    preview: 'Commercial loan #CL-2022-8821 fully paid off as of May 5, 2025. Lien released.',
-    scannedAt: 'May 6, 2025', scannedDate: '2025-05-06', timeShort: 'May 6',
-    archivedAt: 'May 7, 2025', archiveBox: 'BOX-2025-C3',
-    status: 'Delivered',
-    aiSummary: 'Chase Bank loan payoff confirmation for commercial loan #CL-2022-8821. Fully paid off as of May 5, 2025. Total paid: $1,240,000. Lien released. Certificate of satisfaction enclosed.',
-    emailSent: true, thumbnail: 'https://readdy.ai/api/search-image?query=bank%20loan%20payoff%20confirmation%20letter%20on%20white%20paper%20with%20chase%20bank%20letterhead%20professional%20financial%20correspondence%20scanned%20clean%20document&width=160&height=110&seq=arch-thumb-6&orientation=landscape',
-    starred: true, hasAttachment: true, tag: 'Delivered', tagColor: 'bg-green-100 text-[#2F8F3A]',
-  },
-  {
-    id: 'ML-A007', serialNumber: 'SN-2025-00051',
-    company: 'Nexus Enterprises', companyEmail: 'legal@nexusenterprises.com',
-    sender: 'USPTO – Patent Office', subject: 'Patent Grant Notice – #US11234567',
-    preview: 'Patent #US11234567 granted for proprietary AI algorithm. Effective April 28, 2025.',
-    scannedAt: 'Apr 30, 2025', scannedDate: '2025-04-30', timeShort: 'Apr 30',
-    archivedAt: 'May 2, 2025', archiveBox: 'BOX-2025-D4',
-    status: 'Processed',
-    aiSummary: 'USPTO patent grant notice for patent #US11234567. Granted for proprietary AI algorithm. Effective April 28, 2025. Patent term: 20 years from filing date. Maintenance fees due annually.',
-    emailSent: true, thumbnail: 'https://readdy.ai/api/search-image?query=USPTO%20patent%20grant%20notice%20official%20document%20on%20white%20paper%20with%20government%20seal%20professional%20intellectual%20property%20correspondence%20scanned&width=160&height=110&seq=arch-thumb-7&orientation=landscape',
-    starred: false, hasAttachment: true, tag: 'Inbox', tagColor: 'bg-[#0A3D8F]/10 text-[#0A3D8F]',
-  },
-  {
-    id: 'ML-A008', serialNumber: 'SN-2025-00052',
-    company: 'Cascade Holdings', companyEmail: 'info@cascadeholdings.com',
-    sender: 'Department of Commerce', subject: 'Export License Renewal – 2025',
-    preview: 'Export license renewed for international trade operations. License valid Jan–Dec 2025.',
-    scannedAt: 'Apr 25, 2025', scannedDate: '2025-04-25', timeShort: 'Apr 25',
-    archivedAt: 'Apr 28, 2025', archiveBox: 'BOX-2025-D4',
-    status: 'Processed',
-    aiSummary: 'Department of Commerce export license renewal for international trade operations. License valid January through December 2025. Covers all approved product categories. No restrictions noted.',
-    emailSent: true, thumbnail: 'https://readdy.ai/api/search-image?query=department%20of%20commerce%20export%20license%20renewal%20document%20on%20white%20paper%20with%20government%20letterhead%20professional%20trade%20correspondence%20scanned&width=160&height=110&seq=arch-thumb-8&orientation=landscape',
-    starred: false, hasAttachment: false, tag: 'Inbox', tagColor: 'bg-[#0A3D8F]/10 text-[#0A3D8F]',
-  },
-];
+const toBoxFromIso = (iso: string | null | undefined) => {
+  const d = iso ? new Date(iso) : new Date();
+  if (Number.isNaN(d.getTime())) return 'BOX-UNKNOWN';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  return `BOX-${y}-${m}`;
+};
 
-const archivedChequesData: ArchivedCheque[] = [
-  {
-    id: 'CHQ-A001', serialNumber: 'SN-CHQ-2025-A01',
-    company: 'Meridian Holdings', companyEmail: 'finance@meridianholdings.com',
-    payee: 'Meridian Holdings', amount: '$42,500.00',
-    bankName: 'Bank of America', chequeNumber: '004821',
-    scannedAt: 'May 20, 2025', scannedDate: '2025-05-20', timeShort: 'May 20',
-    archivedAt: 'May 22, 2025', archiveBox: 'BOX-2025-A1',
-    status: 'Deposited',
-    aiSummary: 'Bank of America cheque for $42,500.00 payable to Meridian Holdings. Cheque number 004821. Successfully deposited May 21, 2025. Transaction reference: TXN-2025-44821. Archived per company request.',
-    thumbnail: 'https://readdy.ai/api/search-image?query=business%20cheque%20document%20on%20white%20background%20with%20bank%20of%20america%20details%20amount%20and%20signature%20lines%20professional%20financial%20instrument%20scanned%20clean%20archived&width=160&height=100&seq=arch-chq-thumb-1&orientation=landscape',
-    starred: false, depositToggle: true,
-  },
-  {
-    id: 'CHQ-A002', serialNumber: 'SN-CHQ-2025-A02',
-    company: 'Pinnacle Corp', companyEmail: 'accounts@pinnaclecorp.com',
-    payee: 'Pinnacle Corp', amount: '$18,750.00',
-    bankName: 'Chase Bank', chequeNumber: '009134',
-    scannedAt: 'May 18, 2025', scannedDate: '2025-05-18', timeShort: 'May 18',
-    archivedAt: 'May 19, 2025', archiveBox: 'BOX-2025-A1',
-    status: 'Rejected',
-    aiSummary: 'Chase Bank cheque for $18,750.00 payable to Pinnacle Corp. Cheque number 009134. Rejected due to signature mismatch. Company notified via email. Archived for record keeping.',
-    thumbnail: 'https://readdy.ai/api/search-image?query=bank%20cheque%20financial%20document%20on%20white%20background%20with%20printed%20amount%20payee%20name%20and%20routing%20number%20professional%20scanned%20document%20archived%20rejected&width=160&height=100&seq=arch-chq-thumb-2&orientation=landscape',
-    starred: true, depositToggle: false,
-  },
-  {
-    id: 'CHQ-A003', serialNumber: 'SN-CHQ-2025-A03',
-    company: 'Crestview LLC', companyEmail: 'ops@crestviewllc.com',
-    payee: 'Crestview LLC', amount: '$9,200.00',
-    bankName: 'Wells Fargo', chequeNumber: '002267',
-    scannedAt: 'May 15, 2025', scannedDate: '2025-05-15', timeShort: 'May 15',
-    archivedAt: 'May 16, 2025', archiveBox: 'BOX-2025-B2',
-    status: 'Deposited',
-    aiSummary: 'Wells Fargo cheque for $9,200.00 payable to Crestview LLC. Cheque number 002267. Deposited May 16, 2025. Transaction reference: TXN-2025-44655. Archived after successful processing.',
-    thumbnail: 'https://readdy.ai/api/search-image?query=corporate%20cheque%20document%20on%20white%20paper%20with%20wells%20fargo%20bank%20logo%20amount%20field%20and%20memo%20line%20professional%20financial%20instrument%20clean%20scan%20archived&width=160&height=100&seq=arch-chq-thumb-3&orientation=landscape',
-    starred: false, depositToggle: true,
-  },
-  {
-    id: 'CHQ-A004', serialNumber: 'SN-CHQ-2025-A04',
-    company: 'Orion Dynamics', companyEmail: 'ceo@oriondynamics.com',
-    payee: 'Orion Dynamics', amount: '$67,000.00',
-    bankName: 'Citibank', chequeNumber: '007755',
-    scannedAt: 'May 12, 2025', scannedDate: '2025-05-12', timeShort: 'May 12',
-    archivedAt: 'May 14, 2025', archiveBox: 'BOX-2025-B2',
-    status: 'On Hold',
-    aiSummary: 'Citibank cheque for $67,000.00 payable to Orion Dynamics. Cheque number 007755. Placed on hold pending compliance review. Amount exceeds standard threshold. Archived pending resolution.',
-    thumbnail: 'https://readdy.ai/api/search-image?query=citibank%20cheque%20document%20on%20white%20background%20with%20bank%20details%20amount%20payee%20professional%20financial%20document%20scanned%20archived%20on%20hold&width=160&height=100&seq=arch-chq-thumb-4&orientation=landscape',
-    starred: true, depositToggle: false,
-  },
-  {
-    id: 'CHQ-A005', serialNumber: 'SN-CHQ-2025-A05',
-    company: 'Vantage Group', companyEmail: 'admin@vantagegroup.com',
-    payee: 'Vantage Group', amount: '$31,400.00',
-    bankName: 'TD Bank', chequeNumber: '003398',
-    scannedAt: 'May 8, 2025', scannedDate: '2025-05-08', timeShort: 'May 8',
-    archivedAt: 'May 10, 2025', archiveBox: 'BOX-2025-C3',
-    status: 'Deposited',
-    aiSummary: 'TD Bank cheque for $31,400.00 payable to Vantage Group. Cheque number 003398. Deposited May 9, 2025. Transaction reference: TXN-2025-44512. Funds cleared. Archived per standard procedure.',
-    thumbnail: 'https://readdy.ai/api/search-image?query=td%20bank%20cheque%20document%20on%20white%20background%20with%20amount%20payee%20and%20date%20fields%20professional%20financial%20instrument%20scanned%20archived%20deposited&width=160&height=100&seq=arch-chq-thumb-5&orientation=landscape',
-    starred: false, depositToggle: true,
-  },
-  {
-    id: 'CHQ-A006', serialNumber: 'SN-CHQ-2025-A06',
-    company: 'Nexus Enterprises', companyEmail: 'legal@nexusenterprises.com',
-    payee: 'Nexus Enterprises', amount: '$55,800.00',
-    bankName: 'US Bank', chequeNumber: '011042',
-    scannedAt: 'Apr 30, 2025', scannedDate: '2025-04-30', timeShort: 'Apr 30',
-    archivedAt: 'May 2, 2025', archiveBox: 'BOX-2025-D4',
-    status: 'Deposited',
-    aiSummary: 'US Bank cheque for $55,800.00 payable to Nexus Enterprises. Cheque number 011042. Deposited May 1, 2025. Transaction reference: TXN-2025-44790. Funds cleared successfully. Archived.',
-    thumbnail: 'https://readdy.ai/api/search-image?query=us%20bank%20cheque%20document%20on%20white%20background%20with%20large%20value%20amount%20payee%20routing%20number%20professional%20financial%20instrument%20scanned%20archived&width=160&height=100&seq=arch-chq-thumb-6&orientation=landscape',
-    starred: true, depositToggle: true,
-  },
-];
+const toDateIso = (iso: string | null | undefined) => {
+  const d = iso ? new Date(iso) : new Date();
+  if (Number.isNaN(d.getTime())) return new Date().toISOString().slice(0, 10);
+  return d.toISOString().slice(0, 10);
+};
+
+const toHumanDate = (iso: string | null | undefined) => {
+  const d = iso ? new Date(iso) : new Date();
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+};
+
+const toTimeShort = (iso: string | null | undefined) => {
+  const d = iso ? new Date(iso) : new Date();
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+};
 
 const mailStatusColors: Record<ArchivedMail['status'], string> = {
   'Processed': 'bg-[#0A3D8F]/10 text-[#0A3D8F]',
@@ -239,6 +93,7 @@ export default function AdminArchivedMailsPage() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [activeTab, setActiveTab] = useState<'mails' | 'cheques'>('mails');
+  const [loading, setLoading] = useState(true);
 
   // Mails state
   const [mailSearch, setMailSearch] = useState('');
@@ -249,7 +104,7 @@ export default function AdminArchivedMailsPage() {
   const [showMailDateFilter, setShowMailDateFilter] = useState(false);
   const [showMailBoxFilter, setShowMailBoxFilter] = useState(false);
   const [selectedMail, setSelectedMail] = useState<ArchivedMail | null>(null);
-  const [mails, setMails] = useState<ArchivedMail[]>(archivedMailsData);
+  const [mails, setMails] = useState<ArchivedMail[]>([]);
   const [mailCheckedIds, setMailCheckedIds] = useState<Set<string>>(new Set());
   const [mailAllChecked, setMailAllChecked] = useState(false);
 
@@ -262,9 +117,113 @@ export default function AdminArchivedMailsPage() {
   const [showChequeDateFilter, setShowChequeDateFilter] = useState(false);
   const [showChequeBoxFilter, setShowChequeBoxFilter] = useState(false);
   const [selectedCheque, setSelectedCheque] = useState<ArchivedCheque | null>(null);
-  const [cheques, setCheques] = useState<ArchivedCheque[]>(archivedChequesData);
+  const [cheques, setCheques] = useState<ArchivedCheque[]>([]);
   const [chequeCheckedIds, setChequeCheckedIds] = useState<Set<string>>(new Set());
   const [chequeAllChecked, setChequeAllChecked] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+
+    Promise.all([
+      mailApi.list({ archived: true, limit: 100 }),
+      chequeApi.list({ archived: true, limit: 100 }),
+    ])
+      .then(([mailRes, chequeRes]) => {
+        if (!alive) return;
+
+        const mappedMails: ArchivedMail[] = mailRes.items.map((item: ApiMailItem & any) => {
+          const scannedIso = item.scanned_at || item.created_at;
+          const archiveBox = toBoxFromIso(scannedIso);
+          const scannedDate = toDateIso(scannedIso);
+
+          return {
+            id: item.id,
+            serialNumber: item.irn || item.id.slice(0, 8),
+            company: item.company_name || 'Unknown Company',
+            companyEmail: '',
+            sender: item.company_name || 'Unknown',
+            subject: `${String(item.type || 'mail').charAt(0).toUpperCase()}${String(item.type || 'mail').slice(1)} - ${item.irn || item.id.slice(0, 8)}`,
+            preview: item.ai_summary || 'No preview available.',
+            scannedAt: toHumanDate(scannedIso),
+            scannedDate,
+            timeShort: toTimeShort(scannedIso),
+            archivedAt: toHumanDate(scannedIso),
+            archiveBox,
+            status:
+              item.status === 'processed'
+                ? 'Processed'
+                : item.status === 'delivered'
+                  ? 'Delivered'
+                  : 'Pending Delivery',
+            aiSummary: item.ai_summary || '',
+            emailSent: false,
+            thumbnail: item.envelope_front_url || item.envelope_back_url || (item.content_scan_urls?.[0] ?? ''),
+            starred: false,
+            hasAttachment: Array.isArray(item.content_scan_urls) && item.content_scan_urls.length > 0,
+            tag:
+              item.status === 'processed'
+                ? 'Processed'
+                : item.status === 'delivered'
+                  ? 'Delivered'
+                  : 'Inbox',
+            tagColor:
+              item.status === 'delivered'
+                ? 'bg-green-100 text-[#2F8F3A]'
+                : 'bg-[#0A3D8F]/10 text-[#0A3D8F]',
+          };
+        });
+
+        const mappedCheques: ArchivedCheque[] = chequeRes.cheques.map((c: ApiCheque & any) => {
+          const createdIso = c.created_at;
+          const archiveBox = toBoxFromIso(createdIso);
+          const scannedDate = toDateIso(createdIso);
+          const bankName = c.ai_raw_result?.bank_name || c.ai_raw_result?.bankName || 'Bank';
+          const chequeNumber =
+            c.ai_raw_result?.cheque_number ||
+            c.ai_raw_result?.chequeNumber ||
+            c.ai_raw_result?.number ||
+            '—';
+
+          return {
+            id: c.id,
+            serialNumber: c.id.slice(0, 12),
+            company: c.company_name || 'Unknown Company',
+            companyEmail: '',
+            payee: c.beneficiary || c.company_name || 'Payee',
+            amount: new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(Number(c.amount_figures || 0)),
+            bankName,
+            chequeNumber: String(chequeNumber),
+            scannedAt: toHumanDate(createdIso),
+            scannedDate,
+            timeShort: toTimeShort(createdIso),
+            archivedAt: toHumanDate(createdIso),
+            archiveBox,
+            status:
+              c.client_decision === 'rejected'
+                ? 'Rejected'
+                : c.status === 'flagged'
+                  ? 'On Hold'
+                  : 'Deposited',
+            aiSummary: c.ai_raw_result?.summary || c.ai_raw_result?.notes || '',
+            thumbnail: '',
+            starred: false,
+            depositToggle: c.status === 'deposited' || c.status === 'cleared',
+          };
+        });
+
+        setMails(mappedMails);
+        setCheques(mappedCheques);
+      })
+      .finally(() => {
+        if (!alive) return;
+        setLoading(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const uniqueMailBoxes = useMemo(
     () => [...new Set(mails.map((m) => m.archiveBox))],
@@ -680,7 +639,14 @@ export default function AdminArchivedMailsPage() {
 
             {/* Mail List */}
             <main className="flex-1 overflow-auto bg-white">
-              {filteredMails.length === 0 ? (
+              {loading ? (
+                <div className="flex flex-col items-center justify-center h-64 space-y-3">
+                  <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
+                    <i className="ri-loader-4-line text-slate-400 text-3xl animate-spin"></i>
+                  </div>
+                  <p className="text-slate-500 font-medium">Loading archived mails...</p>
+                </div>
+              ) : filteredMails.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-64 space-y-3">
                   <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
                     <i className="ri-archive-line text-slate-400 text-3xl"></i>
@@ -872,7 +838,14 @@ export default function AdminArchivedMailsPage() {
 
             {/* Cheque List */}
             <main className="flex-1 overflow-auto bg-white">
-              {filteredCheques.length === 0 ? (
+              {loading ? (
+                <div className="flex flex-col items-center justify-center h-64 space-y-3">
+                  <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
+                    <i className="ri-loader-4-line text-slate-400 text-3xl animate-spin"></i>
+                  </div>
+                  <p className="text-slate-500 font-medium">Loading archived cheques...</p>
+                </div>
+              ) : filteredCheques.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-64 space-y-3">
                   <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
                     <i className="ri-bank-card-line text-slate-400 text-3xl"></i>

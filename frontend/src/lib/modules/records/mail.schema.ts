@@ -18,4 +18,8 @@ export const mailQuerySchema = z.object({
   type: z.enum(["letter", "cheque", "package", "legal"]).optional(),
   status: z.enum(["received", "scanned", "processed", "delivered"]).optional(),
   search: z.string().optional(),
+  archived: z
+    .union([z.literal("true"), z.literal("false")])
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v === "true")),
 });

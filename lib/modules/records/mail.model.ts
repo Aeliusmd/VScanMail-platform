@@ -205,15 +205,21 @@ export const mailItemModel = {
 
   async listByClient(
     clientId: string,
-    opts: { page?: number; limit?: number; type?: string; status?: string } = {}
+    opts: { page?: number; limit?: number; type?: string; status?: string; archived?: boolean } = {}
   ) {
-    const { page = 1, limit = 20, type, status } = opts;
+    const { page = 1, limit = 20, type, status, archived } = opts;
     const from = (page - 1) * limit;
     const tableName = await getClientTableName(clientId);
 
     const conditions = [];
     if (type) conditions.push(sql`record_type = ${type}`);
     if (status) conditions.push(sql`mail_status = ${status}`);
+    if (archived !== undefined) {
+      const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      conditions.push(
+        archived ? sql`scanned_at < ${cutoff}` : sql`scanned_at >= ${cutoff}`
+      );
+    }
 
     const whereClause = conditions.length > 0 
       ? sql`WHERE ${sql.join(conditions, sql` AND `)}` 
@@ -237,9 +243,9 @@ export const mailItemModel = {
   },
 
   async listAllGlobal(
-    opts: { page?: number; limit?: number; type?: string; status?: string } = {}
+    opts: { page?: number; limit?: number; type?: string; status?: string; archived?: boolean } = {}
   ) {
-    const { page = 1, limit = 100, type, status } = opts;
+    const { page = 1, limit = 100, type, status, archived } = opts;
     const from = (page - 1) * limit;
 
     const allClientsRaw = await db.select({ id: clients.id, tableName: clients.tableName }).from(clients);
@@ -256,6 +262,15 @@ export const mailItemModel = {
     const conditionParts: string[] = [];
     if (type) conditionParts.push(`record_type = '${type.replace(/'/g, "''")}'`);
     if (status) conditionParts.push(`mail_status = '${status.replace(/'/g, "''")}'`);
+    if (archived !== undefined) {
+      const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 19)
+        .replace("T", " ");
+      conditionParts.push(
+        archived ? `scanned_at < '${cutoff}'` : `scanned_at >= '${cutoff}'`
+      );
+    }
     const whereStr = conditionParts.length > 0 ? `WHERE ${conditionParts.join(' AND ')}` : '';
 
     // Deduplicate allClients based on tableName to avoid double-counting 

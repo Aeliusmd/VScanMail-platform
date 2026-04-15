@@ -17,6 +17,7 @@ interface CompanyRowProps {
 export default function CompanyRow({ company, selected, onSelect, onEdit, onDelete, onClick }: CompanyRowProps) {
   const [starred, setStarred] = useState(company.starred);
   const [flagged, setFlagged] = useState(company.flagged);
+  const showActions = Boolean(onEdit || onDelete);
 
   return (
     <div className={`${styles.row} ${selected ? styles.rowSelected : ''}`} onClick={onClick}>
@@ -88,28 +89,34 @@ export default function CompanyRow({ company, selected, onSelect, onEdit, onDele
         {company.status === 'Inactive' && <span className={styles.statusInactive}>Inactive</span>}
       </div>
 
-      <div className={styles.actions}>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onEdit?.(company);
-          }}
-          className={styles.actionBtnEdit}
-          title="Edit Organization"
-        >
-          <Icon icon="ri:pencil-line" />
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete?.(company.id);
-          }}
-          className={styles.actionBtnDelete}
-          title="Delete Organization"
-        >
-          <Icon icon="ri:delete-bin-line" />
-        </button>
-      </div>
+      {showActions && (
+        <div className={styles.actions}>
+          {onEdit && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(company);
+              }}
+              className={styles.actionBtnEdit}
+              title="Edit Organization"
+            >
+              <Icon icon="ri:pencil-line" />
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(company.id);
+              }}
+              className={styles.actionBtnDelete}
+              title="Delete Organization"
+            >
+              <Icon icon="ri:delete-bin-line" />
+            </button>
+          )}
+        </div>
+      )}
 
       <div className={styles.timeWrap}>
         <span className={styles.time}>{company.time}</span>

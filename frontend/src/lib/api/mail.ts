@@ -38,6 +38,7 @@ export const mailApi = {
     type?: MailType;
     search?: string;
     clientId?: string; // ignored by backend for non-admin
+    archived?: boolean;
   }) =>
     apiClient<MailListResponse>(
       `/api/records/mail?${new URLSearchParams(

@@ -69,9 +69,9 @@ async function locateChequeById(id: string) {
 
 export const chequeModel = {
   async listAllGlobal(
-    opts: { page?: number; limit?: number; status?: string } = {}
+    opts: { page?: number; limit?: number; status?: string; archived?: boolean } = {}
   ) {
-    const { page = 1, limit = 100, status } = opts;
+    const { page = 1, limit = 100, status, archived } = opts;
     const from = (page - 1) * limit;
 
     const allClientsRaw = await db.select({ id: clients.id, tableName: clients.tableName }).from(clients);
@@ -85,6 +85,15 @@ export const chequeModel = {
 
     const conditionParts: string[] = ["record_type = 'cheque'"];
     if (status) conditionParts.push(`cheque_status = '${status.replace(/'/g, "''")}'`);
+    if (archived !== undefined) {
+      const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 19)
+        .replace("T", " ");
+      conditionParts.push(
+        archived ? `created_at < '${cutoff}'` : `created_at >= '${cutoff}'`
+      );
+    }
     const whereStr = `WHERE ${conditionParts.join(' AND ')}`;
 
     // Column list matches rowToCheque dependencies + id, record_type, created_at
@@ -174,19 +183,35 @@ export const chequeModel = {
     return rowToCheque(row, row._client_id);
   },
 
-  async listByClient(clientId: string, page = 1, limit = 20) {
+  async listByClient(
+    clientId: string,
+    page = 1,
+    limit = 20,
+    archived?: boolean
+  ) {
     const from = (page - 1) * limit;
     const tableName = await getClientTableName(clientId);
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const archiveClause =
+      archived === undefined
+        ? sql``
+        : archived
+          ? sql` AND created_at < ${cutoff}`
+          : sql` AND created_at >= ${cutoff}`;
 
     const query = sql`
       SELECT * FROM ${sql.raw(`\`${tableName}\``)}
-      WHERE record_type = 'cheque'
+      WHERE record_type = 'cheque'${archiveClause}
       ORDER BY created_at DESC
       LIMIT ${limit} OFFSET ${from}
     `;
     const [rows] = await db.execute(query) as any;
 
-    const countQuery = sql`SELECT COUNT(*) as count FROM ${sql.raw(`\`${tableName}\``)} WHERE record_type = 'cheque'`;
+    const countQuery = sql`
+      SELECT COUNT(*) as count
+      FROM ${sql.raw(`\`${tableName}\``)}
+      WHERE record_type = 'cheque'${archiveClause}
+    `;
     const [countRows] = await db.execute(countQuery) as any;
 
     return {

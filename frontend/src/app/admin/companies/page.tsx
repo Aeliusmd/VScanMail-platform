@@ -64,6 +64,7 @@ function CompaniesPageContent() {
   const isSuperadminRoute = pathname.startsWith('/superadmin');
   const superToolbar = useSuperAdminToolbarOptional();
   const search = isSuperadminRoute && superToolbar ? superToolbar.search : localSearch;
+  const canManageOrganizations = isSuperadminRoute;
 
   useEffect(() => {
     if (!isSuperadminRoute || !superToolbar) return;
@@ -435,8 +436,8 @@ function CompaniesPageContent() {
               company={company}
               selected={selectedIds.includes(company.id)}
               onSelect={handleSelect}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
+              onEdit={canManageOrganizations ? handleEdit : undefined}
+              onDelete={canManageOrganizations ? handleDelete : undefined}
               onClick={() => setOpenedCompany(company)}
             />
           ))

@@ -2,6 +2,7 @@
 
 import { Icon } from '@iconify/react';
 import type { Company } from '../../../../mocks/companies';
+import { usePathname } from 'next/navigation';
 
 interface ClickedCompanyProps {
   company: Company;
@@ -9,6 +10,8 @@ interface ClickedCompanyProps {
 }
 
 export default function ClickedCompany({ company, onClose }: ClickedCompanyProps) {
+  const pathname = usePathname();
+  const canManageOrganizations = pathname.startsWith('/superadmin');
   const chequeValue = new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
@@ -95,14 +98,17 @@ export default function ClickedCompany({ company, onClose }: ClickedCompanyProps
               <Icon icon="ri:bank-card-line" className="text-sm" />
               View Cheques
             </button>
-            <button className="w-full sm:w-auto sm:flex-none sm:px-4 h-11 rounded-lg border border-[#CBD5E1] hover:bg-[#F8FAFC] text-[#475569] text-sm font-semibold flex items-center justify-center gap-2 transition">
-              <Icon icon="ri:edit-line" className="text-sm" />
-              Edit
-            </button>
-             <button className="w-full sm:flex-1 h-11 rounded-lg border border-[#CBD5E1] hover:bg-[#F8FAFC] text-[#475569] text-sm font-semibold flex items-center justify-center gap-2 transition">
-              
-              Delete
-            </button>
+            {canManageOrganizations && (
+              <>
+                <button className="w-full sm:w-auto sm:flex-none sm:px-4 h-11 rounded-lg border border-[#CBD5E1] hover:bg-[#F8FAFC] text-[#475569] text-sm font-semibold flex items-center justify-center gap-2 transition">
+                  <Icon icon="ri:edit-line" className="text-sm" />
+                  Edit
+                </button>
+                <button className="w-full sm:flex-1 h-11 rounded-lg border border-[#CBD5E1] hover:bg-[#F8FAFC] text-[#475569] text-sm font-semibold flex items-center justify-center gap-2 transition">
+                  Delete
+                </button>
+              </>
+            )}
             <button onClick={onClose} className="w-full sm:w-20 h-11 rounded-lg bg-[#E2E8F0] hover:bg-[#CBD5E1] text-[#475569] text-sm font-semibold transition">
               Close
             </button>

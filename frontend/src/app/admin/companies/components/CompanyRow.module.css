@@ -1,7 +1,7 @@
 @reference "../../../globals.css";
 
 .row {
-  @apply flex items-center px-4 py-2.5 border-b border-gray-100 hover:bg-gray-50 transition cursor-pointer min-w-[1160px];
+  @apply flex items-center px-4 py-2.5 border-b border-gray-100 hover:bg-gray-50 transition cursor-pointer w-full min-w-0;
 }
 
 .rowSelected {
@@ -127,10 +127,6 @@
 }
 
 @media (max-width: 768px) {
-  .row {
-    @apply min-w-[920px];
-  }
-
   .statusWrap,
   .actions,
   .timeWrap {

@@ -31,7 +31,15 @@ export interface ChequeListResponse {
 }
 
 export const chequeApi = {
-  list: () => apiClient<ChequeListResponse>(`/api/records/cheques`),
+  list: (params?: { archived?: boolean; page?: number; limit?: number; status?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.archived !== undefined) qs.set("archived", String(params.archived));
+    if (params?.page) qs.set("page", String(params.page));
+    if (params?.limit) qs.set("limit", String(params.limit));
+    if (params?.status) qs.set("status", params.status);
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return apiClient<ChequeListResponse>(`/api/records/cheques${suffix}`);
+  },
   getById: (id: string) => apiClient<any>(`/api/records/cheques/${id}`),
   approve: (id: string, reason?: string) =>
     apiClient<any>(`/api/records/cheques/${id}/approve`, {
