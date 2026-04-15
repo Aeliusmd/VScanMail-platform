@@ -22,6 +22,7 @@ export interface Cheque {
   decided_at: string | null;
   deposit_batch_id: string | null;
   created_at: string;
+  company_name?: string;
 }
 
 export interface ChequeListResponse {

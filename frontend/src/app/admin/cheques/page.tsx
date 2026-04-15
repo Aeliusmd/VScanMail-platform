@@ -2,18 +2,18 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
-import { cheques, type Cheque } from '../../../mocks/cheques';
 import ChequeToolbar from './components/ChequeToolbar';
-import ChequeRow from './components/ChequeRow';
+import ChequeRow, { type UiCheque, type ChequeListStatus } from './components/ChequeRow';
 import { useAdminProfile } from '../components/useAdminProfile';
 import ClickedCheque from './components/ClickedCheque';
 import styles from './page.module.css';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { chequeApi, type Cheque as ApiCheque } from '@/lib/api/cheques';
 
 type TabType = 'All' | 'Pending Deposit' | 'Deposited' | 'Rejected' | 'On Hold';
 type FolderType = 'active' | 'archived';
-type ChequeItem = Cheque & { archived?: boolean; archiveBox?: string };
+type ChequeItem = UiCheque & { archived?: boolean; archiveBox?: string };
 
 const TABS: { label: TabType }[] = [
   { label: 'All' },
@@ -35,19 +35,20 @@ export default function AllChequesPage() {
 
 function AllChequesPageContent() {
   const { userData, initials, displayName, displayRole } = useAdminProfile();
-  const [chequeItems, setChequeItems] = useState<ChequeItem[]>(cheques);
+  const [chequeItems, setChequeItems] = useState<ChequeItem[]>([]);
   const [activeFolder, setActiveFolder] = useState<FolderType>('active');
   const [activeTab, setActiveTab] = useState<TabType>('All');
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [openedCheque, setOpenedCheque] = useState<Cheque | null>(null);
+  const [openedCheque, setOpenedCheque] = useState<UiCheque | null>(null);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [archiveBoxNumber, setArchiveBoxNumber] = useState('');
   const [archiveSuccess, setArchiveSuccess] = useState(false);
   const [archivedCount, setArchivedCount] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   const searchParams = useSearchParams();
   const tabFromUrl = searchParams.get('tab');
@@ -55,6 +56,84 @@ function AllChequesPageContent() {
   const pathname = usePathname();
   const isSuperadminRoute = pathname.startsWith('/superadmin');
   const scanPath = isSuperadminRoute ? '/superadmin/scan' : '/admin/scan';
+
+  const normalizeStatus = (c: ApiCheque): ChequeListStatus => {
+    if (c.client_decision === 'rejected') return 'Rejected';
+    if (c.status === 'deposited' || c.status === 'cleared') return 'Deposited';
+    if (c.status === 'flagged') return 'On Hold';
+    return 'Pending Deposit';
+  };
+
+  const COMPANY_COLORS = [
+    'bg-[#1E40AF]',
+    'bg-[#0F766E]',
+    'bg-[#7C3AED]',
+    'bg-[#B45309]',
+    'bg-[#BE123C]',
+    'bg-[#334155]',
+  ];
+
+  const hashToIndex = (s: string, max: number) => {
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return h % max;
+  };
+
+  const formatTime = (iso: string) => {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const toUiCheque = (c: ApiCheque): UiCheque => {
+    const company = c.company_name || 'Unknown Company';
+    const bankName = c.ai_raw_result?.bank_name || c.ai_raw_result?.bankName || 'Bank';
+    const chequeNumber =
+      c.ai_raw_result?.cheque_number ||
+      c.ai_raw_result?.chequeNumber ||
+      c.ai_raw_result?.number ||
+      '—';
+
+    return {
+      id: c.id,
+      mailItemId: c.mail_item_id,
+      starred: false,
+      flagged: c.status === 'flagged',
+      company,
+      companyInitial: company.trim().slice(0, 1).toUpperCase() || 'C',
+      companyColor: COMPANY_COLORS[hashToIndex(company, COMPANY_COLORS.length)],
+      status: normalizeStatus(c),
+      bankName,
+      chequeNumber: String(chequeNumber),
+      amount: Number(c.amount_figures || 0),
+      description:
+        c.ai_raw_result?.summary ||
+        c.ai_raw_result?.notes ||
+        `Cheque for ${c.beneficiary || 'beneficiary'} (${normalizeStatus(c)})`,
+      recipient: c.beneficiary || company,
+      time: formatTime(c.created_at),
+      email: undefined,
+      raw: c,
+    };
+  };
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    chequeApi
+      .list()
+      .then((res) => {
+        if (!alive) return;
+        setChequeItems(res.cheques.map((c) => toUiCheque(c)));
+      })
+      .finally(() => {
+        if (!alive) return;
+        setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!tabFromUrl) return;
@@ -138,7 +217,7 @@ function AllChequesPageContent() {
     return visibleCheques.filter((c) => c.status === status).length;
   };
 
-  const handleSelect = (id: number) => {
+  const handleSelect = (id: string) => {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
     );
@@ -347,7 +426,14 @@ function AllChequesPageContent() {
       {/* Cheque List */}
       <div className={styles.listContainer}>
         <div className={styles.listInner}>
-          {paginated.length === 0 ? (
+          {loading ? (
+            <div className={styles.emptyState}>
+              <div className={styles.emptyIcon}>
+                <Icon icon="ri:loader-4-line" className="text-3xl animate-spin" />
+              </div>
+              <p className={styles.emptyText}>Loading cheques...</p>
+            </div>
+          ) : paginated.length === 0 ? (
             <div className={styles.emptyState}>
               <div className={styles.emptyIcon}>
                 <Icon icon="ri:bank-card-line" className="text-3xl" />

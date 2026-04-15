@@ -2,12 +2,32 @@
 
 import { useState } from 'react';
 import { Icon } from '@iconify/react';
-import type { Cheque } from '../../../../mocks/cheques';
+
+export type ChequeListStatus = 'Pending Deposit' | 'Deposited' | 'Rejected' | 'On Hold';
+
+export interface UiCheque {
+  id: string;
+  mailItemId?: string;
+  starred: boolean;
+  flagged: boolean;
+  company: string;
+  companyColor: string;
+  companyInitial: string;
+  status: ChequeListStatus;
+  bankName: string;
+  chequeNumber: string;
+  amount: number;
+  description: string;
+  recipient: string;
+  time: string;
+  email?: string;
+  raw?: any;
+}
 
 interface ChequeRowProps {
-  cheque: Cheque;
+  cheque: UiCheque;
   selected: boolean;
-  onSelect: (id: number) => void;
+  onSelect: (id: string) => void;
   onOpen: () => void;
   showArchiveMeta?: boolean;
   showUnarchive?: boolean;
@@ -85,9 +105,9 @@ export default function ChequeRow({ cheque, selected, onSelect, onOpen, showArch
         <span className="text-sm font-medium text-slate-700 truncate block">
           {cheque.bankName} - {cheque.chequeNumber}
         </span>
-        {showArchiveMeta && (cheque as Cheque & { archiveBox?: string }).archiveBox && (
+        {showArchiveMeta && (cheque as UiCheque & { archiveBox?: string }).archiveBox && (
           <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 mt-1 inline-flex">
-            Box {(cheque as Cheque & { archiveBox?: string }).archiveBox}
+            Box {(cheque as UiCheque & { archiveBox?: string }).archiveBox}
           </span>
         )}
       </div>

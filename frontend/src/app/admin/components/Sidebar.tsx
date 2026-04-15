@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
+import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Icon } from '@iconify/react';
-import { mails } from '../../../mocks/mails';
 import { companies } from '../../../mocks/companies';
 import { initialDepositRequests } from '../../../mocks/depositRequests';
-import { cheques } from '../../../mocks/cheques';
 import { deliveries } from '../../../mocks/deliveries';
+import { mailApi } from '@/lib/api/mail';
+import { chequeApi, type Cheque as ApiCheque } from '@/lib/api/cheques';
 
 const navItems = [
   { icon: 'ri:dashboard-line', label: 'Dashboard', slug: '' },
@@ -43,6 +44,79 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const isCompaniesPage = pathname === `${basePath}/companies`;
   const isDepositsPage = pathname === `${basePath}/deposits`;
   const isDeliveriesPage = pathname === `${basePath}/deliveries`;
+
+  const [mailCounts, setMailCounts] = useState({
+    total: 0,
+    processed: 0,
+    delivered: 0,
+    pending: 0,
+  });
+
+  const [chequeCounts, setChequeCounts] = useState({
+    total: 0,
+    pending: 0,
+    deposited: 0,
+    rejected: 0,
+    onHold: 0,
+  });
+
+  const normalizeChequeStatus = (c: ApiCheque) => {
+    if (c.client_decision === 'rejected') return 'Rejected';
+    if (c.status === 'deposited' || c.status === 'cleared') return 'Deposited';
+    if (c.status === 'flagged') return 'On Hold';
+    return 'Pending Deposit';
+  };
+
+  useEffect(() => {
+    let alive = true;
+
+    if (isMailsPage) {
+      mailApi
+        .list({ limit: 200 })
+        .then((res) => {
+          if (!alive) return;
+          const items = res.items || [];
+          const processed = items.filter((m) => m.status === 'processed').length;
+          const delivered = items.filter((m) => m.status === 'delivered').length;
+          const pending = items.filter((m) => m.status === 'scanned' || m.status === 'received').length;
+          setMailCounts({
+            total: items.length,
+            processed,
+            delivered,
+            pending,
+          });
+        })
+        .catch(() => {
+          if (!alive) return;
+          setMailCounts({ total: 0, processed: 0, delivered: 0, pending: 0 });
+        });
+    }
+
+    if (isChequesPage) {
+      chequeApi
+        .list()
+        .then((res) => {
+          if (!alive) return;
+          const items = res.cheques || [];
+          const normalized = items.map(normalizeChequeStatus);
+          setChequeCounts({
+            total: items.length,
+            pending: normalized.filter((s) => s === 'Pending Deposit').length,
+            deposited: normalized.filter((s) => s === 'Deposited').length,
+            rejected: normalized.filter((s) => s === 'Rejected').length,
+            onHold: normalized.filter((s) => s === 'On Hold').length,
+          });
+        })
+        .catch(() => {
+          if (!alive) return;
+          setChequeCounts({ total: 0, pending: 0, deposited: 0, rejected: 0, onHold: 0 });
+        });
+    }
+
+    return () => {
+      alive = false;
+    };
+  }, [isMailsPage, isChequesPage]);
 
   const getTabValueForLabel = (pagePath: string, label: string): string | null => {
     // Mail page tabs: All | Processed | Delivered | Pending Delivery
@@ -108,69 +182,75 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             ? `${basePath}/deliveries`
             : null;
 
-  const mailLabels = [
-    {
-      icon: 'ri:inbox-line',
-      label: 'All Mail',
-      count: mails.length,
-      color: '#0F172A',
-      bg: 'bg-[#F1F5F9]',
-      fontWeight: 'font-semibold',
-    },
-    {
-      icon: 'ri:mail-check-line',
-      label: 'Processed',
-      count: mails.filter((m) => m.tag === 'Inbox').length,
-      color: '#0A3D8F',
-    },
-    {
-      icon: 'ri:truck-line',
-      label: 'Delivered',
-      count: mails.filter((m) => m.tag === 'Delivered').length,
-      color: '#2F8F3A',
-    },
-    {
-      icon: 'ri:time-line',
-      label: 'Pending',
-      count: mails.filter((m) => m.tag === 'Pending').length,
-      color: '#F59E0B',
-    },
-  ];
+  const mailLabels = useMemo(
+    () => [
+      {
+        icon: 'ri:inbox-line',
+        label: 'All Mail',
+        count: mailCounts.total,
+        color: '#0F172A',
+        bg: 'bg-[#F1F5F9]',
+        fontWeight: 'font-semibold',
+      },
+      {
+        icon: 'ri:mail-check-line',
+        label: 'Processed',
+        count: mailCounts.processed,
+        color: '#0A3D8F',
+      },
+      {
+        icon: 'ri:truck-line',
+        label: 'Delivered',
+        count: mailCounts.delivered,
+        color: '#2F8F3A',
+      },
+      {
+        icon: 'ri:time-line',
+        label: 'Pending',
+        count: mailCounts.pending,
+        color: '#F59E0B',
+      },
+    ],
+    [mailCounts]
+  );
 
-  const chequeLabels = [
-    {
-      icon: 'ri:inbox-archive-line',
-      label: 'All Cheques',
-      count: cheques.length,
-      color: '#0F172A',
-      bg: 'bg-[#F1F5F9]',
-      fontWeight: 'font-semibold',
-    },
-    {
-      icon: 'ri:time-line',
-      label: 'Pending',
-      count: cheques.filter((c) => c.status === 'Pending Deposit').length,
-      color: '#F59E0B',
-    },
-    {
-      icon: 'ri:checkbox-circle-line',
-      label: 'Deposited',
-      count: cheques.filter((c) => c.status === 'Deposited').length,
-      color: '#2F8F3A',
-    },
-    {
-      icon: 'ri:close-circle-line',
-      label: 'Rejected',
-      count: cheques.filter((c) => c.status === 'Rejected').length,
-      color: '#EF4444',
-    },
-    {
-      icon: 'ri:pause-circle-line',
-      label: 'On Hold',
-      count: cheques.filter((c) => c.status === 'On Hold').length,
-      color: '#64748B',
-    },
-  ];
+  const chequeLabels = useMemo(
+    () => [
+      {
+        icon: 'ri:inbox-archive-line',
+        label: 'All Cheques',
+        count: chequeCounts.total,
+        color: '#0F172A',
+        bg: 'bg-[#F1F5F9]',
+        fontWeight: 'font-semibold',
+      },
+      {
+        icon: 'ri:time-line',
+        label: 'Pending',
+        count: chequeCounts.pending,
+        color: '#F59E0B',
+      },
+      {
+        icon: 'ri:checkbox-circle-line',
+        label: 'Deposited',
+        count: chequeCounts.deposited,
+        color: '#2F8F3A',
+      },
+      {
+        icon: 'ri:close-circle-line',
+        label: 'Rejected',
+        count: chequeCounts.rejected,
+        color: '#EF4444',
+      },
+      {
+        icon: 'ri:pause-circle-line',
+        label: 'On Hold',
+        count: chequeCounts.onHold,
+        color: '#64748B',
+      },
+    ],
+    [chequeCounts]
+  );
 
   const companyLabels = [
     {
@@ -292,20 +372,19 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       case '/scan':
         return null;
       case '/mails': {
-        if (tab === 'All') return mails.length;
-        if (tab === 'Processed') return mails.filter((m) => m.tag === 'Inbox').length;
-        if (tab === 'Delivered') return mails.filter((m) => m.tag === 'Delivered').length;
-        if (tab === 'Pending Delivery') return mails.filter((m) => m.tag === 'Pending').length;
-        return mails.length;
+        if (tab === 'All') return mailCounts.total;
+        if (tab === 'Processed') return mailCounts.processed;
+        if (tab === 'Delivered') return mailCounts.delivered;
+        if (tab === 'Pending Delivery') return mailCounts.pending;
+        return mailCounts.total;
       }
       case '/cheques': {
-        if (tab === 'All') return cheques.length;
-        if (tab === 'Pending Deposit')
-          return cheques.filter((c) => c.status === 'Pending Deposit').length;
-        if (tab === 'Deposited') return cheques.filter((c) => c.status === 'Deposited').length;
-        if (tab === 'Rejected') return cheques.filter((c) => c.status === 'Rejected').length;
-        if (tab === 'On Hold') return cheques.filter((c) => c.status === 'On Hold').length;
-        return cheques.length;
+        if (tab === 'All') return chequeCounts.total;
+        if (tab === 'Pending Deposit') return chequeCounts.pending;
+        if (tab === 'Deposited') return chequeCounts.deposited;
+        if (tab === 'Rejected') return chequeCounts.rejected;
+        if (tab === 'On Hold') return chequeCounts.onHold;
+        return chequeCounts.total;
       }
       case '/companies': {
         if (tab === 'All') return companies.length;
@@ -365,7 +444,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       className={`flex flex-col h-screen bg-white border-r border-gray-200 transition-[width] duration-300 ease-out ${collapsed ? 'w-[72px]' : 'w-[min(100%,260px)] sm:w-[260px]'} flex-shrink-0`}
     >
       {/* Logo */}
-      <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100 h-[64px]">
+      <div className="flex-shrink-0 flex items-center justify-between px-4 py-4 border-b border-gray-100 h-[64px]">
         {!collapsed && (
           <Image
             src="/images/A-4.png"
@@ -383,93 +462,96 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         </button>
       </div>
 
-      {/* Nav Items */}
-      <nav className="flex-1 py-4 overflow-y-auto">
-        {resolvedNavItems.map((item) => {
-          const isActive = pathname === item.path;
-          const badgeCount = isActive ? getMainNavBadgeCount(item.slug) : null;
-          return (
-            <Link
-              key={item.path}
-              href={item.path}
-              className={`relative flex items-center gap-0 transition cursor-pointer font-roboto py-3 pl-4 pr-3 sm:pl-[18px] sm:pr-3 min-h-[52px] ${isActive
-                  ? 'bg-[#EFF6FF] text-[#0A3D8F] font-medium rounded-lg'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 rounded-lg'
-                }`}
-            >
-              {isActive && (
-                <div
-                  className="absolute left-0 top-2 bottom-2 w-1 bg-[#0A3D8F] rounded-r"
-                  aria-hidden
-                />
-              )}
-              <div className="flex items-center justify-center flex-shrink-0 w-[20.84px] h-[28px]">
-                <Icon icon={item.icon} className="text-[20px]" />
-              </div>
-              {!collapsed && (
-                <>
-                  <span
-                    className={`ml-2.5 text-[13px] sm:text-[14px] leading-snug flex-1 min-w-0 line-clamp-2 ${isActive ? 'font-semibold' : 'font-normal'
-                      }`}
-                  >
-                    {item.label}
-                  </span>
-                  {badgeCount !== null && (
-                    <span className="ml-1.5 flex-shrink-0 min-w-[22px] h-[22px] px-1.5 inline-flex items-center justify-center rounded-full bg-[#0A3D8F] text-white text-[11px] font-bold leading-none tabular-nums self-center">
-                      {badgeCount}
-                    </span>
-                  )}
-                </>
-              )}
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* Labels Section */}
-      {!collapsed && labels && (
-        <div className="px-3 pb-4 pt-3 border-t border-gray-100 min-h-0">
-          <h3 className="text-[#94A3B8] font-semibold tracking-[0.6px] mb-2 px-3 text-[12px]">
-            Labels
-          </h3>
-          <div className="flex flex-col gap-0.5">
-            {labels.map((item, idx) => (
+      {/* Scrollable content: Nav + page labels */}
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        {/* Nav Items */}
+        <nav className="py-4">
+          {resolvedNavItems.map((item) => {
+            const isActive = pathname === item.path;
+            const badgeCount = isActive ? getMainNavBadgeCount(item.slug) : null;
+            return (
               <Link
-                key={idx}
-                href={
-                  labelsPagePath
-                    ? `${labelsPagePath}?tab=${encodeURIComponent(
-                      getTabValueForLabel(labelsPagePath, item.label) ?? 'All'
-                    )}`
-                    : '#'
-                }
-                className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors min-h-[36px] ${item.bg || 'hover:bg-gray-50'
-                  } ${tabFromUrl && getTabValueForLabel(labelsPagePath ?? '', item.label) === tabFromUrl ? 'bg-[#EFF6FF]' : ''}`}
+                key={item.path}
+                href={item.path}
+                className={`relative flex items-center gap-0 transition cursor-pointer font-roboto py-3 pl-4 pr-3 sm:pl-[18px] sm:pr-3 min-h-[52px] ${isActive
+                    ? 'bg-[#EFF6FF] text-[#0A3D8F] font-medium rounded-lg'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 rounded-lg'
+                  }`}
               >
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <Icon
-                    icon={item.icon}
-                    className={`text-[16px] flex-shrink-0 ${getLabelColorClass(item.color)}`}
+                {isActive && (
+                  <div
+                    className="absolute left-0 top-2 bottom-2 w-1 bg-[#0A3D8F] rounded-r"
+                    aria-hidden
                   />
-                  <span
-                    className={`text-[13px] leading-snug ${item.fontWeight || 'font-normal'} text-[#0F172A] min-w-0 line-clamp-2`}
-                  >
-                    {item.label}
-                  </span>
+                )}
+                <div className="flex items-center justify-center flex-shrink-0 w-[20.84px] h-[28px]">
+                  <Icon icon={item.icon} className="text-[20px]" />
                 </div>
-                <span
-                  className={`text-xs flex-shrink-0 tabular-nums ${item.fontWeight || 'font-normal'} text-[#94A3B8]`}
-                >
-                  {item.count}
-                </span>
+                {!collapsed && (
+                  <>
+                    <span
+                      className={`ml-2.5 text-[13px] sm:text-[14px] leading-snug flex-1 min-w-0 line-clamp-2 ${isActive ? 'font-semibold' : 'font-normal'
+                        }`}
+                    >
+                      {item.label}
+                    </span>
+                    {badgeCount !== null && (
+                      <span className="ml-1.5 flex-shrink-0 min-w-[22px] h-[22px] px-1.5 inline-flex items-center justify-center rounded-full bg-[#0A3D8F] text-white text-[11px] font-bold leading-none tabular-nums self-center">
+                        {badgeCount}
+                      </span>
+                    )}
+                  </>
+                )}
               </Link>
-            ))}
+            );
+          })}
+        </nav>
+
+        {/* Labels Section */}
+        {!collapsed && labels && (
+          <div className="px-3 pb-4 pt-3 border-t border-gray-100">
+            <h3 className="text-[#94A3B8] font-semibold tracking-[0.6px] mb-2 px-3 text-[12px]">
+              Labels
+            </h3>
+            <div className="flex flex-col gap-0.5">
+              {labels.map((item, idx) => (
+                <Link
+                  key={idx}
+                  href={
+                    labelsPagePath
+                      ? `${labelsPagePath}?tab=${encodeURIComponent(
+                        getTabValueForLabel(labelsPagePath, item.label) ?? 'All'
+                      )}`
+                      : '#'
+                  }
+                  className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors min-h-[36px] ${item.bg || 'hover:bg-gray-50'
+                    } ${tabFromUrl && getTabValueForLabel(labelsPagePath ?? '', item.label) === tabFromUrl ? 'bg-[#EFF6FF]' : ''}`}
+                >
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <Icon
+                      icon={item.icon}
+                      className={`text-[16px] flex-shrink-0 ${getLabelColorClass(item.color)}`}
+                    />
+                    <span
+                      className={`text-[13px] leading-snug ${item.fontWeight || 'font-normal'} text-[#0F172A] min-w-0 line-clamp-2`}
+                    >
+                      {item.label}
+                    </span>
+                  </div>
+                  <span
+                    className={`text-xs flex-shrink-0 tabular-nums ${item.fontWeight || 'font-normal'} text-[#94A3B8]`}
+                  >
+                    {item.count}
+                  </span>
+                </Link>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Settings */}
-      <div className="border-t border-gray-100 py-4">
+      <div className="flex-shrink-0 border-t border-gray-100 py-4">
         <Link
           href={settingsPath}
           className={`relative flex items-center transition cursor-pointer font-roboto py-3 pl-4 pr-3 sm:pl-[18px] sm:pr-3 min-h-[52px] ${isSettingsRoute
@@ -501,7 +583,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             <img
               src="/images/wgd.jpeg"
               alt="Good Day"
-              className="w-full h-auto object-contain"
+              className="w-full h-[180px] object-cover"
             />
             <div className="text-white text-center py-2">
               <p className="text-[10px] font-light">Willing a</p>

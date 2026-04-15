@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
-import type { Mail } from '../../../../mocks/mails';
+import { useMemo, useState, useEffect } from 'react';
 import { Icon } from '@iconify/react';
 import styles from './clickedmail.module.css';
 import { apiClient } from '@/lib/api-client';
+import { ImageLightbox } from '../../components/ImageLightbox';
 
 interface ClickedMailProps {
   mail: any;
@@ -34,6 +34,7 @@ export default function ClickedMail({ mail, onClose }: ClickedMailProps) {
   const [hasMounted, setHasMounted] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   useEffect(() => {
     setHasMounted(true);
@@ -58,11 +59,20 @@ export default function ClickedMail({ mail, onClose }: ClickedMailProps) {
   };
   
   const raw = mail.raw || {};
-  const images = [
-    raw.envelope_front_url,
-    raw.envelope_back_url,
-    raw.content_url
-  ].filter(Boolean);
+  const images = useMemo(() => {
+    const inside: string[] = Array.isArray(raw.content_scan_urls)
+      ? raw.content_scan_urls.filter(Boolean)
+      : [];
+
+    const legacyInside = raw.content_url ? [raw.content_url] : [];
+
+    return [
+      raw.envelope_front_url,
+      raw.envelope_back_url,
+      ...inside,
+      ...legacyInside,
+    ].filter(Boolean);
+  }, [raw]);
 
   const aiResults = typeof raw.ai_results === 'string' 
     ? JSON.parse(raw.ai_results) 
@@ -111,7 +121,20 @@ export default function ClickedMail({ mail, onClose }: ClickedMailProps) {
                   src={images[currentImgIndex]}
                   alt={`Document page ${currentImgIndex + 1}`}
                   className={styles.documentPreviewImg}
+                  onClick={() => setLightboxOpen(true)}
+                  style={{ cursor: "zoom-in" }}
                 />
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLightboxOpen(true);
+                  }}
+                  className="absolute top-3 right-3 w-9 h-9 flex items-center justify-center rounded-full bg-white/90 hover:bg-white shadow text-slate-800 cursor-pointer z-10"
+                  aria-label="Open full image"
+                >
+                  <Icon icon="ri:fullscreen-line" className="text-lg" />
+                </button>
                 {images.length > 1 && (
                   <>
                     <button className={`${styles.carouselBtn} ${styles.carouselBtnLeft}`} onClick={prevImage}>
@@ -133,6 +156,17 @@ export default function ClickedMail({ mail, onClose }: ClickedMailProps) {
             )}
             <div className={styles.documentOverlay}></div>
           </div>
+ 
+          <ImageLightbox
+            open={lightboxOpen}
+            images={images}
+            index={currentImgIndex}
+            onClose={() => setLightboxOpen(false)}
+            onPrev={() =>
+              setCurrentImgIndex((p) => (p > 0 ? p - 1 : images.length - 1))
+            }
+            onNext={() => setCurrentImgIndex((p) => (p < images.length - 1 ? p + 1 : 0))}
+          />
 
           {/* Security Status Banner */}
           <div className={`${styles.securityBanner} ${

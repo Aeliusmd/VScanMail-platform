@@ -1,10 +1,14 @@
 "use client";
 
 import { Icon } from '@iconify/react';
-import type { Cheque } from '../../../../mocks/cheques';
+import type { UiCheque } from './ChequeRow';
+import { chequeApi } from '@/lib/api/cheques';
+import { mailApi, type MailItem } from '@/lib/api/mail';
+import { useEffect, useMemo, useState } from 'react';
+import { ImageLightbox } from '../../components/ImageLightbox';
 
 interface ClickedChequeProps {
-  cheque: Cheque;
+  cheque: UiCheque;
   onClose: () => void;
 }
 
@@ -19,13 +23,47 @@ const statusStyles: Record<string, string> = {
 };
 
 export default function ClickedCheque({ cheque, onClose }: ClickedChequeProps) {
+  const [mailItem, setMailItem] = useState<MailItem | null>(null);
+  const [imgIndex, setImgIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    setMailItem(null);
+    setImgIndex(0);
+
+    if (!cheque.mailItemId) return;
+
+    mailApi
+      .getById(cheque.mailItemId)
+      .then((res) => {
+        if (!alive) return;
+        setMailItem(res);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setMailItem(null);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [cheque.mailItemId]);
+
+  const images = useMemo(() => {
+    // For the cheques popup, only show cheque scan images (inside content pages),
+    // not the envelope images.
+    const inside = mailItem?.content_scan_urls?.filter(Boolean) ?? [];
+    return inside as string[];
+  }, [mailItem]);
+
   const formattedAmount = new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 2,
   }).format(cheque.amount);
 
-  const scanLabel = `CHQ-${String(cheque.id).padStart(3, '0')} • ${cheque.chequeNumber} • ${cheque.time}`;
+  const scanLabel = `CHQ-${cheque.id.slice(0, 8)} • ${cheque.chequeNumber} • ${cheque.time}`;
 
   return (
     <div
@@ -59,12 +97,60 @@ export default function ClickedCheque({ cheque, onClose }: ClickedChequeProps) {
 
         <div className="p-3 sm:p-5">
           <div className="rounded-xl border border-[#E2E8F0] bg-[#F1F5F9] p-2 mb-4">
-            <img
-              src="https://readdy.ai/api/search-image?query=business%20cheque%20document%20on%20white%20background%20with%20bank%20details%20amount%20and%20signature%20lines%20professional%20financial%20instrument%20scanned%20clean&width=160&height=100&seq=chq-thumb-1&orientation=landscape"
-              alt="Cheque preview"
-              className="w-full h-[140px] sm:h-[180px] object-cover rounded-lg"
-            />
+            {images.length > 0 ? (
+              <div className="relative">
+                <img
+                  src={images[imgIndex]}
+                  alt={`Scan ${imgIndex + 1}`}
+                  className="w-full h-[140px] sm:h-[180px] object-contain bg-white rounded-lg"
+                  onClick={() => setLightboxOpen(true)}
+                  style={{ cursor: "zoom-in" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setLightboxOpen(true)}
+                  className="absolute top-2 right-2 w-9 h-9 rounded-full bg-white/90 hover:bg-white shadow flex items-center justify-center cursor-pointer"
+                  aria-label="Open full image"
+                >
+                  <Icon icon="ri:fullscreen-line" className="text-lg" />
+                </button>
+                {images.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setImgIndex((p) => (p > 0 ? p - 1 : images.length - 1))}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 hover:bg-white shadow flex items-center justify-center cursor-pointer"
+                    >
+                      <Icon icon="ri:arrow-left-s-line" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setImgIndex((p) => (p < images.length - 1 ? p + 1 : 0))}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 hover:bg-white shadow flex items-center justify-center cursor-pointer"
+                    >
+                      <Icon icon="ri:arrow-right-s-line" />
+                    </button>
+                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/55 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      {imgIndex + 1} / {images.length}
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="w-full h-[140px] sm:h-[180px] rounded-lg bg-white flex items-center justify-center text-slate-400 text-sm">
+                No scan images available
+              </div>
+            )}
           </div>
+ 
+          <ImageLightbox
+            open={lightboxOpen}
+            images={images}
+            index={imgIndex}
+            onClose={() => setLightboxOpen(false)}
+            onPrev={() => setImgIndex((p) => (p > 0 ? p - 1 : images.length - 1))}
+            onNext={() => setImgIndex((p) => (p < images.length - 1 ? p + 1 : 0))}
+          />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
             <div className="bg-[#EEF2F7] border border-[#E2E8F0] rounded-xl p-4">
@@ -75,7 +161,7 @@ export default function ClickedCheque({ cheque, onClose }: ClickedChequeProps) {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-[#1E293B] leading-4">{cheque.recipient}</p>
-                  <p className="text-xs text-[#64748B] mt-1">{cheque.email}</p>
+                  {cheque.email ? <p className="text-xs text-[#64748B] mt-1">{cheque.email}</p> : null}
                 </div>
               </div>
             </div>
@@ -106,7 +192,9 @@ export default function ClickedCheque({ cheque, onClose }: ClickedChequeProps) {
               <Icon icon="ri:sparkling-2-fill" className="text-[#F59E0B]" />
               <p className="text-sm font-semibold text-[#334155]">AI-Generated Summary</p>
             </div>
-            <p className="text-sm text-[#475569] leading-7">{cheque.description} Successfully {cheque.status.toLowerCase()} on June 13, 2025. Transaction reference: TXN-2025-{String(cheque.id).padStart(6, '0')}.</p>
+            <p className="text-sm text-[#475569] leading-7">
+              {cheque.description}
+            </p>
             <div className="mt-3 flex items-center gap-1.5 text-[#94A3B8]">
               <Icon icon="ri:shield-check-line" className="text-xs" />
               <span className="text-xs">Generated by VScan AI</span>
@@ -114,17 +202,37 @@ export default function ClickedCheque({ cheque, onClose }: ClickedChequeProps) {
           </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-            <button className="w-full sm:flex-1 h-11 rounded-lg bg-[#0A3D8F] hover:bg-[#083170] text-white text-sm font-semibold flex items-center justify-center gap-2 transition">
+            <button
+              onClick={async () => {
+                try {
+                  await chequeApi.resend(cheque.id);
+                } catch {
+                  // swallow — UI already has notifications elsewhere
+                }
+              }}
+              className="w-full sm:flex-1 h-11 rounded-lg bg-[#0A3D8F] hover:bg-[#083170] text-white text-sm font-semibold flex items-center justify-center gap-2 transition cursor-pointer"
+            >
               <Icon icon="ri:send-plane-line" className="text-sm" />
               Resend Email
             </button>
-            <button className="w-full sm:flex-1 h-11 rounded-lg border border-[#CBD5E1] hover:bg-[#F8FAFC] text-[#475569] text-sm font-semibold flex items-center justify-center gap-2 transition">
+            <button
+              onClick={async () => {
+                try {
+                  const result = await chequeApi.download(cheque.id);
+                  const url = (result as any)?.url as string | undefined;
+                  if (url) window.open(url, "_blank", "noopener,noreferrer");
+                } catch {
+                  // swallow — UI already has notifications elsewhere
+                }
+              }}
+              className="w-full sm:flex-1 h-11 rounded-lg border border-[#CBD5E1] hover:bg-[#F8FAFC] text-[#475569] text-sm font-semibold flex items-center justify-center gap-2 transition cursor-pointer"
+            >
               <Icon icon="ri:download-line" className="text-sm" />
               Download
             </button>
             <button
               onClick={onClose}
-              className="w-full sm:w-20 h-11 rounded-lg bg-[#E2E8F0] hover:bg-[#CBD5E1] text-[#475569] text-sm font-semibold transition"
+              className="w-full sm:w-20 h-11 rounded-lg bg-[#E2E8F0] hover:bg-[#CBD5E1] text-[#475569] text-sm font-semibold transition cursor-pointer"
             >
               Close
             </button>
