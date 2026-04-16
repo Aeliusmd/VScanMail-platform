@@ -1,5 +1,6 @@
 import { resend, EMAIL_FROM } from "./resend.config";
 import { clientModel } from "../clients/client.model";
+import { notificationPreferencesService } from "./notification-preferences.service";
 
 /**
  * Wraps content in a professional, modern HTML email template
@@ -81,6 +82,8 @@ export const notificationService = {
   },
 
   async sendNewMailAlert(clientId: string, mailItem: any) {
+    const prefs = await notificationPreferencesService.getForClient(clientId);
+    if (!prefs.emailEnabled || !prefs.newMailScanned) return;
     const client = await clientModel.findById(clientId);
     const html = wrapInTemplate(`
       <h1 style="font-size: 20px; color: #0f172a; margin-top: 0;">New Mail Received</h1>
@@ -157,6 +160,8 @@ export const notificationService = {
   },
 
   async sendChequeAlert(clientId: string, cheque: any, validation: any) {
+    const prefs = await notificationPreferencesService.getForClient(clientId);
+    if (!prefs.emailEnabled || !prefs.newChequeScanned) return;
     const client = await clientModel.findById(clientId);
     
     // Support both Cheque model and MailItem model keys

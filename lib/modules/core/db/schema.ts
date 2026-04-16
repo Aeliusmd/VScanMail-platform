@@ -116,6 +116,27 @@ export const clients = mysqlTable(
   })
 );
 
+// --- Notification Preferences (per client / organization) ---
+export const clientNotificationPreferences = mysqlTable(
+  "client_notification_preferences",
+  {
+    clientId: varchar("client_id", { length: 36 }).primaryKey(),
+
+    emailEnabled: boolean("email_enabled").notNull().default(true),
+    newMailScanned: boolean("new_mail_scanned").notNull().default(true),
+    newChequeScanned: boolean("new_cheque_scanned").notNull().default(true),
+    deliveryUpdates: boolean("delivery_updates").notNull().default(true),
+    depositUpdates: boolean("deposit_updates").notNull().default(false),
+    weeklySummary: boolean("weekly_summary").notNull().default(true),
+
+    updatedBy: varchar("updated_by", { length: 36 }),
+    updatedAt: datetime("updated_at", { mode: "date" }).notNull(),
+  },
+  (t) => ({
+    updatedByIdx: index("cnp_updated_by_idx").on(t.updatedBy),
+  })
+);
+
 // --- Billing Tables ---
 export const subscriptions = mysqlTable(
   "subscriptions",

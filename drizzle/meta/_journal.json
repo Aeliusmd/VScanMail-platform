@@ -15,6 +15,13 @@
       "when": 1774865067552,
       "tag": "0001_nostalgic_galactus",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1776187139000,
+      "tag": "0002_client_notification_preferences",
+      "breakpoints": true
     }
   ]
 }
