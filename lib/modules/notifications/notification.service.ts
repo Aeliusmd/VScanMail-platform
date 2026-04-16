@@ -1,10 +1,7 @@
-import { resend, EMAIL_FROM } from "./resend.config";
+import { sendEmail } from "./email.client";
 import { clientModel } from "../clients/client.model";
 import { notificationPreferencesService } from "./notification-preferences.service";
 
-/**
- * Wraps content in a professional, modern HTML email template
- */
 function wrapInTemplate(content: string) {
   return `
     <!DOCTYPE html>
@@ -53,29 +50,23 @@ function wrapInTemplate(content: string) {
 
 export const notificationService = {
   async sendVerificationEmail(email: string, otp: string) {
-    try {
-      const html = wrapInTemplate(`
-        <h1 style="font-size: 20px; color: #0f172a; margin-top: 0;">Verify your email</h1>
-        <p style="color: #64748b; font-size: 15px;">Welcome to VScanMail. To complete your setup, please use the verification code below:</p>
-        
-        <div style="background-color: #f8fafc; border: 2px dashed #e2e8f0; border-radius: 12px; padding: 32px; margin: 32px 0; text-align: center;">
-          <span style="font-size: 32px; font-weight: 800; color: #3b82f6; letter-spacing: 4px;">${otp}</span>
-        </div>
-        
-        <p style="color: #64748b; font-size: 13px; text-align: center;">This code expires in 15 minutes. If you didn't request this, you can safely ignore this email.</p>
-      `);
+    const html = wrapInTemplate(`
+      <h1 style="font-size: 20px; color: #0f172a; margin-top: 0;">Verify your email</h1>
+      <p style="color: #64748b; font-size: 15px;">Welcome to VScanMail. To complete your setup, please use the verification code below:</p>
+      
+      <div style="background-color: #f8fafc; border: 2px dashed #e2e8f0; border-radius: 12px; padding: 32px; margin: 32px 0; text-align: center;">
+        <span style="font-size: 32px; font-weight: 800; color: #3b82f6; letter-spacing: 4px;">${otp}</span>
+      </div>
+      
+      <p style="color: #64748b; font-size: 13px; text-align: center;">This code expires in 15 minutes. If you didn't request this, you can safely ignore this email.</p>
+    `);
 
-      const result = await resend.emails.send({
-        from: EMAIL_FROM,
+    try {
+      await sendEmail({
         to: email,
         subject: "VScanMail — Verify your email",
         html,
       });
-
-      if ((result as any)?.error) {
-        const err = (result as any).error;
-        throw new Error(err?.message || "Resend returned an error");
-      }
     } catch (err: any) {
       throw new Error(`Failed to send verification email. ${err?.message}`);
     }
@@ -84,7 +75,9 @@ export const notificationService = {
   async sendNewMailAlert(clientId: string, mailItem: any) {
     const prefs = await notificationPreferencesService.getForClient(clientId);
     if (!prefs.emailEnabled || !prefs.newMailScanned) return;
+
     const client = await clientModel.findById(clientId);
+
     const html = wrapInTemplate(`
       <h1 style="font-size: 20px; color: #0f172a; margin-top: 0;">New Mail Received</h1>
       <p style="color: #64748b; font-size: 15px;">We've received and scanned a new document for your organization.</p>
@@ -116,8 +109,7 @@ export const notificationService = {
       </div>
     `);
 
-    await resend.emails.send({
-      from: EMAIL_FROM,
+    await sendEmail({
       to: client.email,
       subject: `VScanMail — New ${mailItem.type} received (${mailItem.irn})`,
       html,
@@ -126,6 +118,7 @@ export const notificationService = {
 
   async sendTamperAlert(clientId: string, mailItem: any) {
     const client = await clientModel.findById(clientId);
+
     const html = wrapInTemplate(`
       <h1 style="font-size: 20px; color: #991b1b; margin-top: 0;">⚠️ Security Notice: Tamper Alert</h1>
       <p style="color: #64748b; font-size: 15px;">Our automated security audit has detected potential tampering on a document received for your organization.</p>
@@ -151,8 +144,7 @@ export const notificationService = {
       </div>
     `);
 
-    await resend.emails.send({
-      from: EMAIL_FROM,
+    await sendEmail({
       to: client.email,
       subject: `VScanMail — TAMPER ALERT — ${mailItem.irn}`,
       html,
@@ -162,16 +154,15 @@ export const notificationService = {
   async sendChequeAlert(clientId: string, cheque: any, validation: any) {
     const prefs = await notificationPreferencesService.getForClient(clientId);
     if (!prefs.emailEnabled || !prefs.newChequeScanned) return;
+
     const client = await clientModel.findById(clientId);
-    
-    // Support both Cheque model and MailItem model keys
+
     const amount = cheque.cheque_amount_figures ?? cheque.amount_figures;
     const payee = cheque.cheque_beneficiary ?? cheque.beneficiary;
-    const confidence = validation?.confidence !== undefined 
-      ? validation.confidence 
-      : (cheque.cheque_ai_confidence ?? 0.95);
-    
-    const status = validation?.status || cheque.cheque_status || 'validated';
+    const confidence =
+      validation?.confidence !== undefined ? validation.confidence : cheque.cheque_ai_confidence ?? 0.95;
+
+    const status = validation?.status || cheque.cheque_status || "validated";
     const isValidated = status === "validated";
     const statusLabel = isValidated ? "Ready for Review" : "Flagged — Attention Required";
     const statusColor = isValidated ? "#166534" : "#991b1b";
@@ -189,7 +180,7 @@ export const notificationService = {
           </tr>
           <tr>
             <td class="label">Payee</td>
-            <td class="value">${payee || 'N/A'}</td>
+            <td class="value">${payee || "N/A"}</td>
           </tr>
           <tr>
             <td class="label">Security Status</td>
@@ -219,10 +210,9 @@ export const notificationService = {
       </div>
     `);
 
-    await resend.emails.send({
-      from: EMAIL_FROM,
+    await sendEmail({
       to: client.email,
-      subject: `VScanMail — Cheque ${statusLabel} ($${amount || '0.00'})`,
+      subject: `VScanMail — Cheque ${statusLabel} ($${amount || "0.00"})`,
       html,
     });
   },

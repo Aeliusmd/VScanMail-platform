@@ -121,12 +121,16 @@ export default function AdminScanPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch all clients for the override dropdown
+  // in the useEffect that loads clients
   useEffect(() => {
     apiClient<{ clients: any[] }>('/api/clients')
       .then(data => {
         if (data.clients) setClients(data.clients);
       })
-      .catch(err => console.error('Failed to load clients:', err));
+      .catch((err: any) => {
+        console.error('Failed to load clients:', err.status, err.message, err.details);
+        alert(`Failed to load organizations: ${err.message || 'Check server logs.'}`);
+      });
   }, []);
 
   // Run scanning animation for any scanning phase.

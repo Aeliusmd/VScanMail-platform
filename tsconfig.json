@@ -37,7 +37,6 @@
   "exclude": [
     "node_modules",
     "frontend",
-    "scripts",
-    "backfill-directory.ts"
+    "scripts"
   ]
 }

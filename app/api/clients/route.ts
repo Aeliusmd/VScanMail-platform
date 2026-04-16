@@ -12,16 +12,22 @@ export async function GET(req: NextRequest) {
   try {
     const user = await withAuth(req);
     withRole(user, ["admin", "super_admin"]);
-
-    const page = parseInt(req.nextUrl.searchParams.get("page") || "1");
-    const limit = parseInt(req.nextUrl.searchParams.get("limit") || "100");
-
+    const page = parseInt(req.nextUrl.searchParams.get("page") || "1", 10);
+    const limit = parseInt(req.nextUrl.searchParams.get("limit") || "100", 10);
     const result = await clientModel.list(page, limit);
     return NextResponse.json(result);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+  } catch (err: unknown) {
+    const message =
+      typeof err === "string"
+        ? err
+        : err instanceof Error
+        ? err.message
+        : "Unknown error while loading clients";
+    console.error("GET /api/clients failed:", err);
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }
+
 
 export async function POST(req: NextRequest) {
   try {

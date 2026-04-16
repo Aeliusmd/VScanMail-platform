@@ -164,3 +164,4 @@ export const notificationPreferencesModel = {
     return updated;
   },
 };
+
