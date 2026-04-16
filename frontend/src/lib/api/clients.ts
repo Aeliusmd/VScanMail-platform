@@ -47,6 +47,38 @@ export interface UpdateSubscriptionInput {
   subscriptionStatus: "active" | "pending" | "suspended";
 }
 
+export interface ClientDirectoryItem {
+  id: string;
+  client_code: string;
+  table_name: string;
+  company_name: string;
+  registration_no: string | null;
+  industry: string;
+  email: string;
+  phone: string;
+  address_json: {
+    street: string;
+    city: string;
+    state: string;
+    zip: string;
+    country: string;
+  };
+  client_type: "subscription" | "manual";
+  status: "active" | "suspended" | "pending" | "inactive";
+  two_fa_enabled: boolean;
+  added_by: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const clientsApi = {
+  list: (page = 1, limit = 100) =>
+    apiClient<{ clients: ClientDirectoryItem[]; total: number }>(
+      `/api/clients?page=${page}&limit=${limit}`
+    ),
+};
+
 export const companiesApi = {
   listManual: (page = 1, limit = 50) =>
     apiClient<{ companies: ManualCompany[]; total: number }>(

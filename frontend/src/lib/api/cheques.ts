@@ -31,12 +31,19 @@ export interface ChequeListResponse {
 }
 
 export const chequeApi = {
-  list: (params?: { archived?: boolean; page?: number; limit?: number; status?: string }) => {
+  list: (params?: {
+    archived?: boolean;
+    page?: number;
+    limit?: number;
+    status?: string;
+    clientId?: string;
+  }) => {
     const qs = new URLSearchParams();
     if (params?.archived !== undefined) qs.set("archived", String(params.archived));
     if (params?.page) qs.set("page", String(params.page));
     if (params?.limit) qs.set("limit", String(params.limit));
     if (params?.status) qs.set("status", params.status);
+    if (params?.clientId) qs.set("clientId", params.clientId);
     const suffix = qs.toString() ? `?${qs.toString()}` : "";
     return apiClient<ChequeListResponse>(`/api/records/cheques${suffix}`);
   },

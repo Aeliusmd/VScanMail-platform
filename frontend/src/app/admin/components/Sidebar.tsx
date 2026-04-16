@@ -31,8 +31,9 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const tabFromUrl = searchParams.get('tab');
+  const clientId = searchParams.get('clientId') || undefined;
   const basePath = '/admin';
-  const settingsPath = '/admin/settings';
+  const settingsPath = '/admin/settings/profile';
   const resolvedNavItems = navItems.map((item) => ({
     ...item,
     path: item.slug === '' ? `${basePath}` : `${basePath}${item.slug}`,
@@ -71,8 +72,14 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     let alive = true;
 
     if (isMailsPage) {
+      if (!clientId) {
+        setMailCounts({ total: 0, processed: 0, delivered: 0, pending: 0 });
+        return () => {
+          alive = false;
+        };
+      }
       mailApi
-        .list({ limit: 200 })
+        .list({ limit: 200, clientId })
         .then((res) => {
           if (!alive) return;
           const items = res.items || [];
@@ -93,8 +100,14 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     }
 
     if (isChequesPage) {
+      if (!clientId) {
+        setChequeCounts({ total: 0, pending: 0, deposited: 0, rejected: 0, onHold: 0 });
+        return () => {
+          alive = false;
+        };
+      }
       chequeApi
-        .list()
+        .list({ clientId, limit: 200 })
         .then((res) => {
           if (!alive) return;
           const items = res.cheques || [];
@@ -116,7 +129,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     return () => {
       alive = false;
     };
-  }, [isMailsPage, isChequesPage]);
+  }, [isMailsPage, isChequesPage, clientId]);
 
   const getTabValueForLabel = (pagePath: string, label: string): string | null => {
     // Mail page tabs: All | Processed | Delivered | Pending Delivery

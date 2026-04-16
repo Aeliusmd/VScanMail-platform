@@ -2,6 +2,7 @@ import { auditService } from "../audit/audit.service";
 import { db, sql } from "@/lib/modules/core/db/mysql";
 import { getClientTableName } from "@/lib/modules/core/db/dynamic-table";
 import { clients } from "@/lib/modules/core/db/schema";
+import { eq } from "drizzle-orm";
 
 export type MailItem = {
   id: string;
@@ -235,9 +236,19 @@ export const mailItemModel = {
 
     const countQuery = sql`SELECT COUNT(*) as count FROM ${sql.raw(`\`${tableName}\``)} ${whereClause}`;
     const [countRows] = await db.execute(countQuery) as any;
-    
+
+    const [clientRow] = await db
+      .select({ companyName: clients.companyName })
+      .from(clients)
+      .where(eq(clients.id, clientId))
+      .limit(1);
+    const companyName = clientRow?.companyName;
+
     return {
-      items: rows.map((r: any) => rowToMailItem(r, clientId)),
+      items: rows.map((r: any) => ({
+        ...rowToMailItem(r, clientId),
+        company_name: companyName,
+      })),
       total: Number(countRows[0]?.count || 0),
     };
   },

@@ -2,7 +2,7 @@ import { auditService } from "../audit/audit.service";
 import { db, sql } from "@/lib/modules/core/db/mysql";
 import { getClientTableName } from "@/lib/modules/core/db/dynamic-table";
 import { clients } from "@/lib/modules/core/db/schema";
-import { inArray } from "drizzle-orm"; // Kept for other files potentially needed, but we use sql.raw here
+import { inArray, eq } from "drizzle-orm"; // Kept for other files potentially needed, but we use sql.raw here
 
 export type Cheque = {
   id: string;
@@ -187,7 +187,8 @@ export const chequeModel = {
     clientId: string,
     page = 1,
     limit = 20,
-    archived?: boolean
+    archived?: boolean,
+    status?: string
   ) {
     const from = (page - 1) * limit;
     const tableName = await getClientTableName(clientId);
@@ -198,10 +199,11 @@ export const chequeModel = {
         : archived
           ? sql` AND created_at < ${cutoff}`
           : sql` AND created_at >= ${cutoff}`;
+    const statusClause = status ? sql` AND cheque_status = ${status}` : sql``;
 
     const query = sql`
       SELECT * FROM ${sql.raw(`\`${tableName}\``)}
-      WHERE record_type = 'cheque'${archiveClause}
+      WHERE record_type = 'cheque'${archiveClause}${statusClause}
       ORDER BY created_at DESC
       LIMIT ${limit} OFFSET ${from}
     `;
@@ -210,12 +212,22 @@ export const chequeModel = {
     const countQuery = sql`
       SELECT COUNT(*) as count
       FROM ${sql.raw(`\`${tableName}\``)}
-      WHERE record_type = 'cheque'${archiveClause}
+      WHERE record_type = 'cheque'${archiveClause}${statusClause}
     `;
     const [countRows] = await db.execute(countQuery) as any;
 
+    const [clientRow] = await db
+      .select({ companyName: clients.companyName })
+      .from(clients)
+      .where(eq(clients.id, clientId))
+      .limit(1);
+    const companyName = clientRow?.companyName;
+
     return {
-      cheques: rows.map((r: any) => rowToCheque(r, clientId)),
+      cheques: rows.map((r: any) => ({
+        ...rowToCheque(r, clientId),
+        company_name: companyName,
+      })),
       total: Number(countRows[0]?.count || 0),
     };
   },

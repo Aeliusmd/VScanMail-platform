@@ -15,8 +15,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const isScanRoute = pathname === '/admin/scan';
 
   const hideTopBar =
-    pathname === '/admin/mails' ||
-    pathname === '/admin/cheques' ||
     pathname === '/admin/archive' ||
     pathname === '/admin/companies' ||
     pathname === '/admin/deposits' ||
@@ -61,7 +59,15 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             hideSearch
           />
         )}
-        {!isSettingsRoute && !isScanRoute && !hideTopBar && <TopBar title="Dashboard Overview" />}
+        {!isSettingsRoute && !isScanRoute && !hideTopBar && (
+          pathname === '/admin/mails' ? (
+            <TopBar title="Mails" />
+          ) : pathname === '/admin/cheques' ? (
+            <TopBar title="Cheques" />
+          ) : (
+            <TopBar title="Dashboard Overview" />
+          )
+        )}
         <main
           className={
             isSettingsRoute

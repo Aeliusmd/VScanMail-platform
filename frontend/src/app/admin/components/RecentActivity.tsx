@@ -3,6 +3,7 @@ import Link from 'next/link';
 
 export type ActivityItem = {
   id: string;
+  clientId?: string;
   company: string;
   type: string;
   time: string;
@@ -29,7 +30,13 @@ export default function RecentActivity({ activities = [] }: RecentActivityProps)
         ) : activities.map((item) => (
           <Link
             key={item.id}
-            href={item.type === 'Cheque' ? '/admin/cheques' : '/admin/mails'}
+            href={
+              item.clientId
+                ? `${item.type === 'Cheque' ? '/admin/cheques' : '/admin/mails'}?clientId=${encodeURIComponent(item.clientId)}`
+                : item.type === 'Cheque'
+                  ? '/admin/cheques'
+                  : '/admin/mails'
+            }
             className="flex items-center justify-between py-3 border-b border-gray-50 hover:bg-gray-50/60 rounded-lg px-2 transition cursor-pointer"
           >
             <div className="flex items-center gap-3">

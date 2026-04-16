@@ -10,6 +10,7 @@ import styles from './page.module.css';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { chequeApi, type Cheque as ApiCheque } from '@/lib/api/cheques';
+import OrganizationPicker from '../components/OrganizationPicker';
 
 type TabType = 'All' | 'Pending Deposit' | 'Deposited' | 'Rejected' | 'On Hold';
 type ChequeItem = UiCheque & { archived?: boolean; archiveBox?: string };
@@ -38,14 +39,15 @@ function AllChequesPageContent() {
   const [activeTab, setActiveTab] = useState<TabType>('All');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [page, setPage] = useState(1);
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [openedCheque, setOpenedCheque] = useState<UiCheque | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const searchParams = useSearchParams();
   const tabFromUrl = searchParams.get('tab');
+  const clientId = searchParams.get('clientId') || '';
   const router = useRouter();
   const pathname = usePathname();
   const isSuperadminRoute = pathname.startsWith('/superadmin');
@@ -113,9 +115,15 @@ function AllChequesPageContent() {
 
   useEffect(() => {
     let alive = true;
+    if (!clientId) {
+      setLoading(false);
+      return () => {
+        alive = false;
+      };
+    }
     setLoading(true);
     chequeApi
-      .list({ archived: false })
+      .list({ archived: false, clientId, limit: 200 })
       .then((res) => {
         if (!alive) return;
         setChequeItems(res.cheques.map((c) => toUiCheque(c)));
@@ -127,7 +135,7 @@ function AllChequesPageContent() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [clientId]);
 
   useEffect(() => {
     if (!tabFromUrl) return;
@@ -137,6 +145,22 @@ function AllChequesPageContent() {
       setPage(1);
     }
   }, [tabFromUrl, activeTab]);
+
+  if (!clientId) {
+    return (
+      <div className="p-6">
+        <OrganizationPicker
+          title="Cheques"
+          subtitle="Select an organization to view its cheques."
+          onPick={(c) => {
+            const qs = new URLSearchParams(searchParams.toString());
+            qs.set('clientId', c.id);
+            router.replace(`${pathname}?${qs.toString()}`);
+          }}
+        />
+      </div>
+    );
+  }
 
   const notifications = [
     { id: 1, text: 'Cheque deposited for Global Enterprises', time: '5 mins ago', unread: true },

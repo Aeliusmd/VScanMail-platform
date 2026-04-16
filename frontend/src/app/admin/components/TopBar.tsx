@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Icon } from '@iconify/react';
 import Link from 'next/link';
+import { useAdminProfile } from './useAdminProfile';
 
 interface TopBarProps {
   title: string;
@@ -15,40 +16,7 @@ export default function TopBar({ title, subtitle, hideSearch }: TopBarProps) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
 
-  const [userData, setUserData] = useState<{ firstName: string, lastName: string, avatarUrl: string, email: string, role: string } | null>(null);
-
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        const { getProfile } = await import("../settings/profile/actions");
-        const res = await getProfile();
-        if (res.success && res.data) {
-          setUserData({
-            firstName: res.data.firstName || '',
-            lastName: res.data.lastName || '',
-            avatarUrl: res.data.avatarUrl || '',
-            email: res.data.email || '',
-            role: res.data.role || '',
-          });
-        }
-      } catch (err) {
-        console.error("Failed to fetch profile in header", err);
-      }
-    };
-    fetchUserProfile();
-
-    const handleUpdate = () => fetchUserProfile();
-    window.addEventListener('profileUpdated', handleUpdate);
-    return () => window.removeEventListener('profileUpdated', handleUpdate);
-  }, []);
-
-  const initials = userData?.firstName && userData?.lastName 
-    ? `${userData.firstName[0].toUpperCase()}${userData.lastName[0].toUpperCase()}`
-    : 'AD';
-
-  const displayName = userData?.firstName 
-    ? `${userData.firstName} ${userData.lastName}`
-    : 'Admin User';
+  const { userData, initials, displayName, displayRole } = useAdminProfile();
 
   const notifications = [
     { id: 1, text: 'New mail received from Tech Solutions Inc', time: '5 mins ago', unread: true },
@@ -73,18 +41,6 @@ export default function TopBar({ title, subtitle, hideSearch }: TopBarProps) {
 
       {/* Right side */}
       <div className="flex items-center gap-2 sm:gap-4">
-        {!hideSearch && (
-          <div className="relative hidden md:block">
-            <div className="w-5 h-5 flex items-center justify-center absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-              <Icon icon="ri:search-line" className="text-sm" />
-            </div>
-            <input
-              type="text"
-              placeholder="Search..."
-              className="pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 outline-none focus:ring-2 focus:ring-[#1E40AF]/20 focus:border-[#1E40AF] w-[220px] transition"
-            />
-          </div>
-        )}
 
         {/* Notifications */}
         <div className="relative">
@@ -138,7 +94,7 @@ export default function TopBar({ title, subtitle, hideSearch }: TopBarProps) {
             </div>
             <div className="text-left hidden sm:block">
               <p className="text-sm font-semibold text-gray-900 leading-4">{displayName}</p>
-              <p className="text-xs text-gray-500 uppercase">{userData?.role ? userData.role.replace('_', ' ') : 'Administrator'}</p>
+              <p className="text-xs text-gray-500 uppercase">{displayRole}</p>
             </div>
             <div className="w-4 h-4 items-center justify-center text-gray-400 hidden sm:flex">
               <Icon icon="ri:arrow-down-s-line" className="text-base" />
@@ -152,7 +108,7 @@ export default function TopBar({ title, subtitle, hideSearch }: TopBarProps) {
                 My Profile
               </Link>
               <Link
-                href="/admin/settings"
+                href="/admin/settings/profile"
                 onClick={() => setShowUserMenu(false)}
                 className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
               >

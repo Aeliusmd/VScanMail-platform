@@ -67,6 +67,7 @@ export async function GET(req: NextRequest) {
       const isCheque = item.type === 'cheque';
       return {
         id: isCheque ? `cheque-${item.id}` : `mail-${item.id}`,
+        clientId: item.client_id,
         company: item.company_name || "Unknown Company",
         type: isCheque ? "Cheque" : "Mail",
         time: item.scanned_at ? timeAgo(new Date(item.scanned_at)) : "recently",

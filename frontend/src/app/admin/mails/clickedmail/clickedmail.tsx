@@ -59,6 +59,19 @@ export default function ClickedMail({ mail, onClose }: ClickedMailProps) {
   };
   
   const raw = mail.raw || {};
+  const companyLabel =
+    (typeof mail.company === 'string' && mail.company.trim() ? mail.company : '') ||
+    (typeof mail.sender === 'string' && mail.sender.trim() ? mail.sender : '') ||
+    (typeof raw.company_name === 'string' && raw.company_name.trim() ? raw.company_name : '') ||
+    'Unknown Company';
+  const companyInitial =
+    String(companyLabel).trim().charAt(0).toUpperCase() || '?';
+  const emailLocal =
+    String(companyLabel)
+      .toLowerCase()
+      .replace(/\s+/g, '')
+      .replace(/[^a-z0-9]/g, '') || 'company';
+
   const images = useMemo(() => {
     const inside: string[] = Array.isArray(raw.content_scan_urls)
       ? raw.content_scan_urls.filter(Boolean)
@@ -194,11 +207,11 @@ export default function ClickedMail({ mail, onClose }: ClickedMailProps) {
               <p className={`${styles.detailLabel} ${styles.labelPrimary}`}>Recipient Company</p>
               <div className={styles.companyGroup}>
                 <div className={`${styles.companyAvatar} ${mail.senderColor}`}>
-                  {mail.company.charAt(0)}
+                  {companyInitial}
                 </div>
                 <div>
-                  <p className={styles.companyName}>{mail.company}</p>
-                  <p className={styles.companyEmail}>info@{mail.company.toLowerCase().replace(/\s+/g, '')}.com</p>
+                  <p className={styles.companyName}>{companyLabel}</p>
+                  <p className={styles.companyEmail}>info@{emailLocal}.com</p>
                 </div>
               </div>
             </div>

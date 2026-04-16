@@ -10,6 +10,7 @@ import styles from './page.module.css';
 import Link from 'next/link';
 import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import { useAdminProfile } from '../components/useAdminProfile';
+import OrganizationPicker from '../components/OrganizationPicker';
 
 type TabType = 'All' | 'Processed' | 'Delivered' | 'Pending Delivery';
 const TABS: TabType[] = ['All', 'Processed', 'Delivered', 'Pending Delivery'];
@@ -31,20 +32,22 @@ function AllMailsPageContent() {
   const [activeTab, setActiveTab] = useState<TabType>('All');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [page, setPage] = useState(1);
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [openedMail, setOpenedMail] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const searchParams = useSearchParams();
   const tabFromUrl = searchParams.get('tab');
+  const clientId = searchParams.get('clientId') || '';
   const router = useRouter();
   const pathname = usePathname();
   const isSuperadminRoute = pathname.startsWith('/superadmin');
   const scanPath = isSuperadminRoute ? '/superadmin/scan' : '/admin/scan';
 
   const fetchMails = useCallback(async () => {
+    if (!clientId) return;
     setLoading(true);
     try {
       let status;
@@ -58,23 +61,27 @@ function AllMailsPageContent() {
         status,
         search: search || undefined,
         archived: false,
+        clientId,
       });
 
       // Map API items to the UI Mail interface
-      const mappedItems = data.items.map(item => ({
+      const mappedItems = data.items.map(item => {
+        const companyName = (item as any).company_name ?? 'Unknown Company';
+        return {
         id: item.id,
-        sender: (item as any).company_name,
+        sender: companyName,
         subject: `${item.type.charAt(0).toUpperCase() + item.type.slice(1)} - ${item.irn}`,
         preview: item.ai_summary || 'No preview available.',
         time: new Date(item.scanned_at || item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         date: new Date(item.scanned_at || item.created_at).toLocaleDateString(),
-        company: (item as any).company_name,
+        company: companyName,
         tag: item.status.charAt(0).toUpperCase() + item.status.slice(1),
         archived: false,
-        senderInitial: String((item as any).company_name || 'C').charAt(0).toUpperCase(),
+        senderInitial: String(companyName).charAt(0).toUpperCase(),
         senderColor: 'bg-blue-600',
-        raw: item 
-      }));
+        raw: item,
+      };
+      });
 
       setMailItems(mappedItems);
       setTotalCount(data.total);
@@ -87,7 +94,7 @@ function AllMailsPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [page, activeTab, search]);
+  }, [page, activeTab, search, clientId]);
 
   useEffect(() => {
     fetchMails();
@@ -102,6 +109,22 @@ function AllMailsPageContent() {
       setPage(1);
     }
   }, [tabFromUrl, activeTab]);
+
+  if (!clientId) {
+    return (
+      <div className="p-6">
+        <OrganizationPicker
+          title="Mails"
+          subtitle="Select an organization to view its mails."
+          onPick={(c) => {
+            const qs = new URLSearchParams(searchParams.toString());
+            qs.set('clientId', c.id);
+            router.replace(`${pathname}?${qs.toString()}`);
+          }}
+        />
+      </div>
+    );
+  }
 
   // Mock Notifications for Mail Page Topbar
   const notifications = [
