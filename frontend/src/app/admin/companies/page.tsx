@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { useSuperAdminToolbarOptional } from '../../superadmin/components/SuperAdminToolbarContext';
 import { apiClient } from '@/lib/api-client';
 import { useAdminProfile } from '../components/useAdminProfile';
+import OrganizationNotificationEditor from '../../superadmin/companies/components/OrganizationNotificationEditor';
 
 type TabType = 'All' | 'Active' | 'Pending' | 'Inactive';
 
@@ -56,6 +57,14 @@ function CompaniesPageContent() {
     phone: '',
     notes: '',
   });
+  const [newOrgNotifDraft, setNewOrgNotifDraft] = useState({
+    emailEnabled: true,
+    newDocumentScanned: true,
+  });
+  const [editOrgNotifDraft, setEditOrgNotifDraft] = useState({
+    emailEnabled: true,
+    newDocumentScanned: true,
+  });
 
   const searchParams = useSearchParams();
   const tabFromUrl = searchParams.get('tab');
@@ -71,6 +80,8 @@ function CompaniesPageContent() {
     superToolbar.setAddCompanyHandler(() => {
       setEditingCompany(null);
       setAddSuccess(false);
+      setNewOrgNotifDraft({ emailEnabled: true, newDocumentScanned: true });
+      setEditOrgNotifDraft({ emailEnabled: true, newDocumentScanned: true });
       setNewCompany({
         name: '',
         industry: 'Technology',
@@ -186,6 +197,8 @@ function CompaniesPageContent() {
 
   const handleEdit = (company: Company) => {
     setEditingCompany(company);
+    setNewOrgNotifDraft({ emailEnabled: true, newDocumentScanned: true });
+    setEditOrgNotifDraft({ emailEnabled: true, newDocumentScanned: true });
     setNewCompany({
       name: company.name,
       industry: company.industry,
@@ -242,7 +255,7 @@ function CompaniesPageContent() {
       const endpoint = editingCompany ? `/api/clients/${editingCompany.id}` : '/api/clients';
       const method = editingCompany ? 'PATCH' : 'POST';
 
-      await apiClient(endpoint, {
+      const createOrUpdateRes = await apiClient<any>(endpoint, {
         method,
         body: JSON.stringify({
           companyName: newCompany.name,
@@ -258,9 +271,37 @@ function CompaniesPageContent() {
             country: newCompany.country 
           },
           notes: newCompany.notes,
-          clientType: 'manual'
+          ...(editingCompany ? {} : { clientType: "manual" }),
         })
       });
+
+      if (isSuperadminRoute) {
+        const clientIdForPrefs: string | undefined = editingCompany
+          ? editingCompany.id
+          : createOrUpdateRes?.client?.id ?? createOrUpdateRes?.data?.client?.id ?? createOrUpdateRes?.id;
+        const prefsDraft = editingCompany ? editOrgNotifDraft : newOrgNotifDraft;
+
+        if (clientIdForPrefs) {
+          try {
+            await apiClient(`/api/clients/${clientIdForPrefs}/notification-preferences`, {
+              method: "PUT",
+              body: JSON.stringify({
+                emailEnabled: prefsDraft.emailEnabled,
+                newMailScanned: prefsDraft.newDocumentScanned,
+                newChequeScanned: prefsDraft.newDocumentScanned,
+                deliveryUpdates: false,
+                depositUpdates: false,
+                weeklySummary: false,
+              }),
+            });
+          } catch (e: any) {
+            alert(
+              e?.message ||
+                "Organization saved, but notification preferences could not be saved. You can try again later."
+            );
+          }
+        }
+      }
 
       setAddSuccess(true);
       await fetchCompanies(); // Refresh the list
@@ -283,6 +324,8 @@ function CompaniesPageContent() {
         phone: '',
         notes: '',
       });
+      setNewOrgNotifDraft({ emailEnabled: true, newDocumentScanned: true });
+      setEditOrgNotifDraft({ emailEnabled: true, newDocumentScanned: true });
       setActiveTab('All');
       setPage(1);
     }, 900);
@@ -588,6 +631,24 @@ function CompaniesPageContent() {
                   <textarea value={newCompany.notes} onChange={(e) => setNewCompany((p) => ({ ...p, notes: e.target.value }))} placeholder="Any special handling instructions, preferences, or important notes about this company..." rows={4} maxLength={500} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all resize-none" />
                   <p className="text-xs text-slate-400 mt-1 text-right">{newCompany.notes.length}/500</p>
                 </div>
+
+                {isSuperadminRoute ? (
+                  editingCompany?.id ? (
+                    <OrganizationNotificationEditor
+                      clientId={editingCompany.id}
+                      mode="existing"
+                      onDraftChange={setEditOrgNotifDraft}
+                      showSaveButton={false}
+                    />
+                  ) : (
+                    <OrganizationNotificationEditor
+                      mode="draft"
+                      draftValue={newOrgNotifDraft}
+                      onDraftChange={setNewOrgNotifDraft}
+                      showSaveButton={false}
+                    />
+                  )
+                ) : null}
               </div>
             )}
 

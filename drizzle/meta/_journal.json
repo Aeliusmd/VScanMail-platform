@@ -22,6 +22,27 @@
       "when": 1776187139000,
       "tag": "0002_client_notification_preferences",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1776187200000,
+      "tag": "0003_billing_plan_notification_features",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1776187300000,
+      "tag": "0004_backfill_client_notification_preferences",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1776351600000,
+      "tag": "0005_fix_subscription_clients_and_backfill_subscriptions",
+      "breakpoints": true
     }
   ]
 }

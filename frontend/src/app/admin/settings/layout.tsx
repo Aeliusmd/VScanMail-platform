@@ -11,11 +11,6 @@ const items = [
     label: 'Profile',
     icon: 'ri:user-line',
   },
-  {
-    href: '/admin/settings/notifications',
-    label: 'Notifications',
-    icon: 'ri:notification-3-line',
-  },
 ];
 
 export default function SettingsLayout({ children }: { children: ReactNode }) {

@@ -28,6 +28,14 @@ export async function PATCH(
     const { id } = await params;
     const body = await req.json();
 
+    // client_type (plan type) must never be mutable from this endpoint.
+    // Only subscription/billing flows should manage plan/type.
+    if (body && typeof body === "object") {
+      delete (body as any).clientType;
+      delete (body as any).client_type;
+      delete (body as any).client_type_id;
+    }
+
     const client = await clientModel.update(id, body, user.id, req);
 
     return NextResponse.json(client);
