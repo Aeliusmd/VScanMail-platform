@@ -6,7 +6,6 @@ import {
   FALLBACK_ACCOUNT,
   fetchCustomerAccount,
   saveCustomerAccount,
-  type BankAccountDto,
 } from "@/lib/customerAccount";
 import { buildBillingSubscriptionState } from "@/lib/billingLocal";
 import {
@@ -14,12 +13,13 @@ import {
   postBillingUpgradeRequest,
   type CustomerBillingResponse,
 } from "@/lib/customerBilling";
+import { useOrgContext } from "../components/OrgContext";
+import { billingApi, type UsageSummary } from "@/lib/api/billing";
+import { bankAccountsApi, type BankAccountListItem } from "@/lib/api/bankAccounts";
 
-type BankAccount = BankAccountDto;
+type BankAccount = BankAccountListItem;
 
 type AccountTab = "profile" | "bank-accounts" | "security" | "notifications" | "billing";
-
-const COMPANY_ID = "demo";
 
 function scanUsagePercent(used: number, limit: number): number {
   if (limit <= 0) return 0;
@@ -68,6 +68,9 @@ const SUBSCRIPTION_PLANS = [
 ];
 
 export default function CustomerAccountPage() {
+  const org = useOrgContext();
+  const companyId = org.clientId ?? "demo";
+
   const [activeTab, setActiveTab] = useState<AccountTab>("profile");
   const [accountLoading, setAccountLoading] = useState(true);
   const [accountError, setAccountError] = useState<string | null>(null);
@@ -75,6 +78,8 @@ export default function CustomerAccountPage() {
   const [showAddBank, setShowAddBank] = useState(false);
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -83,10 +88,8 @@ export default function CustomerAccountPage() {
 
   const [newBank, setNewBank] = useState({
     bankName: "",
-    accountName: "",
+    nickname: "",
     accountNumber: "",
-    confirmAccountNumber: "",
-    routingNumber: "",
     accountType: "Checking" as "Checking" | "Savings",
     isPrimary: false,
   });
@@ -96,6 +99,7 @@ export default function CustomerAccountPage() {
   const [notifs, setNotifs] = useState(FALLBACK_ACCOUNT.notifications);
 
   const [billing, setBilling] = useState<CustomerBillingResponse>(() => structuredClone(FALLBACK_BILLING));
+  const [usage, setUsage] = useState<UsageSummary | null>(null);
 
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [selectedUpgradePlan, setSelectedUpgradePlan] = useState<string | null>(null);
@@ -106,25 +110,65 @@ export default function CustomerAccountPage() {
     setAccountLoading(true);
     setAccountError(null);
     try {
-      const data = await fetchCustomerAccount(COMPANY_ID);
-      setProfile(data.profile);
-      setBankAccounts(data.bankAccounts);
+      const data = await fetchCustomerAccount(companyId);
+      setProfile((prev) => ({
+        ...data.profile,
+        companyName: org.companyName || data.profile.companyName,
+        email: org.client?.email || data.profile.email,
+      }));
       setSecurity(data.security);
       setNotifs(data.notifications);
     } catch (e) {
       setAccountError(e instanceof Error ? e.message : "Could not load account");
-      setProfile(FALLBACK_ACCOUNT.profile);
-      setBankAccounts(FALLBACK_ACCOUNT.bankAccounts);
+      setProfile((prev) => ({
+        ...(FALLBACK_ACCOUNT.profile as any),
+        companyName: org.companyName || FALLBACK_ACCOUNT.profile.companyName,
+        email: org.client?.email || FALLBACK_ACCOUNT.profile.email,
+      }));
       setSecurity(FALLBACK_ACCOUNT.security);
       setNotifs(FALLBACK_ACCOUNT.notifications);
+    }
+
+    try {
+      // Bank accounts are fetched from the secure bank accounts API (encrypted at rest server-side).
+      const banks = await bankAccountsApi.list();
+      setBankAccounts(banks);
+    } catch (e) {
+      // Don't blank the list on transient errors; keep what we have and show a lightweight error.
+      console.error("Failed to load bank accounts:", e);
     } finally {
       setAccountLoading(false);
     }
-  }, []);
+  }, [companyId, org.companyName, org.client?.email]);
 
   useEffect(() => {
     void loadAccount();
   }, [loadAccount]);
+
+  useEffect(() => {
+    if (org.loading) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const u = await billingApi.getUsage();
+        if (cancelled) return;
+        setUsage(u);
+        const totalQty = Object.values(u.breakdown || {}).reduce((sum, b) => sum + (b?.quantity || 0), 0);
+        setBilling((prev) => ({
+          ...prev,
+          manual: { ...prev.manual, scansUsed: totalQty },
+          subscription: { ...prev.subscription, scansUsed: totalQty },
+        }));
+      } catch (e) {
+        // keep fallback billing
+        console.error("Failed to load billing usage:", e);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [org.loading]);
 
   const showSuccess = (msg: string) => {
     setSuccessMsg(msg);
@@ -140,7 +184,7 @@ export default function CustomerAccountPage() {
     const next = buildBillingSubscriptionState(billing, plan);
     setBilling(next);
 
-    void postBillingUpgradeRequest(selectedUpgradePlan, COMPANY_ID).catch(() => { });
+    void postBillingUpgradeRequest(selectedUpgradePlan, companyId).catch(() => { });
 
     setUpgradeSubmitting(false);
     setUpgradeConfirmed(true);
@@ -155,7 +199,7 @@ export default function CustomerAccountPage() {
   const saveProfile = async () => {
     setSaving(true);
     try {
-      const data = await saveCustomerAccount({ profile }, COMPANY_ID);
+      const data = await saveCustomerAccount({ profile }, companyId);
       setProfile(data.profile);
       setProfileDirty(false);
       showSuccess("Profile updated successfully!");
@@ -166,80 +210,87 @@ export default function CustomerAccountPage() {
     }
   };
 
-  const persistBanks = async (next: BankAccount[]): Promise<boolean> => {
+  function onlyDigits(s: string) {
+    return String(s || "").replace(/\D/g, "");
+  }
+
+  const addBankAccount = async () => {
+    setBankFormError("");
+    if (!newBank.bankName || !newBank.nickname || !newBank.accountNumber) {
+      setBankFormError("Please fill in all required fields.");
+      return;
+    }
+
+    const acct = onlyDigits(newBank.accountNumber);
+    if (acct.length < 4 || acct.length > 17) {
+      setBankFormError("Account number must be 4 to 17 digits.");
+      return;
+    }
+
     setSaving(true);
     try {
-      const data = await saveCustomerAccount({ bankAccounts: next }, COMPANY_ID);
-      setBankAccounts(data.bankAccounts);
-      return true;
+      await bankAccountsApi.create({
+        bankName: newBank.bankName,
+        nickname: newBank.nickname,
+        accountType: newBank.accountType === "Checking" ? "checking" : "savings",
+        accountNumber: acct,
+        isPrimary: newBank.isPrimary,
+      });
+      setShowAddBank(false);
+      setBankAccounts(await bankAccountsApi.list());
+      setNewBank({
+        bankName: "",
+        nickname: "",
+        accountNumber: "",
+        accountType: "Checking",
+        isPrimary: false,
+      });
+      showSuccess("Bank account added successfully!");
     } catch (e) {
-      showSuccess(e instanceof Error ? e.message : "Failed to save bank accounts");
-      await loadAccount();
-      return false;
+      setBankFormError(e instanceof Error ? e.message : "Failed to add bank account");
     } finally {
       setSaving(false);
     }
   };
 
-  const addBankAccount = async () => {
-    setBankFormError("");
-    if (!newBank.bankName || !newBank.accountName || !newBank.accountNumber || !newBank.routingNumber) {
-      setBankFormError("Please fill in all required fields.");
-      return;
-    }
-    if (newBank.accountNumber !== newBank.confirmAccountNumber) {
-      setBankFormError("Account numbers do not match.");
-      return;
-    }
-    const masked = "****" + newBank.accountNumber.slice(-4);
-    const routingMasked = "****" + newBank.routingNumber.slice(-4);
-    const id = "ba" + Date.now();
-    const newAcc: BankAccount = {
-      id,
-      bankName: newBank.bankName,
-      accountName: newBank.accountName,
-      accountNumber: masked,
-      routingNumber: routingMasked,
-      accountType: newBank.accountType,
-      isPrimary: newBank.isPrimary || bankAccounts.length === 0,
-      addedDate: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-      lastUsed: "—",
-      bankLogo:
-        "https://readdy.ai/api/search-image?query=bank%20institution%20logo%20icon%20modern%20financial%20corporate%20minimal%20clean%20design%20emblem%20simple%20professional&width=40&height=40&seq=bl3&orientation=squarish",
-    };
-    const base = newBank.isPrimary ? bankAccounts.map((b) => ({ ...b, isPrimary: false })) : bankAccounts;
-    const next = [...base, newAcc];
-    setNewBank({
-      bankName: "",
-      accountName: "",
-      accountNumber: "",
-      confirmAccountNumber: "",
-      routingNumber: "",
-      accountType: "Checking",
-      isPrimary: false,
-    });
-    setShowAddBank(false);
-    const ok = await persistBanks(next);
-    if (ok) showSuccess("Bank account added successfully!");
-  };
-
   const setPrimary = async (id: string) => {
-    const next = bankAccounts.map((b) => ({ ...b, isPrimary: b.id === id }));
-    const ok = await persistBanks(next);
-    if (ok) showSuccess("Primary account updated!");
+    setSaving(true);
+    try {
+      await bankAccountsApi.setPrimary(id);
+      setBankAccounts(await bankAccountsApi.list());
+      showSuccess("Primary account updated!");
+    } catch (e) {
+      showSuccess(e instanceof Error ? e.message : "Failed to update primary account");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const deleteAccount = async (id: string) => {
-    const next = bankAccounts.filter((b) => b.id !== id);
-    setDeleteConfirmId(null);
-    const ok = await persistBanks(next);
-    if (ok) showSuccess("Bank account removed.");
+    setDeleteError(null);
+    if (!deletePassword) {
+      setDeleteError("Please enter your password to confirm.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await bankAccountsApi.remove(id, deletePassword);
+      setDeleteConfirmId(null);
+      setDeletePassword("");
+      setBankAccounts(await bankAccountsApi.list());
+      showSuccess("Bank account removed.");
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : "Failed to remove bank account");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const saveSecurityPrefs = async () => {
     setSaving(true);
     try {
-      const data = await saveCustomerAccount({ security }, COMPANY_ID);
+      const data = await saveCustomerAccount({ security }, companyId);
       setSecurity(data.security);
       showSuccess("Security preferences saved!");
     } catch (e) {
@@ -252,7 +303,7 @@ export default function CustomerAccountPage() {
   const saveNotificationPrefs = async () => {
     setSaving(true);
     try {
-      const data = await saveCustomerAccount({ notifications: notifs }, COMPANY_ID);
+      const data = await saveCustomerAccount({ notifications: notifs }, companyId);
       setNotifs(data.notifications);
       showSuccess("Notification preferences saved!");
     } catch (e) {
@@ -475,24 +526,21 @@ export default function CustomerAccountPage() {
                       bankAccounts.map(ba => (
                         <div key={ba.id} className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:gap-5">
                           <div className="flex items-start gap-4 sm:contents">
-                            <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-gray-100">
-                              <img src={ba.bankLogo} alt={ba.bankName} className="h-full w-full object-cover" />
+                            <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-blue-50 flex items-center justify-center">
+                              <i className="ri-bank-line text-xl text-[#0A3D8F]"></i>
                             </div>
                             <div className="min-w-0 flex-1">
                               <div className="mb-0.5 flex flex-wrap items-center gap-2">
-                                <h3 className="text-sm font-bold text-gray-900">{ba.accountName}</h3>
+                                <h3 className="text-sm font-bold text-gray-900">{ba.nickname}</h3>
                                 {ba.isPrimary && (
                                   <span className="rounded-full bg-[#0A3D8F]/10 px-2 py-0.5 text-xs font-medium text-[#0A3D8F]">Primary</span>
                                 )}
-                                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ba.accountType === "Checking" ? "bg-blue-50 text-blue-700" : "bg-green-50 text-[#2F8F3A]"}`}>
-                                  {ba.accountType}
+                                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ba.accountType === "checking" ? "bg-blue-50 text-blue-700" : "bg-green-50 text-[#2F8F3A]"}`}>
+                                  {ba.accountType === "checking" ? "Checking" : "Savings"}
                                 </span>
                               </div>
                               <p className="text-xs text-gray-600">
-                                {ba.bankName} • {ba.accountNumber}
-                              </p>
-                              <p className="mt-0.5 text-xs text-gray-400">
-                                Routing: {ba.routingNumber} • Added {ba.addedDate} • Last used {ba.lastUsed}
+                                {ba.bankName} • •••• {ba.accountLast4}
                               </p>
                             </div>
                           </div>
@@ -547,13 +595,13 @@ export default function CustomerAccountPage() {
                           <label className="block text-sm font-medium text-gray-700 mb-1.5">Bank Name <span className="text-red-500">*</span></label>
                           <input type="text" value={newBank.bankName} onChange={e => setNewBank(p => ({ ...p, bankName: e.target.value }))}
                             placeholder="e.g. Chase Bank, Wells Fargo"
-                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
+                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1.5">Account Nickname <span className="text-red-500">*</span></label>
-                          <input type="text" value={newBank.accountName} onChange={e => setNewBank(p => ({ ...p, accountName: e.target.value }))}
+                          <input type="text" value={newBank.nickname} onChange={e => setNewBank(p => ({ ...p, nickname: e.target.value }))}
                             placeholder="e.g. Acme Corp Operating"
-                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
+                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1.5">Account Type <span className="text-red-500">*</span></label>
@@ -568,21 +616,10 @@ export default function CustomerAccountPage() {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1.5">Account Number <span className="text-red-500">*</span></label>
-                          <input type="password" value={newBank.accountNumber} onChange={e => setNewBank(p => ({ ...p, accountNumber: e.target.value }))}
+                          <input type="text" inputMode="numeric" autoComplete="off" value={newBank.accountNumber} onChange={e => setNewBank(p => ({ ...p, accountNumber: e.target.value }))}
                             placeholder="Enter account number"
-                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1.5">Confirm Account Number <span className="text-red-500">*</span></label>
-                          <input type="password" value={newBank.confirmAccountNumber} onChange={e => setNewBank(p => ({ ...p, confirmAccountNumber: e.target.value }))}
-                            placeholder="Re-enter account number"
-                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1.5">Routing Number <span className="text-red-500">*</span></label>
-                          <input type="text" value={newBank.routingNumber} onChange={e => setNewBank(p => ({ ...p, routingNumber: e.target.value }))}
-                            placeholder="9-digit routing number"
-                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
+                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
+                          <p className="mt-1 text-xs text-gray-400">Between 4 and 17 digits.</p>
                         </div>
                         <label className="flex items-center gap-3 cursor-pointer">
                           <input type="checkbox" checked={newBank.isPrimary} onChange={e => setNewBank(p => ({ ...p, isPrimary: e.target.checked }))} className="w-4 h-4 text-[#0A3D8F] rounded" />
@@ -609,13 +646,40 @@ export default function CustomerAccountPage() {
                         <i className="ri-delete-bin-line text-red-500 text-xl"></i>
                       </div>
                       <h3 className="text-lg font-bold text-gray-900 text-center mb-2">Remove Bank Account?</h3>
-                      <p className="text-sm text-gray-500 text-center mb-6">This account will be removed from your profile. This action cannot be undone.</p>
+                      <p className="text-sm text-gray-500 text-center mb-4">For security, please confirm with your password.</p>
+                      {deleteError && (
+                        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+                          <i className="ri-error-warning-fill text-red-500"></i>
+                          <span className="text-sm text-red-700">{deleteError}</span>
+                        </div>
+                      )}
+                      <div className="mb-5">
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
+                        <input
+                          type="password"
+                          value={deletePassword}
+                          onChange={(e) => setDeletePassword(e.target.value)}
+                          placeholder="Enter your password"
+                          className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                        />
+                      </div>
                       <div className="flex gap-3">
-                        <button onClick={() => setDeleteConfirmId(null)} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 cursor-pointer whitespace-nowrap">
+                        <button
+                          onClick={() => {
+                            setDeleteConfirmId(null);
+                            setDeletePassword("");
+                            setDeleteError(null);
+                          }}
+                          className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 cursor-pointer whitespace-nowrap"
+                        >
                           Cancel
                         </button>
-                        <button onClick={() => deleteAccount(deleteConfirmId)} className="flex-1 py-2.5 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 cursor-pointer whitespace-nowrap">
-                          Remove
+                        <button
+                          onClick={() => deleteAccount(deleteConfirmId)}
+                          disabled={saving}
+                          className="flex-1 py-2.5 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 cursor-pointer whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          {saving ? "Removing…" : "Remove"}
                         </button>
                       </div>
                     </div>

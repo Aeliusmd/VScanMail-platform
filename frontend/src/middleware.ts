@@ -10,6 +10,19 @@ const PUBLIC_ROUTES = [
   "/verify-email",
 ];
 
+function decodeJwtPayload(token: string): any | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return null;
+    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+    const json = atob(padded);
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get("sb-access-token")?.value;
@@ -37,6 +50,22 @@ export function middleware(request: NextRequest) {
       loginUrl.searchParams.set("redirect", pathname);
     }
     return NextResponse.redirect(loginUrl);
+  }
+
+  // 4. Optional role-based guards (if role is present in JWT payload)
+  const payload = decodeJwtPayload(token);
+  const role = payload?.role as string | undefined;
+
+  if (pathname.startsWith("/customer")) {
+    if (role && role !== "client") {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+  }
+
+  if (pathname.startsWith("/admin") || pathname.startsWith("/super-admin")) {
+    if (role === "client") {
+      return NextResponse.redirect(new URL("/customer/dashboard", request.url));
+    }
   }
 
   return NextResponse.next();

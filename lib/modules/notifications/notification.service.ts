@@ -396,4 +396,61 @@ export const notificationService = {
       html,
     });
   },
+
+  async sendBankAccountChangeAlert(
+    clientId: string,
+    payload: {
+      kind: "added" | "removed";
+      bankName: string;
+      nickname: string;
+      accountLast4: string;
+    }
+  ) {
+    const prefs = await notificationPreferencesService.getForClient(clientId);
+    // Use existing depositUpdates flag as the closest matching preference.
+    if (!prefs.emailEnabled || !prefs.depositUpdates) return;
+
+    const client = await clientModel.findById(clientId);
+
+    const verb = payload.kind === "added" ? "added" : "removed";
+    const title =
+      payload.kind === "added"
+        ? "Bank account added"
+        : "Bank account removed";
+
+    const html = wrapInTemplate(`
+      <h1 style="font-size: 20px; color: #0f172a; margin-top: 0;">${title}</h1>
+      <p style="color: #64748b; font-size: 15px;">
+        A bank account was <strong style="color:#0f172a;">${verb}</strong> for your organization.
+        For security, we only show the last 4 digits.
+      </p>
+
+      <div class="highlight-box">
+        <table class="detail-table">
+          <tr>
+            <td class="label">Nickname</td>
+            <td class="value">${escapeHtml(payload.nickname)}</td>
+          </tr>
+          <tr>
+            <td class="label">Bank</td>
+            <td class="value">${escapeHtml(payload.bankName)}</td>
+          </tr>
+          <tr>
+            <td class="label">Account</td>
+            <td class="value">•••• ${escapeHtml(payload.accountLast4)}</td>
+          </tr>
+        </table>
+      </div>
+
+      <p style="color:#64748b;font-size:13px;margin:0;">
+        If you did not perform this change, please contact support immediately.
+      </p>
+    `);
+
+    await sendEmail({
+      to: client.email,
+      subject: `VScanMail — ${title}`,
+      html,
+    });
+  },
 };

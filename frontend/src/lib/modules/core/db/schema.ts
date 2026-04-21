@@ -8,6 +8,7 @@ import {
   date,
   decimal,
   int,
+  varbinary,
   mysqlEnum,
   index,
   uniqueIndex,
@@ -44,6 +45,8 @@ export const profiles = mysqlTable(
     userId: varchar("user_id", { length: 36 }).notNull(),
     role: mysqlEnum("role", ["super_admin", "admin", "client"]).notNull(),
     clientId: varchar("client_id", { length: 36 }),
+    // TOTP secret for step-up auth (super_admin reveal). Client org 2FA lives on `clients.two_fa_secret`.
+    twoFaSecret: varchar("two_fa_secret", { length: 255 }),
     createdAt: datetime("created_at", { mode: "date" }).notNull(),
     updatedAt: datetime("updated_at", { mode: "date" }).notNull(),
   },
@@ -249,5 +252,41 @@ export const auditLogs = mysqlTable(
     entityIdx: index("al_entity_idx").on(t.entityType, t.entityId),
     actionIdx: index("al_action_idx").on(t.action),
     createdIdx: index("al_created_idx").on(t.createdAt),
+  })
+);
+
+// --- Banking (per client / organization) ---
+export const clientBankAccounts = mysqlTable(
+  "client_bank_accounts",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    clientId: varchar("client_id", { length: 36 }).notNull(),
+
+    bankName: varchar("bank_name", { length: 128 }).notNull(),
+    nickname: varchar("nickname", { length: 64 }).notNull(),
+    accountType: mysqlEnum("account_type", ["checking", "savings"]).notNull(),
+
+    // Non-sensitive display/search
+    accountLast4: varchar("account_last4", { length: 4 }).notNull(),
+
+    // Encrypted payload stored as VARBINARY (AES-256-GCM: iv|tag|ciphertext)
+    accountNumberEnc: varbinary("account_number_enc", { length: 512 }).notNull(),
+    keyVersion: int("key_version").notNull().default(1),
+
+    // Integrity / dedupe without decrypt (HMAC-SHA256(account_number, key_v) hex)
+    accountNumberHash: varchar("account_number_hash", { length: 64 }).notNull(),
+
+    isPrimary: boolean("is_primary").notNull().default(false),
+    status: mysqlEnum("status", ["active", "disabled"]).notNull().default("active"),
+
+    createdBy: varchar("created_by", { length: 36 }).notNull(),
+    createdAt: datetime("created_at", { mode: "date" }).notNull(),
+    updatedAt: datetime("updated_at", { mode: "date" }).notNull(),
+    deletedAt: datetime("deleted_at", { mode: "date" }),
+  },
+  (t) => ({
+    clientIdx: index("cba_client_idx").on(t.clientId),
+    clientActiveIdx: index("cba_client_active_idx").on(t.clientId, t.status),
+    hashUq: uniqueIndex("cba_client_hash_uq").on(t.clientId, t.accountNumberHash),
   })
 );

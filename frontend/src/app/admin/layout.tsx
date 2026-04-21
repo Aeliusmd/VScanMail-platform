@@ -18,7 +18,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     pathname === '/admin/archive' ||
     pathname === '/admin/companies' ||
     pathname === '/admin/deposits' ||
-    pathname === '/admin/deliveries';
+    pathname === '/admin/deliveries' ||
+    pathname === '/admin/mails' ||
+    pathname === '/admin/cheques';
 
   return (
     <div className="flex h-screen w-full bg-gray-50 overflow-hidden">
@@ -60,13 +62,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           />
         )}
         {!isSettingsRoute && !isScanRoute && !hideTopBar && (
-          pathname === '/admin/mails' ? (
-            <TopBar title="Mails" />
-          ) : pathname === '/admin/cheques' ? (
-            <TopBar title="Cheques" />
-          ) : (
-            <TopBar title="Dashboard Overview" />
-          )
+          <TopBar title="Dashboard Overview" />
         )}
         <main
           className={

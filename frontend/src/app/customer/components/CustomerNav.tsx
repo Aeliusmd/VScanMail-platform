@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useOrgContext } from "./OrgContext";
 
 type NotificationAccent = "primary" | "success" | "amber" | "neutral";
 
@@ -41,15 +42,6 @@ const notifications = [
   },
 ];
 
-const navLinks = [
-  { label: "Dashboard", href: "/customer", icon: "ri-dashboard-line" },
-  { label: "Mails", href: "/customer/mails", icon: "ri-mail-line" },
-  { label: "Cheques", href: "/customer/cheques", icon: "ri-bank-card-line" },
-  { label: "Deposits", href: "/customer/deposits", icon: "ri-exchange-dollar-line" },
-  { label: "Deliveries", href: "/customer/deliveries", icon: "ri-truck-line" },
-  { label: "Account", href: "/customer/account", icon: "ri-user-settings-line" },
-] as const;
-
 const accentBorder: Record<NotificationAccent, string> = {
   primary: "border-[#0A3D8F]",
   success: "border-[#2F8F3A]",
@@ -58,13 +50,11 @@ const accentBorder: Record<NotificationAccent, string> = {
 };
 
 function isNavActive(pathname: string, href: string) {
-  if (href === "/customer") {
-    return pathname === "/customer" || pathname === "/customer/dashboard";
-  }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 export default function CustomerNav() {
+  const org = useOrgContext();
   const pathname = usePathname();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -73,6 +63,26 @@ export default function CustomerNav() {
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   const unreadCount = notifications.filter((n) => n.unread).length;
+  const companyName = org.companyName || "Organization";
+  const email = org.client?.email || "";
+  const clientId = org.clientId;
+  const baseHref = clientId ? `/customer/${clientId}` : "/customer";
+
+  const navLinks = [
+    { label: "Dashboard", href: `${baseHref}/dashboard`, icon: "ri-dashboard-line" },
+    { label: "Mails", href: `${baseHref}/mails`, icon: "ri-mail-line" },
+    { label: "Cheques", href: `${baseHref}/cheques`, icon: "ri-bank-card-line" },
+    { label: "Deposits", href: `${baseHref}/deposits`, icon: "ri-exchange-dollar-line" },
+    { label: "Deliveries", href: `${baseHref}/deliveries`, icon: "ri-truck-line" },
+    { label: "Account", href: `${baseHref}/account`, icon: "ri-user-settings-line" },
+  ] as const;
+  const initials =
+    companyName
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w) => w[0]?.toUpperCase() || "")
+      .join("") || "??";
 
   const closePanels = useCallback(() => {
     setShowNotifications(false);
@@ -112,7 +122,7 @@ export default function CustomerNav() {
               <i className={`text-xl ${mobileOpen ? "ri-close-line" : "ri-menu-line"}`} aria-hidden />
             </button>
 
-            <Link href="/customer" className="flex items-center flex-shrink-0">
+            <Link href={`${baseHref}/dashboard`} className="flex items-center flex-shrink-0">
               <img
                 src="/images/A-4.png"
                 alt="VScan Mail"
@@ -215,10 +225,10 @@ export default function CustomerNav() {
                 aria-label="Account menu"
               >
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#0A3D8F] to-[#083170] flex items-center justify-center flex-shrink-0">
-                  <span className="text-white text-xs font-bold">AC</span>
+                  <span className="text-white text-xs font-bold">{initials}</span>
                 </div>
                 <div className="hidden sm:block text-left">
-                  <p className="text-xs font-semibold text-gray-900 leading-tight">Acme Corporation</p>
+                  <p className="text-xs font-semibold text-gray-900 leading-tight">{companyName}</p>
                   <p className="text-[10px] text-gray-500">Organization Account</p>
                 </div>
                 <i className="ri-arrow-down-s-line text-gray-500 text-sm" aria-hidden />
@@ -227,11 +237,11 @@ export default function CustomerNav() {
               {showUserMenu && (
                 <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl border border-gray-200 py-2 z-50 shadow-lg overflow-hidden">
                   <div className="px-4 py-3 border-b border-gray-200">
-                    <p className="text-sm font-semibold text-gray-900">Acme Corporation</p>
-                    <p className="text-xs text-gray-500">acme@company.com</p>
+                    <p className="text-sm font-semibold text-gray-900">{companyName}</p>
+                    <p className="text-xs text-gray-500">{email || "—"}</p>
                   </div>
                   <Link
-                    href="/customer/account"
+                    href={`${baseHref}/account`}
                     className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 cursor-pointer"
                     onClick={closePanels}
                   >
