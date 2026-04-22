@@ -123,7 +123,7 @@ export const bankAccountModel = {
         nickname: input.nickname,
         accountType: input.accountType,
         accountLast4: input.accountLast4,
-        accountNumberEnc: input.accountNumberEnc,
+        accountNumberEnc: input.accountNumberEnc as any,
         keyVersion: input.keyVersion,
         accountNumberHash: input.accountNumberHash,
         isPrimary: shouldBePrimary,

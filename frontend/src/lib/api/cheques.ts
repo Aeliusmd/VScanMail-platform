@@ -5,6 +5,7 @@ export type ChequeStatus =
   | "validated"
   | "flagged"
   | "approved"
+  | "deposit_requested"
   | "deposited"
   | "cleared";
 

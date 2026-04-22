@@ -6,10 +6,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Icon } from '@iconify/react';
 import { companies } from '../../../mocks/companies';
-import { initialDepositRequests } from '../../../mocks/depositRequests';
 import { deliveries } from '../../../mocks/deliveries';
 import { mailApi } from '@/lib/api/mail';
 import { chequeApi, type Cheque as ApiCheque } from '@/lib/api/cheques';
+import { depositsApi } from '@/lib/api/deposits';
 
 const navItems = [
   { icon: 'ri:dashboard-line', label: 'Dashboard', slug: '' },
@@ -59,6 +59,14 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     deposited: 0,
     rejected: 0,
     onHold: 0,
+  });
+
+  const [depositCounts, setDepositCounts] = useState({
+    total: 0,
+    pending: 0,
+    approved: 0,
+    rejected: 0,
+    deposited: 0,
   });
 
   const normalizeChequeStatus = (c: ApiCheque) => {
@@ -126,10 +134,33 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         });
     }
 
+    if (isDepositsPage) {
+      depositsApi
+        .adminList()
+        .then((rows) => {
+          if (!alive) return;
+          const pending = rows.filter((r) => (r.decision || 'pending') === 'pending' && !r.markedDepositedAt).length;
+          const approved = rows.filter((r) => r.decision === 'approved' && !r.markedDepositedAt).length;
+          const rejected = rows.filter((r) => r.decision === 'rejected').length;
+          const deposited = rows.filter((r) => Boolean(r.markedDepositedAt) || r.chequeStatus === 'deposited' || r.chequeStatus === 'cleared').length;
+          setDepositCounts({
+            total: rows.length,
+            pending,
+            approved,
+            rejected,
+            deposited,
+          });
+        })
+        .catch(() => {
+          if (!alive) return;
+          setDepositCounts({ total: 0, pending: 0, approved: 0, rejected: 0, deposited: 0 });
+        });
+    }
+
     return () => {
       alive = false;
     };
-  }, [isMailsPage, isChequesPage, clientId]);
+  }, [isMailsPage, isChequesPage, isDepositsPage, clientId]);
 
   const getTabValueForLabel = (pagePath: string, label: string): string | null => {
     // Mail page tabs: All | Processed | Delivered | Pending Delivery
@@ -298,7 +329,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     {
       icon: 'ri:inbox-archive-line',
       label: 'All Requests',
-      count: initialDepositRequests.length,
+      count: depositCounts.total,
       color: '#0F172A',
       bg: 'bg-[#F1F5F9]',
       fontWeight: 'font-semibold',
@@ -306,25 +337,25 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     {
       icon: 'ri:time-line',
       label: 'Pending',
-      count: initialDepositRequests.filter((r) => r.status === 'Pending').length,
+      count: depositCounts.pending,
       color: '#F59E0B',
     },
     {
       icon: 'ri:checkbox-circle-line',
       label: 'Approved',
-      count: initialDepositRequests.filter((r) => r.status === 'Approved').length,
+      count: depositCounts.approved,
       color: '#2F8F3A',
     },
     {
       icon: 'ri:close-circle-line',
       label: 'Rejected',
-      count: initialDepositRequests.filter((r) => r.status === 'Rejected').length,
+      count: depositCounts.rejected,
       color: '#EF4444',
     },
     {
       icon: 'ri:bank-line',
       label: 'Deposited',
-      count: initialDepositRequests.filter((r) => r.status === 'Deposited').length,
+      count: depositCounts.deposited,
       color: '#0D9488',
     },
   ];
@@ -407,16 +438,12 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         return companies.length;
       }
       case '/deposits': {
-        if (tab === 'All') return initialDepositRequests.length;
-        if (tab === 'Pending')
-          return initialDepositRequests.filter((r) => r.status === 'Pending').length;
-        if (tab === 'Approved')
-          return initialDepositRequests.filter((r) => r.status === 'Approved').length;
-        if (tab === 'Rejected')
-          return initialDepositRequests.filter((r) => r.status === 'Rejected').length;
-        if (tab === 'Deposited')
-          return initialDepositRequests.filter((r) => r.status === 'Deposited').length;
-        return initialDepositRequests.length;
+        if (tab === 'All') return depositCounts.total;
+        if (tab === 'Pending') return depositCounts.pending;
+        if (tab === 'Approved') return depositCounts.approved;
+        if (tab === 'Rejected') return depositCounts.rejected;
+        if (tab === 'Deposited') return depositCounts.deposited;
+        return depositCounts.total;
       }
       case '/deliveries': {
         if (tab === 'All') return deliveries.length;

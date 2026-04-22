@@ -42,7 +42,24 @@ export async function createClientTable(tableName: string) {
       \`cheque_decision\`             ENUM('pending','approved','rejected') NULL,
       \`cheque_decided_by\`           VARCHAR(36)   NULL,
       \`cheque_decided_at\`           DATETIME      NULL,
-      \`cheque_status\`               ENUM('validated','flagged','approved','cleared') NULL,
+      \`cheque_status\`               ENUM('validated','flagged','approved','deposit_requested','deposited','cleared') NULL,
+
+      \`deposit_requested_at\`        DATETIME      NULL,
+      \`deposit_requested_by\`        VARCHAR(36)   NULL,
+      \`deposit_destination_bank_account_id\` VARCHAR(36) NULL,
+      \`deposit_destination_bank_name\`     VARCHAR(128) NULL,
+      \`deposit_destination_bank_nickname\` VARCHAR(64)  NULL,
+      \`deposit_destination_bank_last4\`    VARCHAR(4)   NULL,
+      \`deposit_decision\`            ENUM('pending','approved','rejected') NULL,
+      \`deposit_decided_by\`          VARCHAR(36)   NULL,
+      \`deposit_decided_at\`          DATETIME      NULL,
+      \`deposit_reject_reason\`       VARCHAR(255)  NULL,
+      \`deposit_marked_deposited_by\` VARCHAR(36)   NULL,
+      \`deposit_marked_deposited_at\` DATETIME      NULL,
+      \`deposit_slip_url\`            TEXT          NULL,
+      \`deposit_slip_uploaded_at\`    DATETIME      NULL,
+      \`deposit_slip_uploaded_by\`    VARCHAR(36)   NULL,
+      \`deposit_slip_ai_result\`      JSON          NULL,
 
       \`created_at\`                  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -54,6 +71,9 @@ export async function createClientTable(tableName: string) {
       KEY \`risk_level_idx\`           (\`ai_risk_level\`),
       KEY \`cheque_decision_idx\`      (\`cheque_decision\`),
       KEY \`cheque_status_idx\`        (\`cheque_status\`),
+      KEY \`deposit_decision_idx\`     (\`deposit_decision\`),
+      KEY \`deposit_requested_at_idx\` (\`deposit_requested_at\`),
+      KEY \`deposit_slip_uploaded_at_idx\` (\`deposit_slip_uploaded_at\`),
       KEY \`created_at_idx\`           (\`created_at\`)
     )
   `));

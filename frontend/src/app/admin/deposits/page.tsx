@@ -4,12 +4,34 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Icon } from '@iconify/react';
-import {
-  initialDepositRequests,
-  type DepositRequest,
-} from '../../../mocks/depositRequests';
+import { depositsApi, type DepositDto } from '@/lib/api/deposits';
+import { mailApi, type MailItem } from '@/lib/api/mail';
 import { useSuperAdminToolbarOptional } from '../../superadmin/components/SuperAdminToolbarContext';
 import { useAdminProfile } from '../components/useAdminProfile';
+
+type DepositRequest = {
+  id: string; // UI id like DEP-xxxxxx
+  chequeId: string; // real cheque id used for API actions
+  mailItemId: string;
+  company: string;
+  companyEmail: string;
+  bankName: string;
+  chequeNumber: string;
+  amount: string;
+  requestedAt: string;
+  timeShort: string;
+  status: 'Pending' | 'Approved' | 'Rejected' | 'Deposited';
+  emailSent: boolean;
+  aiSummary: string;
+  thumbnail: string;
+  starred: boolean;
+  read: boolean;
+  tag?: string;
+  tagColor?: string;
+  requestedBy: string;
+  notes?: string;
+  depositDate?: string;
+};
 
 const statusColors: Record<DepositRequest['status'], string> = {
   Pending: 'bg-amber-100 text-amber-700',
@@ -21,6 +43,78 @@ const statusColors: Record<DepositRequest['status'], string> = {
 type StatusTab = 'All' | DepositRequest['status'];
 
 const STATUS_TABS: StatusTab[] = ['All', 'Pending', 'Approved', 'Rejected', 'Deposited'];
+
+function formatMoney(amount: number) {
+  return `$${Number(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function toYyyyMmDd(d: Date) {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}/${mm}/${dd}`;
+}
+
+function mapDepositToRequest(d: DepositDto): DepositRequest {
+  const requested = d.requestedAt ? new Date(d.requestedAt) : null;
+  const requestedAt = requested && !Number.isNaN(requested.getTime()) ? requested.toLocaleString() : '—';
+  const timeShort =
+    requested && !Number.isNaN(requested.getTime())
+      ? requested.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+      : '—';
+
+  const deposited = Boolean(d.markedDepositedAt) || d.chequeStatus === 'deposited' || d.chequeStatus === 'cleared';
+  const status: DepositRequest['status'] =
+    deposited ? 'Deposited' : d.decision === 'approved' ? 'Approved' : d.decision === 'rejected' ? 'Rejected' : 'Pending';
+
+  const bankName = d.destinationBankName
+    ? d.destinationBankNickname
+      ? `${d.destinationBankName} (${d.destinationBankNickname})`
+      : d.destinationBankName
+    : '—';
+
+  const depositDate =
+    status === 'Approved' && d.decidedAt
+      ? toYyyyMmDd(new Date(d.decidedAt))
+      : status === 'Deposited' && (d.markedDepositedAt || d.decidedAt)
+        ? toYyyyMmDd(new Date(d.markedDepositedAt || d.decidedAt!))
+        : undefined;
+
+  const tag =
+    status === 'Pending' ? 'Pending' : status === 'Approved' ? 'Approved' : status === 'Rejected' ? 'Rejected' : 'Deposited';
+  const tagColor =
+    status === 'Pending'
+      ? 'bg-amber-100 text-amber-700'
+      : status === 'Approved'
+        ? 'bg-green-100 text-[#2F8F3A]'
+        : status === 'Rejected'
+          ? 'bg-red-100 text-red-700'
+          : 'bg-teal-100 text-teal-700';
+
+  return {
+    id: `DEP-${d.chequeId.slice(-6)}`,
+    chequeId: d.chequeId,
+    mailItemId: d.mailItemId,
+    company: d.clientName || 'Client',
+    companyEmail: d.clientEmail || '—',
+    bankName,
+    chequeNumber: d.chequeId.slice(-6),
+    amount: formatMoney(d.amountFigures),
+    requestedAt,
+    timeShort,
+    status,
+    emailSent: deposited,
+    aiSummary: d.aiSummary || '',
+    thumbnail: '',
+    starred: false,
+    read: false,
+    tag,
+    tagColor,
+    requestedBy: d.clientName || 'Client',
+    notes: d.rejectReason || undefined,
+    depositDate,
+  };
+}
 
 export default function DepositsPage() {
   return (
@@ -59,7 +153,7 @@ function DepositsPageContent() {
   const superToolbar = useSuperAdminToolbarOptional();
   const search = isSuperadminRoute && superToolbar ? superToolbar.search : localSearch;
   const [selectedRequest, setSelectedRequest] = useState<DepositRequest | null>(null);
-  const [requests, setRequests] = useState<DepositRequest[]>(initialDepositRequests);
+  const [requests, setRequests] = useState<DepositRequest[]>([]);
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [allChecked, setAllChecked] = useState(false);
 
@@ -68,12 +162,39 @@ function DepositsPageContent() {
   const [depositDateError, setDepositDateError] = useState('');
 
   const [showSendSlipModal, setShowSendSlipModal] = useState(false);
-  const [slipScanning, setSlipScanning] = useState(false);
-  const [slipScanned, setSlipScanned] = useState(false);
+  const [slipUploading, setSlipUploading] = useState(false);
+  const [slipUploaded, setSlipUploaded] = useState(false);
   const [slipSending, setSlipSending] = useState(false);
   const [slipSent, setSlipSent] = useState(false);
-  const [scanProgress, setScanProgress] = useState(0);
-  const scanTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [slipUploadError, setSlipUploadError] = useState('');
+  const [slipFile, setSlipFile] = useState<File | null>(null);
+  const [slipPreviewUrl, setSlipPreviewUrl] = useState<string | null>(null);
+  const [slipResult, setSlipResult] = useState<any | null>(null);
+  const slipFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const [selectedMailItem, setSelectedMailItem] = useState<MailItem | null>(null);
+  const [selectedMailLoading, setSelectedMailLoading] = useState(false);
+  const [selectedMailError, setSelectedMailError] = useState('');
+  const [chequeViewerOpen, setChequeViewerOpen] = useState(false);
+  const [chequeViewerUrl, setChequeViewerUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await depositsApi.adminList();
+        if (cancelled) return;
+        setRequests(list.map(mapDepositToRequest));
+      } catch (e) {
+        console.error('Failed to load admin deposits:', e);
+        if (!cancelled) setRequests([]);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const setTab = (tab: StatusTab) => {
     router.replace(`${pathname}?tab=${encodeURIComponent(tab)}`);
@@ -123,10 +244,34 @@ function DepositsPageContent() {
     setDepositDateInput('');
     setDepositDateError('');
     setShowSendSlipModal(false);
-    setSlipScanned(false);
-    setSlipScanning(false);
+    setSlipUploaded(false);
+    setSlipUploading(false);
     setSlipSent(false);
-    setScanProgress(0);
+    setSlipUploadError('');
+    setSlipFile(null);
+    setSlipPreviewUrl(null);
+    setSlipResult(null);
+
+    setSelectedMailItem(null);
+    setSelectedMailError('');
+
+    if (!request.mailItemId) {
+      setSelectedMailLoading(false);
+      setSelectedMailError('Missing mailItemId for this deposit. Refresh the page and try again.');
+      return;
+    }
+
+    setSelectedMailLoading(true);
+    (async () => {
+      try {
+        const mail = await mailApi.getById(request.mailItemId);
+        setSelectedMailItem(mail);
+      } catch (e: any) {
+        setSelectedMailError(e?.message || 'Failed to load cheque images');
+      } finally {
+        setSelectedMailLoading(false);
+      }
+    })();
   };
 
   const closeModal = () => {
@@ -135,10 +280,19 @@ function DepositsPageContent() {
     setDepositDateInput('');
     setDepositDateError('');
     setShowSendSlipModal(false);
-    setSlipScanned(false);
-    setSlipScanning(false);
+    setSlipUploaded(false);
+    setSlipUploading(false);
     setSlipSent(false);
-    setScanProgress(0);
+    setSlipUploadError('');
+    setSlipFile(null);
+    setSlipPreviewUrl(null);
+    setSlipResult(null);
+
+    setSelectedMailItem(null);
+    setSelectedMailLoading(false);
+    setSelectedMailError('');
+    setChequeViewerOpen(false);
+    setChequeViewerUrl(null);
   };
 
   const handleClickApprove = () => {
@@ -147,7 +301,7 @@ function DepositsPageContent() {
     setDepositDateError('');
   };
 
-  const handleConfirmApprove = (id: string) => {
+  const handleConfirmApprove = async (id: string) => {
     if (!depositDateInput.trim()) {
       setDepositDateError('Please enter a deposit date.');
       return;
@@ -158,85 +312,103 @@ function DepositsPageContent() {
       return;
     }
     setDepositDateError('');
-    setRequests((prev) =>
-      prev.map((r) =>
-        r.id === id
-          ? {
-              ...r,
-              status: 'Approved' as const,
-              depositDate: depositDateInput.trim(),
-              tag: 'Approved',
-              tagColor: 'bg-green-100 text-[#2F8F3A]',
-            }
-          : r
-      )
-    );
-    setSelectedRequest((prev) =>
-      prev ? { ...prev, status: 'Approved', depositDate: depositDateInput.trim() } : null
-    );
-    setShowApproveDateInput(false);
-    setDepositDateInput('');
+    const target = requests.find((r) => r.id === id);
+    if (!target) return;
+
+    try {
+      await depositsApi.adminApprove(target.chequeId, depositDateInput.trim());
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === id
+            ? {
+                ...r,
+                status: 'Approved' as const,
+                depositDate: depositDateInput.trim(),
+                tag: 'Approved',
+                tagColor: 'bg-green-100 text-[#2F8F3A]',
+              }
+            : r
+        )
+      );
+      setSelectedRequest((prev) =>
+        prev ? { ...prev, status: 'Approved', depositDate: depositDateInput.trim() } : null
+      );
+      setShowApproveDateInput(false);
+      setDepositDateInput('');
+    } catch (e) {
+      console.error('Failed to approve deposit:', e);
+    }
   };
 
-  const handleReject = (id: string) => {
-    setRequests((prev) =>
-      prev.map((r) =>
-        r.id === id
-          ? {
-              ...r,
-              status: 'Rejected' as const,
-              tag: 'Rejected',
-              tagColor: 'bg-red-100 text-red-700',
-            }
-          : r
-      )
-    );
-    setSelectedRequest((prev) => (prev ? { ...prev, status: 'Rejected' } : null));
-    setShowApproveDateInput(false);
+  const handleReject = async (id: string) => {
+    const target = requests.find((r) => r.id === id);
+    if (!target) return;
+    const reason = window.prompt('Reject reason (required):', target.notes || '');
+    if (!reason || !reason.trim()) return;
+
+    try {
+      await depositsApi.adminReject(target.chequeId, reason.trim());
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === id
+            ? {
+                ...r,
+                status: 'Rejected' as const,
+                notes: reason.trim(),
+                tag: 'Rejected',
+                tagColor: 'bg-red-100 text-red-700',
+              }
+            : r
+        )
+      );
+      setSelectedRequest((prev) => (prev ? { ...prev, status: 'Rejected', notes: reason.trim() } : null));
+      setShowApproveDateInput(false);
+    } catch (e) {
+      console.error('Failed to reject deposit:', e);
+    }
   };
 
   const openSendSlipModal = () => {
     setShowSendSlipModal(true);
-    setSlipScanned(false);
-    setSlipScanning(false);
+    setSlipUploaded(false);
+    setSlipUploading(false);
     setSlipSent(false);
-    setScanProgress(0);
+    setSlipUploadError('');
+    setSlipFile(null);
+    setSlipPreviewUrl(null);
+    setSlipResult(null);
   };
 
   const closeSendSlipModal = () => {
-    if (scanTimerRef.current) clearInterval(scanTimerRef.current);
     setShowSendSlipModal(false);
-    setSlipScanned(false);
-    setSlipScanning(false);
+    setSlipUploaded(false);
+    setSlipUploading(false);
     setSlipSent(false);
-    setScanProgress(0);
+    setSlipUploadError('');
+    setSlipFile(null);
+    setSlipPreviewUrl(null);
+    setSlipResult(null);
   };
 
-  const handleStartScan = () => {
-    setSlipScanning(true);
-    setSlipScanned(false);
-    setScanProgress(0);
-    let progress = 0;
-    scanTimerRef.current = setInterval(() => {
-      progress += 2;
-      setScanProgress(progress);
-      if (progress >= 100) {
-        if (scanTimerRef.current) clearInterval(scanTimerRef.current);
-        setSlipScanning(false);
-        setSlipScanned(true);
-      }
-    }, 40);
+  const handlePickSlipFile = () => {
+    slipFileInputRef.current?.click();
   };
 
   const handleRescan = () => {
-    setSlipScanned(false);
-    setSlipScanning(false);
-    setScanProgress(0);
+    setSlipUploaded(false);
+    setSlipUploading(false);
+    setSlipUploadError('');
+    setSlipFile(null);
+    setSlipPreviewUrl(null);
+    setSlipResult(null);
   };
 
-  const handleSendSlip = (id: string) => {
+  const handleSendSlip = async (id: string) => {
+    const target = requests.find((r) => r.id === id);
+    if (!target) return;
     setSlipSending(true);
-    setTimeout(() => {
+    try {
+      await depositsApi.adminMarkDeposited(target.chequeId);
       setSlipSending(false);
       setSlipSent(true);
       setRequests((prev) =>
@@ -253,14 +425,17 @@ function DepositsPageContent() {
         )
       );
       setSelectedRequest((prev) => (prev ? { ...prev, status: 'Deposited' } : null));
-    }, 1800);
+    } catch (e) {
+      console.error('Failed to mark deposited:', e);
+      setSlipSending(false);
+    }
   };
 
   useEffect(() => {
     return () => {
-      if (scanTimerRef.current) clearInterval(scanTimerRef.current);
+      if (slipPreviewUrl) URL.revokeObjectURL(slipPreviewUrl);
     };
-  }, []);
+  }, [slipPreviewUrl]);
 
   const totalAmount = requests.reduce(
     (sum, r) => sum + parseFloat(r.amount.replace(/[$,]/g, '')),
@@ -670,13 +845,76 @@ function DepositsPageContent() {
             </div>
 
             <div className="p-6 space-y-5 overflow-y-auto flex-1 min-h-0">
-              <div className="w-full h-48 rounded-xl overflow-hidden border border-slate-200">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={selectedRequest.thumbnail}
-                  alt="Cheque document"
-                  className="w-full h-full object-cover object-top"
-                />
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-slate-900">Cheque images</h3>
+                  {selectedMailLoading && (
+                    <span className="text-xs text-slate-400 flex items-center gap-1">
+                      <Icon icon="ri:loader-4-line" className="animate-spin" /> Loading…
+                    </span>
+                  )}
+                </div>
+
+                {selectedMailError && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm">
+                    {selectedMailError}
+                  </div>
+                )}
+
+                {!selectedMailLoading && selectedMailItem && (
+                  (() => {
+                    const scans = (Array.isArray(selectedMailItem.content_scan_urls) ? selectedMailItem.content_scan_urls : []).filter(Boolean).slice(0, 6);
+                    const main = scans[0] || null;
+                    const rest = scans.slice(1);
+                    return (
+                      <div className="space-y-3">
+                        <div className="w-full h-64 sm:h-80 rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
+                          {main ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={main}
+                              alt="Cheque image"
+                              className="w-full h-full object-contain bg-white cursor-zoom-in"
+                              onClick={() => {
+                                setChequeViewerUrl(main);
+                                setChequeViewerOpen(true);
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-400">
+                              <Icon icon="ri:image-line" className="text-3xl" />
+                            </div>
+                          )}
+                        </div>
+
+                        {rest.length > 0 && (
+                          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                            {rest.map((url, idx) => (
+                              <div key={`${url}-${idx}`} className="w-full aspect-[4/3] rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={url}
+                                  alt={`Cheque image ${idx + 2}`}
+                                  className="w-full h-full object-cover object-top cursor-zoom-in"
+                                  onClick={() => {
+                                    setChequeViewerUrl(url);
+                                    setChequeViewerOpen(true);
+                                  }}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()
+                )}
+
+                {!selectedMailLoading && !selectedMailItem && !selectedMailError && (
+                  <div className="w-full h-32 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-400">
+                    <Icon icon="ri:image-line" className="text-3xl" />
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -913,7 +1151,23 @@ function DepositsPageContent() {
                 </div>
               )}
 
-              {!slipSent && !slipScanned && (
+              <input
+                ref={slipFileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0] || null;
+                  setSlipUploadError('');
+                  setSlipUploaded(false);
+                  setSlipResult(null);
+                  setSlipFile(f);
+                  if (slipPreviewUrl) URL.revokeObjectURL(slipPreviewUrl);
+                  setSlipPreviewUrl(f ? URL.createObjectURL(f) : null);
+                }}
+              />
+
+              {!slipSent && !slipUploaded && (
                 <>
                   <div className="relative w-full h-56 bg-slate-900 rounded-xl overflow-hidden flex items-center justify-center">
                     <div className="absolute top-3 left-3 w-6 h-6 border-t-2 border-l-2 border-teal-400 rounded-tl-sm" />
@@ -921,43 +1175,24 @@ function DepositsPageContent() {
                     <div className="absolute bottom-3 left-3 w-6 h-6 border-b-2 border-l-2 border-teal-400 rounded-bl-sm" />
                     <div className="absolute bottom-3 right-3 w-6 h-6 border-b-2 border-r-2 border-teal-400 rounded-br-sm" />
 
-                    {slipScanning && (
-                      <div
-                        className="absolute left-4 right-4 h-0.5 bg-teal-400 transition-none"
-                        style={{
-                          top: `${scanProgress}%`,
-                          boxShadow: '0 0 8px 2px rgba(45,212,191,0.7)',
-                        }}
-                      />
-                    )}
-
-                    {!slipScanning && (
+                    {slipPreviewUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={slipPreviewUrl} alt="Selected deposit slip" className="w-full h-full object-cover object-top opacity-90" />
+                    ) : (
                       <div className="flex flex-col items-center gap-3 text-center px-6">
-                        <Icon icon="ri:scan-2-line" className="text-teal-400 text-4xl" />
+                        <Icon icon="ri:upload-cloud-2-line" className="text-teal-400 text-4xl" />
                         <p className="text-slate-400 text-sm">
-                          Place the deposit slip in the scanner
+                          Upload a deposit slip image
                           <br />
-                          and press Scan
+                          from your computer
                         </p>
-                      </div>
-                    )}
-
-                    {slipScanning && (
-                      <div className="absolute bottom-4 left-0 right-0 flex justify-center">
-                        <div className="flex items-center gap-2 bg-black/60 px-3 py-1.5 rounded-full">
-                          <Icon icon="ri:loader-4-line" className="animate-spin text-teal-400 text-sm" />
-                          <span className="text-teal-300 text-xs font-medium">Scanning...</span>
-                        </div>
                       </div>
                     )}
                   </div>
 
-                  {slipScanning && (
-                    <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-teal-500 rounded-full transition-all duration-75"
-                        style={{ width: `${scanProgress}%` }}
-                      />
+                  {slipUploadError && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                      {slipUploadError}
                     </div>
                   )}
 
@@ -965,42 +1200,135 @@ function DepositsPageContent() {
                     <button
                       type="button"
                       onClick={closeSendSlipModal}
-                      disabled={slipScanning}
+                      disabled={slipUploading}
                       className="flex-1 py-3 bg-slate-100 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-200 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50"
                     >
                       Cancel
                     </button>
                     <button
                       type="button"
-                      onClick={handleStartScan}
-                      disabled={slipScanning}
+                      onClick={handlePickSlipFile}
+                      disabled={slipUploading}
                       className="flex-1 py-3 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-60 flex items-center justify-center gap-2"
                     >
-                      <Icon icon="ri:scan-2-line" className="text-base" />
-                      <span>{slipScanning ? 'Scanning...' : 'Scan'}</span>
+                      <Icon icon="ri:folder-upload-line" className="text-base" />
+                      <span>{slipPreviewUrl ? 'Choose another image' : 'Upload image'}</span>
                     </button>
                   </div>
+
+                  <button
+                    type="button"
+                    disabled={!slipFile || slipUploading}
+                    onClick={async () => {
+                      if (!slipFile) return;
+                      setSlipUploading(true);
+                      setSlipUploadError('');
+                      try {
+                        const res = await depositsApi.adminUploadSlip(selectedRequest.chequeId, slipFile);
+                        setSlipResult(res.aiResult);
+                        setSlipUploaded(true);
+                      } catch (e: any) {
+                        setSlipUploadError(e?.message || 'Failed to upload/analyze slip');
+                      } finally {
+                        setSlipUploading(false);
+                      }
+                    }}
+                    className="w-full py-3 bg-[#0A3D8F] text-white text-sm font-semibold rounded-lg hover:bg-[#083170] transition-colors cursor-pointer whitespace-nowrap disabled:opacity-60 flex items-center justify-center gap-2"
+                  >
+                    {slipUploading ? (
+                      <>
+                        <Icon icon="ri:loader-4-line" className="animate-spin text-base" />
+                        <span>Analyzing…</span>
+                      </>
+                    ) : (
+                      <>
+                        <Icon icon="ri:robot-2-line" className="text-base" />
+                        <span>Analyze</span>
+                      </>
+                    )}
+                  </button>
                 </>
               )}
 
-              {!slipSent && slipScanned && (
+              {!slipSent && slipUploaded && (
                 <>
                   <div className="relative rounded-xl overflow-hidden border-2 border-teal-400">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={selectedRequest.thumbnail}
-                      alt="Scanned deposit slip"
-                      className="w-full h-52 object-cover object-top"
-                    />
+                    {slipPreviewUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={slipPreviewUrl}
+                        alt="Uploaded deposit slip"
+                        className="w-full h-52 object-cover object-top"
+                      />
+                    ) : (
+                      <div className="w-full h-52 flex items-center justify-center bg-slate-50 text-slate-400">
+                        <Icon icon="ri:image-line" className="text-3xl" />
+                      </div>
+                    )}
                     <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-teal-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full">
                       <Icon icon="ri:checkbox-circle-fill" className="text-sm" />
-                      <span>Scanned</span>
+                      <span>Uploaded</span>
                     </div>
                     <div className="absolute top-2 left-2 w-5 h-5 border-t-2 border-l-2 border-teal-400" />
                     <div className="absolute top-2 right-2 w-5 h-5 border-t-2 border-r-2 border-teal-400" />
                     <div className="absolute bottom-2 left-2 w-5 h-5 border-b-2 border-l-2 border-teal-400" />
                     <div className="absolute bottom-2 right-2 w-5 h-5 border-b-2 border-r-2 border-teal-400" />
                   </div>
+
+                  {slipResult && (
+                    <div className="p-4 bg-white rounded-xl border border-slate-200">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Icon icon="ri:sparkling-line" className="text-amber-500 text-base" />
+                        <h4 className="text-sm font-bold text-slate-900">AI Detected</h4>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <p className="text-xs text-slate-500">Deposit date</p>
+                          <p className="font-semibold text-slate-900">{slipResult.deposit_date || '—'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">Amount</p>
+                          <p className="font-semibold text-slate-900">
+                            {typeof slipResult.amount === 'number' ? formatMoney(slipResult.amount) : '—'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">Reference</p>
+                          <p className="font-semibold text-slate-900 truncate" title={slipResult.reference || ''}>
+                            {slipResult.reference || '—'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">Bank / Last4</p>
+                          <p className="font-semibold text-slate-900 truncate" title={`${slipResult.bank_name || ''} ${slipResult.account_last4 || ''}`}>
+                            {(slipResult.bank_name || '—') + (slipResult.account_last4 ? ` • ${slipResult.account_last4}` : '')}
+                          </p>
+                        </div>
+                      </div>
+
+                      {slipResult.validation && (
+                        <div className="mt-3 p-3 rounded-lg border border-slate-200 bg-slate-50">
+                          <p className="text-xs text-slate-500 mb-1">Validation</p>
+                          <div className="flex items-center gap-2">
+                            <Icon
+                              icon={slipResult.validation.amount_matches ? 'ri:checkbox-circle-fill' : 'ri:error-warning-fill'}
+                              className={slipResult.validation.amount_matches ? 'text-teal-600' : 'text-amber-600'}
+                            />
+                            <p className="text-sm font-semibold text-slate-900">
+                              {slipResult.validation.amount_matches ? 'Amount matches cheque' : 'Amount mismatch'}
+                            </p>
+                          </div>
+                          {Array.isArray(slipResult.validation.issues) && slipResult.validation.issues.length > 0 && (
+                            <ul className="mt-2 list-disc pl-5 text-xs text-slate-600 space-y-1">
+                              {slipResult.validation.issues.slice(0, 4).map((x: any, i: number) => (
+                                <li key={i}>{String(x)}</li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div className="flex items-center gap-3 px-3 py-2.5 bg-slate-50 rounded-lg border border-slate-200">
                     <Icon icon="ri:mail-send-line" className="text-[#0A3D8F] text-xl" />
@@ -1028,12 +1356,12 @@ function DepositsPageContent() {
                       className="flex-1 py-3 bg-slate-100 text-slate-700 text-sm font-semibold rounded-lg hover:bg-slate-200 transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center gap-2"
                     >
                       <Icon icon="ri:refresh-line" className="text-base" />
-                      <span>Rescan</span>
+                      <span>Replace</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => handleSendSlip(selectedRequest.id)}
-                      disabled={slipSending}
+                      disabled={slipSending || !slipUploaded}
                       className="flex-1 py-3 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-70 flex items-center justify-center gap-2"
                     >
                       {slipSending ? (
@@ -1052,6 +1380,36 @@ function DepositsPageContent() {
                 </>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cheque image viewer */}
+      {chequeViewerOpen && chequeViewerUrl && (
+        <div
+          className="fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-4"
+          onClick={() => {
+            setChequeViewerOpen(false);
+            setChequeViewerUrl(null);
+          }}
+        >
+          <div className="relative w-full max-w-5xl" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => {
+                setChequeViewerOpen(false);
+                setChequeViewerUrl(null);
+              }}
+              className="absolute -top-2 -right-2 sm:top-2 sm:right-2 p-2 bg-white/10 hover:bg-white/20 text-white rounded-lg"
+            >
+              <Icon icon="ri:close-line" className="text-xl" />
+            </button>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={chequeViewerUrl}
+              alt="Cheque full view"
+              className="w-full max-h-[85vh] object-contain rounded-xl bg-white"
+            />
           </div>
         </div>
       )}

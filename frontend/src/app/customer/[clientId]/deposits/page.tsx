@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { chequeApi, type Cheque as ApiCheque } from "@/lib/api/cheques";
+import { depositsApi, type DepositDto } from "@/lib/api/deposits";
 import { mailApi, type MailItem } from "@/lib/api/mail";
 
 type DepositStatus = "Open Deposit Request" | "Processing" | "Deposited" | "Rejected";
@@ -27,34 +27,45 @@ function formatMoney(amount: number) {
   return `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function mapChequeToDepositRequest(c: ApiCheque): CustomerDepositRequest {
-  const created = c.created_at ? new Date(c.created_at) : null;
-  const dateLabel = created && !Number.isNaN(created.getTime()) ? created.toLocaleString() : "—";
+function mapDepositToRequest(d: DepositDto): CustomerDepositRequest {
+  const requested = d.requestedAt ? new Date(d.requestedAt) : null;
+  const dateLabel = requested && !Number.isNaN(requested.getTime()) ? requested.toLocaleString() : "—";
   const timeShort =
-    created && !Number.isNaN(created.getTime())
-      ? created.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+    requested && !Number.isNaN(requested.getTime())
+      ? requested.toLocaleDateString(undefined, { month: "short", day: "numeric" })
       : "—";
 
+  const isDeposited = Boolean(d.markedDepositedAt) || d.chequeStatus === "deposited" || d.chequeStatus === "cleared";
+
   const status: DepositStatus =
-    c.status === "flagged"
-      ? "Open Deposit Request"
-      : c.status === "deposited"
-        ? "Deposited"
-        : c.status === "cleared"
-          ? "Deposited"
-          : "Processing";
+    isDeposited ? "Deposited" : d.decision === "rejected" ? "Rejected" : d.decision === "approved" ? "Processing" : "Open Deposit Request";
+
+  const bankLabel = d.destinationBankName
+    ? d.destinationBankNickname
+      ? `${d.destinationBankName} (${d.destinationBankNickname})`
+      : d.destinationBankName
+    : "—";
+
+  const depositDate =
+    status === "Processing" && d.decidedAt
+      ? new Date(d.decidedAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+      : status === "Deposited" && (d.markedDepositedAt || d.decidedAt)
+        ? new Date(d.markedDepositedAt || d.decidedAt!).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+        : undefined;
 
   return {
-    id: `DEP-${c.id.slice(-6)}`,
-    chequeId: c.id,
-    mailItemId: c.mail_item_id,
-    bankName: "Bank",
-    chequeNumber: c.id.slice(-6),
-    amount: formatMoney(Number(c.amount_figures || 0)),
+    id: `DEP-${d.chequeId.slice(-6)}`,
+    chequeId: d.chequeId,
+    mailItemId: d.mailItemId,
+    bankName: bankLabel,
+    chequeNumber: d.chequeId.slice(-6),
+    amount: formatMoney(Number(d.amountFigures || 0)),
     requestedAt: dateLabel,
     timeShort,
     status,
-    requestedBy: c.company_name || "Client",
+    requestedBy: "You",
+    depositDate,
+    notes: d.rejectReason || undefined,
     thumbnail: "",
   };
 }
@@ -76,6 +87,8 @@ export default function CustomerDepositRequestsPage() {
   const [selectedRequestMailLoading, setSelectedRequestMailLoading] = useState(false);
   const [selectedRequestMailError, setSelectedRequestMailError] = useState<string | null>(null);
   const [showSlipModal, setShowSlipModal] = useState(false);
+  const [chequeViewerOpen, setChequeViewerOpen] = useState(false);
+  const [chequeViewerUrl, setChequeViewerUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,9 +96,9 @@ export default function CustomerDepositRequestsPage() {
     (async () => {
       try {
         setLoading(true);
-        const data = await chequeApi.list({ limit: 200 });
+        const data = await depositsApi.listMine();
         if (cancelled) return;
-        setRequests(data.cheques.map(mapChequeToDepositRequest));
+        setRequests(data.map(mapDepositToRequest));
       } catch (e) {
         console.error("Failed to load deposit requests:", e);
         if (!cancelled) setRequests([]);
@@ -312,6 +325,8 @@ export default function CustomerDepositRequestsPage() {
           onClick={() => {
             setSelectedRequest(null);
             setShowSlipModal(false);
+            setChequeViewerOpen(false);
+            setChequeViewerUrl(null);
           }}
         >
           <div
@@ -354,44 +369,50 @@ export default function CustomerDepositRequestsPage() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="w-full h-52 rounded-xl overflow-hidden border border-gray-200">
-                    {selectedRequestMail?.envelope_front_url ? (
-                      <img
-                        src={selectedRequestMail.envelope_front_url}
-                        alt="Envelope front"
-                        className="w-full h-full object-cover object-top"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-500 text-xs">
-                        Image not available
+                {(() => {
+                  const scans = (selectedRequestMail?.content_scan_urls || []).filter(Boolean).slice(0, 6);
+                  const main = scans[0] || null;
+                  const rest = scans.slice(1);
+                  if (!main) {
+                    return (
+                      <div className="w-full h-52 rounded-xl overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center text-gray-500 text-xs">
+                        Cheque image not available
                       </div>
-                    )}
-                  </div>
-                  <div className="w-full h-52 rounded-xl overflow-hidden border border-gray-200">
-                    {selectedRequestMail?.envelope_back_url ? (
-                      <img
-                        src={selectedRequestMail.envelope_back_url}
-                        alt="Envelope back"
-                        className="w-full h-full object-cover object-top"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-500 text-xs">
-                        Image not available
+                    );
+                  }
+                  return (
+                    <div className="space-y-3">
+                      <div className="w-full h-64 sm:h-80 rounded-xl overflow-hidden border border-gray-200 bg-white">
+                        <img
+                          src={main}
+                          alt="Cheque image"
+                          className="w-full h-full object-contain cursor-zoom-in"
+                          onClick={() => {
+                            setChequeViewerUrl(main);
+                            setChequeViewerOpen(true);
+                          }}
+                        />
                       </div>
-                    )}
-                  </div>
-                </div>
-
-                {selectedRequestMail?.content_scan_urls?.length ? (
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    {selectedRequestMail.content_scan_urls.filter(Boolean).map((u, idx) => (
-                      <div key={u || idx} className="w-full h-52 rounded-xl overflow-hidden border border-gray-200">
-                        <img src={u} alt={`Content scan ${idx + 1}`} className="w-full h-full object-cover object-top" />
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
+                      {rest.length > 0 && (
+                        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                          {rest.map((u, idx) => (
+                            <div key={u || idx} className="w-full aspect-[4/3] rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+                              <img
+                                src={u}
+                                alt={`Cheque image ${idx + 2}`}
+                                className="w-full h-full object-cover object-top cursor-zoom-in"
+                                onClick={() => {
+                                  setChequeViewerUrl(u);
+                                  setChequeViewerOpen(true);
+                                }}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
               <div
@@ -565,6 +586,35 @@ export default function CustomerDepositRequestsPage() {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cheque image viewer */}
+      {chequeViewerOpen && chequeViewerUrl && (
+        <div
+          className="fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-4"
+          onClick={() => {
+            setChequeViewerOpen(false);
+            setChequeViewerUrl(null);
+          }}
+        >
+          <div className="relative w-full max-w-5xl" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => {
+                setChequeViewerOpen(false);
+                setChequeViewerUrl(null);
+              }}
+              className="absolute -top-2 -right-2 sm:top-2 sm:right-2 p-2 bg-white/10 hover:bg-white/20 text-white rounded-lg"
+            >
+              <i className="ri-close-line text-xl"></i>
+            </button>
+            <img
+              src={chequeViewerUrl}
+              alt="Cheque full view"
+              className="w-full max-h-[85vh] object-contain rounded-xl bg-white"
+            />
           </div>
         </div>
       )}

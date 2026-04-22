@@ -4,6 +4,17 @@ import { matchBeneficiary } from "@/lib/modules/records/fuzzy-match";
 import { stringSimilarity } from "string-similarity-js";
 import dayjs from "dayjs";
 
+type DepositSlipExtractResult = {
+  deposit_date: string | null; // YYYY-MM-DD
+  amount: number | null;
+  reference: string | null;
+  bank_name: string | null;
+  account_last4: string | null;
+  confidence: number; // 0..1
+  notes: string[];
+  ocr_text: string;
+};
+
 /**
  * Accepts a full data URL (data:image/jpeg;base64,...) or a raw base64 string.
  * Returns a properly formed data URL that OpenAI Vision can accept.
@@ -331,5 +342,95 @@ Return:
 
     const text = response.choices[0]?.message?.content || "{}";
     return JSON.parse(text);
+  },
+
+  /**
+   * Generate a short executive summary from plain text.
+   */
+  async generateSummary(text: string) {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      max_tokens: 300,
+      messages: [
+        {
+          role: "system",
+          content:
+            'You are a business analyst. Summarize the provided text in 2-3 sentences. Return ONLY valid JSON: { "summary": "..." }',
+        },
+        {
+          role: "user",
+          content: String(text || "").slice(0, 12_000),
+        },
+      ],
+      response_format: { type: "json_object" },
+    });
+
+    const raw = response.choices[0]?.message?.content || "{}";
+    return JSON.parse(raw);
+  },
+
+  /**
+   * Optional AWS Textract analysis. If not configured, returns defaults.
+   */
+  async analyzeWithTextract(_imageBuffer: Buffer): Promise<{ signatureDetected: boolean }> {
+    // Textract wiring is optional; keep the callsite stable.
+    return { signatureDetected: false };
+  },
+
+  /**
+   * Extract structured fields from a deposit slip image.
+   */
+  async extractDepositSlipFields(imageBase64: string): Promise<DepositSlipExtractResult> {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      max_tokens: 1200,
+      messages: [
+        {
+          role: "system",
+          content:
+            'You are a deposit-slip OCR + extraction engine. Return ONLY valid JSON with this exact shape: {"deposit_date":"YYYY-MM-DD|null","amount":number|null,"reference":"string|null","bank_name":"string|null","account_last4":"string|null","confidence":number,"notes":string[],"ocr_text":"string"}. Use null when unknown. confidence MUST be between 0 and 1.',
+        },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "Extract deposit slip fields from this image." },
+            { type: "image_url", image_url: { url: normalizeImageUrl(imageBase64) } },
+          ],
+        },
+      ],
+      response_format: { type: "json_object" },
+    });
+
+    const raw = response.choices[0]?.message?.content || "{}";
+    const data = JSON.parse(raw) as Partial<DepositSlipExtractResult>;
+
+    const clamp01 = (n: unknown) => {
+      const v = typeof n === "number" && Number.isFinite(n) ? n : 0;
+      return Math.max(0, Math.min(1, v));
+    };
+
+    const normalized: DepositSlipExtractResult = {
+      deposit_date: typeof data.deposit_date === "string" ? data.deposit_date : null,
+      amount: typeof data.amount === "number" && Number.isFinite(data.amount) ? data.amount : null,
+      reference: typeof data.reference === "string" ? data.reference : null,
+      bank_name: typeof data.bank_name === "string" ? data.bank_name : null,
+      account_last4: typeof data.account_last4 === "string" ? data.account_last4 : null,
+      confidence: clamp01(data.confidence),
+      notes: Array.isArray(data.notes) ? data.notes.map((x) => String(x)) : [],
+      ocr_text: typeof data.ocr_text === "string" ? data.ocr_text : "",
+    };
+
+    // Light sanity cleanup for last4
+    if (normalized.account_last4) {
+      const digits = normalized.account_last4.replace(/\D/g, "");
+      normalized.account_last4 = digits.length === 4 ? digits : normalized.account_last4;
+    }
+
+    // If deposit_date is present but not parseable, null it (avoid propagating junk).
+    if (normalized.deposit_date && !dayjs(normalized.deposit_date, "YYYY-MM-DD", true).isValid()) {
+      normalized.deposit_date = null;
+    }
+
+    return normalized;
   },
 };

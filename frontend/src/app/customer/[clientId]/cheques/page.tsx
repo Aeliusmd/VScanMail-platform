@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { chequeApi, type Cheque as ApiCheque, type ChequeStatus as ApiChequeStatus } from "@/lib/api/cheques";
 import { mailApi, type MailItem } from "@/lib/api/mail";
+import { bankAccountsApi, type BankAccountListItem } from "@/lib/api/bankAccounts";
+import { depositsApi } from "@/lib/api/deposits";
 
 type ChequeStatus = "Pending" | "Deposit Requested" | "Pickup Requested" | "Deposited" | "Picked Up";
 
@@ -25,15 +28,12 @@ interface Cheque {
   aiSummary: string;
 }
 
-const BANK_ACCOUNTS = [
-  { id: "ba1", bankName: "Bank of Commerce", accountName: "Acme Corp Operating", accountNo: "****4521", type: "Checking" },
-  { id: "ba2", bankName: "First National Bank", accountName: "Acme Corp Savings", accountNo: "****8834", type: "Savings" },
-];
-
 function mapApiChequeStatusToUi(status: ApiChequeStatus): ChequeStatus {
   switch (status) {
     case "flagged":
       return "Pending";
+    case "deposit_requested":
+      return "Deposit Requested";
     case "deposited":
       return "Deposited";
     case "cleared":
@@ -70,10 +70,15 @@ export default function CustomerChequesPage() {
   const [allChecked, setAllChecked] = useState(false);
   const [modalType, setModalType] = useState<ModalType>(null);
   const [modalCheque, setModalCheque] = useState<Cheque | null>(null);
-  const [selectedBank, setSelectedBank] = useState(BANK_ACCOUNTS[0].id);
+  const [bankAccounts, setBankAccounts] = useState<BankAccountListItem[]>([]);
+  const [bankAccountsLoading, setBankAccountsLoading] = useState(false);
+  const [bankAccountsError, setBankAccountsError] = useState<string | null>(null);
+  const [selectedBank, setSelectedBank] = useState<string>("");
   const [pickupDate, setPickupDate] = useState("");
   const [pickupNotes, setPickupNotes] = useState("");
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [depositSubmitting, setDepositSubmitting] = useState(false);
+  const [depositError, setDepositError] = useState<string | null>(null);
   const [zoomUrl, setZoomUrl] = useState<string | null>(null);
   const [zoomScale, setZoomScale] = useState(1);
 
@@ -148,6 +153,33 @@ export default function CustomerChequesPage() {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        setBankAccountsLoading(true);
+        setBankAccountsError(null);
+        const list = await bankAccountsApi.list();
+        if (cancelled) return;
+        setBankAccounts(list);
+        if (!selectedBank && list[0]?.id) setSelectedBank(list[0].id);
+      } catch (e) {
+        console.error("Failed to load bank accounts:", e);
+        if (cancelled) return;
+        setBankAccounts([]);
+        setBankAccountsError("Failed to load bank accounts.");
+      } finally {
+        if (!cancelled) setBankAccountsLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -256,22 +288,40 @@ export default function CustomerChequesPage() {
   const openModal = (cheque: Cheque, type: ModalType) => {
     setModalCheque(cheque);
     setModalType(type);
+    setDepositError(null);
+    if (type === "deposit" && !selectedBank && bankAccounts[0]?.id) setSelectedBank(bankAccounts[0].id);
   };
 
-  const handleDeposit = () => {
+  const handleDeposit = async () => {
     if (!modalCheque) return;
-    setCheques((prev) =>
-      prev.map((c) =>
-        c.id === modalCheque.id
-          ? { ...c, status: "Deposit Requested", tag: "In Process", tagColor: "bg-[#0A3D8F]/10 text-[#0A3D8F]", read: true }
-          : c
-      )
-    );
-    if (selectedCheque?.id === modalCheque.id) setSelectedCheque(null);
-    setModalType(null);
-    setModalCheque(null);
-    setSuccessMsg("Deposit request submitted successfully!");
-    setTimeout(() => setSuccessMsg(null), 4000);
+    if (!selectedBank) {
+      setDepositError("Please select a destination bank account.");
+      return;
+    }
+
+    try {
+      setDepositSubmitting(true);
+      setDepositError(null);
+      await depositsApi.requestDeposit(modalCheque.id, selectedBank);
+
+      setCheques((prev) =>
+        prev.map((c) =>
+          c.id === modalCheque.id
+            ? { ...c, status: "Deposit Requested", tag: "In Process", tagColor: "bg-[#0A3D8F]/10 text-[#0A3D8F]", read: true }
+            : c
+        )
+      );
+      if (selectedCheque?.id === modalCheque.id) setSelectedCheque(null);
+      setModalType(null);
+      setModalCheque(null);
+      setSuccessMsg("Deposit request submitted successfully!");
+      setTimeout(() => setSuccessMsg(null), 4000);
+    } catch (e: any) {
+      console.error("Failed to submit deposit request:", e);
+      setDepositError(e?.message || "Failed to submit deposit request.");
+    } finally {
+      setDepositSubmitting(false);
+    }
   };
 
   const handlePickup = () => {
@@ -1003,31 +1053,63 @@ export default function CustomerChequesPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Select Destination Bank Account</label>
-                <div className="space-y-2">
-                  {BANK_ACCOUNTS.map((ba) => (
-                    <label
-                      key={ba.id}
-                      className={`flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition-all ${
-                        selectedBank === ba.id ? "border-[#0A3D8F] bg-[#0A3D8F]/5" : "border-slate-200 hover:border-slate-300"
-                      }`}
+                {bankAccountsLoading ? (
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600">
+                    Loading bank accounts…
+                  </div>
+                ) : bankAccountsError ? (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+                    {bankAccountsError}
+                  </div>
+                ) : bankAccounts.length === 0 ? (
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                    <p className="text-sm font-semibold text-slate-900">No bank accounts found</p>
+                    <p className="text-xs text-slate-600 mt-1">
+                      Add a bank account first, then come back to submit a deposit request.
+                    </p>
+                    <Link
+                      href="../account"
+                      className="inline-flex items-center gap-2 mt-3 px-4 py-2 bg-[#0A3D8F] text-white text-xs font-semibold rounded-lg hover:bg-[#083170] transition-colors"
                     >
-                      <input
-                        type="radio"
-                        name="bank"
-                        value={ba.id}
-                        checked={selectedBank === ba.id}
-                        onChange={() => setSelectedBank(ba.id)}
-                        className="accent-[#0A3D8F]"
-                      />
-                      <div>
-                        <p className="text-sm font-medium text-slate-900">{ba.accountName}</p>
-                        <p className="text-xs text-slate-500">
-                          {ba.bankName} • {ba.accountNo} • {ba.type}
-                        </p>
-                      </div>
-                    </label>
-                  ))}
-                </div>
+                      <i className="ri-bank-line" />
+                      Add Bank Account
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {bankAccounts.map((ba) => (
+                      <label
+                        key={ba.id}
+                        className={`flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition-all ${
+                          selectedBank === ba.id
+                            ? "border-[#0A3D8F] bg-[#0A3D8F]/5"
+                            : "border-slate-200 hover:border-slate-300"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="bank"
+                          value={ba.id}
+                          checked={selectedBank === ba.id}
+                          onChange={() => setSelectedBank(ba.id)}
+                          className="accent-[#0A3D8F]"
+                        />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-slate-900 truncate">{ba.nickname}</p>
+                          <p className="text-xs text-slate-500 truncate">
+                            {ba.bankName} • ****{ba.accountLast4} • {ba.accountType}
+                          </p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                {depositError && (
+                  <div className="mt-3 px-3 py-2.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">
+                    {depositError}
+                  </div>
+                )}
               </div>
               <div className="flex gap-3 pt-1">
                 <button
@@ -1038,9 +1120,10 @@ export default function CustomerChequesPage() {
                 </button>
                 <button
                   onClick={handleDeposit}
-                  className="flex-1 py-3 bg-[#2F8F3A] text-white rounded-lg text-sm font-semibold hover:bg-[#267a30] cursor-pointer whitespace-nowrap"
+                  disabled={depositSubmitting || bankAccounts.length === 0 || !selectedBank}
+                  className="flex-1 py-3 bg-[#2F8F3A] text-white rounded-lg text-sm font-semibold hover:bg-[#267a30] cursor-pointer whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Submit Deposit Request
+                  {depositSubmitting ? "Submitting..." : "Submit Deposit Request"}
                 </button>
               </div>
             </div>
