@@ -1,7 +1,18 @@
 import { db, sql } from "@/lib/modules/core/db/mysql";
 import { clients } from "@/lib/modules/core/db/schema";
+import { ensureClientTableDepositColumns } from "@/lib/modules/core/db/dynamic-table";
 
 export type DepositDecision = "pending" | "approved" | "rejected";
+
+function tryParseJson(v: unknown): any {
+  if (v == null) return null;
+  if (typeof v !== "string") return v;
+  try {
+    return JSON.parse(v);
+  } catch {
+    return null;
+  }
+}
 
 export type DepositRow = {
   chequeId: string;
@@ -41,6 +52,8 @@ async function locateChequeById(id: string) {
   const allClients = await db.select({ id: clients.id, tableName: clients.tableName }).from(clients);
   if (!allClients.length) return null;
 
+  await Promise.all(allClients.map((c) => ensureClientTableDepositColumns(c.tableName)));
+
   const queries = allClients.map(
     (c) =>
       sql`SELECT *, ${c.id} AS _client_id, ${c.tableName} AS _table_name FROM ${sql.raw(
@@ -70,6 +83,7 @@ export const depositModel = {
     if (!clientRow?.tableName) return { deposits: [] as DepositRow[] };
 
     const tableName = clientRow.tableName;
+    await ensureClientTableDepositColumns(tableName);
 
     const columnList = [
       "id AS chequeId",
@@ -130,7 +144,7 @@ export const depositModel = {
       slipUrl: r.slipUrl ?? null,
       slipUploadedAt: r.slipUploadedAt ? new Date(r.slipUploadedAt).toISOString() : null,
       slipUploadedBy: r.slipUploadedBy ?? null,
-      slipAiResult: r.slipAiResult ?? null,
+      slipAiResult: tryParseJson(r.slipAiResult),
       aiSummary: r.aiSummary ?? null,
     }));
 
@@ -148,6 +162,8 @@ export const depositModel = {
 
     const allClients = allClientsRaw.filter((c) => existingTableNames.has(c.tableName));
     if (!allClients.length) return { deposits: [] as DepositRow[] };
+
+    await Promise.all(allClients.map((c) => ensureClientTableDepositColumns(c.tableName)));
 
     const columnList = [
       "id AS chequeId",
@@ -215,7 +231,7 @@ export const depositModel = {
       slipUrl: r.slipUrl ?? null,
       slipUploadedAt: r.slipUploadedAt ? new Date(r.slipUploadedAt).toISOString() : null,
       slipUploadedBy: r.slipUploadedBy ?? null,
-      slipAiResult: r.slipAiResult ?? null,
+      slipAiResult: tryParseJson(r.slipAiResult),
       aiSummary: r.aiSummary ?? null,
     }));
 

@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
       // Join clients on clientId (new logs) or actorId (legacy client logs)
       .leftJoin(clients, eq(auditLogs.clientId, clients.id)) 
       .orderBy(desc(auditLogs.createdAt))
-      .limit(100); 
+      .limit(500); 
 
     const logs = rows.map(r => ({
       ...r,

@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { getProfile, updateProfile, updatePassword, uploadAvatar } from "../profile/actions";
 import ImageCropperModal from "./ImageCropperModal";
 import { getCroppedImg } from "@/lib/image-utils";
 import { Area } from "react-easy-crop";
+import { apiClient, apiUpload } from "@/lib/api-client";
 
 export default function ProfileTab() {
   const [loading, setLoading] = useState(true);
@@ -31,20 +31,25 @@ export default function ProfileTab() {
 
   useEffect(() => {
     async function fetchData() {
-      const res = await getProfile();
-      if (res.success && res.data) {
+      try {
+        const res = await apiClient<any>("/api/profile/me");
+        if (res?.user) {
         setProfile({
-          firstName: res.data.firstName || '',
-          lastName: res.data.lastName || '',
-          email: res.data.email || '',
-          phone: res.data.phone || '',
-          role: res.data.role || 'Super Admin',
-          bio: res.data.bio || '',
-          language: res.data.language || 'English',
-          avatarUrl: res.data.avatarUrl || '',
+          firstName: res.user.firstName || '',
+          lastName: res.user.lastName || '',
+          email: res.user.email || '',
+          phone: res.user.phone || '',
+          role: res.role || 'Super Admin',
+          bio: res.user.bio || '',
+          language: res.user.language || 'English',
+          avatarUrl: res.user.avatarUrl || '',
         });
       }
+      } catch (e: any) {
+        setError(e?.message || "Failed to load profile");
+      } finally {
       setLoading(false);
+      }
     }
     fetchData();
   }, []);
@@ -52,13 +57,13 @@ export default function ProfileTab() {
   const handleSave = async () => {
     setSaveSuccess(false);
     setError(null);
-    const res = await updateProfile(profile);
-    if (res.success) {
+    try {
+      await apiClient("/api/profile/update", { method: "POST", body: JSON.stringify(profile) });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2500);
       window.dispatchEvent(new Event('profileUpdated'));
-    } else {
-      setError(res.error || "Failed to update profile");
+    } catch (e: any) {
+      setError(e?.message || "Failed to update profile");
     }
   };
 
@@ -66,17 +71,20 @@ export default function ProfileTab() {
     if (passwordForm.newPass !== passwordForm.confirm) return;
     setPwSuccess(false);
     setPwError(null);
-    const res = await updatePassword({
-      currentPassword: passwordForm.current,
-      newPassword: passwordForm.newPass,
-      confirmPassword: passwordForm.confirm,
-    });
-    if (res.success) {
+    try {
+      await apiClient("/api/profile/password", {
+        method: "POST",
+        body: JSON.stringify({
+          currentPassword: passwordForm.current,
+          newPassword: passwordForm.newPass,
+          confirmPassword: passwordForm.confirm,
+        }),
+      });
       setPwSuccess(true);
       setPasswordForm({ current: '', newPass: '', confirm: '' });
       setTimeout(() => setPwSuccess(false), 2500);
-    } else {
-      setPwError(res.error || "Failed to update password");
+    } catch (e: any) {
+      setPwError(e?.message || "Failed to update password");
     }
   };
 
@@ -111,12 +119,12 @@ export default function ProfileTab() {
       const formData = new FormData();
       formData.append("file", croppedBlob, "avatar.jpg");
 
-      const res = await uploadAvatar(formData);
-      if (res.success && res.url) {
-        setProfile(p => ({ ...p, avatarUrl: res.url }));
+      const res = await apiUpload<{ url?: string }>("/api/profile/avatar", formData);
+      if (res?.url) {
+        setProfile((p) => ({ ...p, avatarUrl: res.url }));
         window.dispatchEvent(new Event('profileUpdated'));
       } else {
-        setError(res.error || "Failed to upload avatar");
+        setError("Failed to upload avatar");
       }
     } catch (err: any) {
       setError(err.message || "An error occurred during cropping");

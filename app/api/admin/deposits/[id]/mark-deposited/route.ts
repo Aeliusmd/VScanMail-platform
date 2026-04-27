@@ -8,7 +8,7 @@ export async function POST(
 ) {
   try {
     const user = await withAuth(req);
-    withRole(user, ["admin", "super_admin"]);
+    withRole(user, ["admin"]);
 
     const { id } = await params;
 

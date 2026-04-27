@@ -9,6 +9,7 @@ type DepositSlipExtractResult = {
   amount: number | null;
   reference: string | null;
   bank_name: string | null;
+  account_number: string | null;
   account_last4: string | null;
   confidence: number; // 0..1
   notes: string[];
@@ -388,7 +389,7 @@ Return:
         {
           role: "system",
           content:
-            'You are a deposit-slip OCR + extraction engine. Return ONLY valid JSON with this exact shape: {"deposit_date":"YYYY-MM-DD|null","amount":number|null,"reference":"string|null","bank_name":"string|null","account_last4":"string|null","confidence":number,"notes":string[],"ocr_text":"string"}. Use null when unknown. confidence MUST be between 0 and 1.',
+            'You are a deposit-slip OCR + extraction engine. Return ONLY valid JSON with this exact shape: {"deposit_date":"YYYY-MM-DD|null","amount":number|null,"reference":"string|null","bank_name":"string|null","account_number":"string|null","account_last4":"string|null","confidence":number,"notes":string[],"ocr_text":"string"}. Use null when unknown. confidence MUST be between 0 and 1.',
         },
         {
           role: "user",
@@ -414,11 +415,18 @@ Return:
       amount: typeof data.amount === "number" && Number.isFinite(data.amount) ? data.amount : null,
       reference: typeof data.reference === "string" ? data.reference : null,
       bank_name: typeof data.bank_name === "string" ? data.bank_name : null,
+      account_number: typeof data.account_number === "string" ? data.account_number : null,
       account_last4: typeof data.account_last4 === "string" ? data.account_last4 : null,
       confidence: clamp01(data.confidence),
       notes: Array.isArray(data.notes) ? data.notes.map((x) => String(x)) : [],
       ocr_text: typeof data.ocr_text === "string" ? data.ocr_text : "",
     };
+
+    // Light sanity cleanup for full account number (digits-only)
+    if (normalized.account_number) {
+      const digits = normalized.account_number.replace(/\D/g, "");
+      normalized.account_number = digits.length > 0 ? digits : null;
+    }
 
     // Light sanity cleanup for last4
     if (normalized.account_last4) {

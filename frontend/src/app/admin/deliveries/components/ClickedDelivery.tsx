@@ -1,187 +1,252 @@
 "use client";
 
-import { Icon } from '@iconify/react';
-import type { DeliveryRequest } from '../../../../mocks/deliveries';
+import { useState } from "react";
+import { deliveriesApi, type DeliveryDto } from "@/lib/api/deliveries";
 
 interface ClickedDeliveryProps {
-  request: DeliveryRequest;
-  actionFeedback: Record<string, string>;
+  request: DeliveryDto;
   onClose: () => void;
-  onMarkDelivered: (id: string) => void;
-  onResend: (id: string) => void;
+  onUpdated: () => Promise<void> | void;
+  readOnly?: boolean;
 }
 
-const statusColors: Record<DeliveryRequest['status'], string> = {
-  Pending: 'bg-amber-100 text-amber-700',
-  'In Transit': 'bg-blue-100 text-blue-700',
-  Delivered: 'bg-green-100 text-[#2F8F3A]',
-  Failed: 'bg-red-100 text-red-700',
-};
+function statusMeta(status: DeliveryDto["status"]): { label: string; className: string } {
+  switch (status) {
+    case "pending":
+      return { label: "Pending", className: "bg-amber-50 text-amber-700 ring-1 ring-amber-200" };
+    case "approved":
+      return { label: "Approved", className: "bg-blue-50 text-blue-700 ring-1 ring-blue-200" };
+    case "in_transit":
+      return { label: "In Transit", className: "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200" };
+    case "delivered":
+      return { label: "Delivered", className: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200" };
+    case "rejected":
+      return { label: "Rejected", className: "bg-rose-50 text-rose-700 ring-1 ring-rose-200" };
+    case "cancelled":
+      return { label: "Cancelled", className: "bg-slate-100 text-slate-700 ring-1 ring-slate-200" };
+    default:
+      return { label: "—", className: "bg-slate-100 text-slate-700 ring-1 ring-slate-200" };
+  }
+}
 
-export default function ClickedDelivery({
-  request,
-  actionFeedback,
-  onClose,
-  onMarkDelivered,
-  onResend,
-}: ClickedDeliveryProps) {
+function sourceMeta(sourceType: DeliveryDto["sourceType"]): { label: string; className: string } {
+  if (sourceType === "cheque") return { label: "Cheque", className: "bg-[#0A3D8F]/10 text-[#0A3D8F]" };
+  return { label: "Mail", className: "bg-slate-100 text-slate-700" };
+}
+
+function Field({
+  label,
+  value,
+  mono,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
   return (
-    <div
-      className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-6"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-4 sm:px-6 py-5 border-b border-slate-200 shrink-0">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-[#0A3D8F]/10 rounded-lg flex items-center justify-center">
-                <Icon icon="ri-truck-line" className="text-[#0A3D8F] text-xl" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-slate-900">Delivery Request</h2>
-                <p className="text-xs text-slate-500">
-                  {request.id} • {request.requestedAt}
-                </p>
-              </div>
-            </div>
-
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-              aria-label="Close"
-            >
-              <Icon icon="ri-close-line" className="text-slate-600 text-xl" />
-            </button>
-        </div>
-
-        <div className="p-4 sm:p-6 space-y-5 overflow-y-auto flex-1 min-h-0">
-            <div className="w-full h-40 sm:h-52 rounded-xl overflow-hidden border border-slate-200">
-              <img
-                src={request.thumbnail}
-                alt="Delivery document"
-                className="w-full h-full object-cover object-top"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="p-4 bg-slate-50 rounded-xl">
-                <p className="text-xs text-slate-500 mb-1">Requesting Company</p>
-                <div className="flex items-center space-x-2">
-                  <div className="w-7 h-7 bg-[#0A3D8F] rounded-md flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                    {request.company.charAt(0)}
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">{request.company}</p>
-                    <p className="text-xs text-slate-500">{request.companyEmail}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 bg-slate-50 rounded-xl">
-                <p className="text-xs text-slate-500 mb-1">Delivery Status</p>
-                <span
-                  className={`inline-flex items-center mt-1 px-2 py-0.5 rounded-full text-xs font-semibold ${statusColors[request.status]}`}
-                >
-                  {request.status}
-                </span>
-                <p className="text-xs text-slate-500 mt-2">Requested by {request.requestedBy}</p>
-              </div>
-            </div>
-
-            <div className="p-4 bg-slate-50 rounded-xl">
-              <p className="text-xs text-slate-500 mb-1">Mail Subject</p>
-              <p className="text-sm font-semibold text-slate-900">{request.mailSubject}</p>
-            </div>
-
-            <div className="p-4 bg-slate-50 rounded-xl">
-              <div className="flex items-center space-x-2 mb-2">
-                <Icon icon="ri-map-pin-line" className="text-[#0A3D8F] text-base" />
-                <p className="text-xs text-slate-500">Delivery Address</p>
-              </div>
-              <p className="text-sm font-semibold text-slate-900">{request.deliveryAddress}</p>
-
-              {request.recipientName && (
-                <div className="mt-3 pt-3 border-t border-slate-200">
-                  <p className="text-xs text-slate-500 mb-1">Recipient Details</p>
-                  <p className="text-sm font-medium text-slate-900">{request.recipientName}</p>
-                  {request.recipientPhone && (
-                    <p className="text-xs text-slate-500 mt-0.5">{request.recipientPhone}</p>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="p-4 bg-slate-50 rounded-xl">
-                <p className="text-xs text-slate-500 mb-1">Courier Service</p>
-                <p className="text-sm font-semibold text-slate-900">{request.courier}</p>
-              </div>
-              <div className="p-4 bg-slate-50 rounded-xl">
-                <p className="text-xs text-slate-500 mb-1">Tracking Number</p>
-                <p className="text-sm font-semibold text-slate-900">{request.trackingNumber}</p>
-              </div>
-            </div>
-
-            {request.notes && (
-              <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
-                <div className="flex items-center space-x-2 mb-2">
-                  <Icon icon="ri-information-line" className="text-amber-600 text-base" />
-                  <h3 className="text-sm font-bold text-amber-900">Notes</h3>
-                </div>
-                <p className="text-sm text-amber-800">{request.notes}</p>
-              </div>
-            )}
-
-            <div className="p-5 bg-gradient-to-br from-[#0A3D8F]/5 to-slate-50 rounded-xl border border-[#0A3D8F]/10">
-              <div className="flex items-center space-x-2 mb-3">
-                <Icon icon="ri-sparkling-line" className="text-amber-500 text-lg" />
-                <h3 className="text-sm font-bold text-slate-800">AI-Generated Summary</h3>
-              </div>
-              <p className="text-sm text-slate-700 leading-relaxed">{request.aiSummary}</p>
-              <div className="mt-3 flex items-center space-x-2">
-                <Icon icon="ri-robot-line" className="text-[#0A3D8F] text-sm" />
-                <span className="text-xs text-slate-400">Generated by VScan AI</span>
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
-              {(request.status === 'Pending' || request.status === 'In Transit') && (
-                <button
-                  onClick={() => onMarkDelivered(request.id)}
-                  className="flex-1 py-3 bg-[#2F8F3A] text-white font-semibold rounded-lg hover:bg-[#267a30] transition-colors text-sm whitespace-nowrap cursor-pointer"
-                >
-                  <Icon icon="ri-check-line" className="inline-block mr-2" />
-                  {actionFeedback[request.id] === 'delivered'
-                    ? 'Marked as Delivered!'
-                    : 'Mark as Delivered'}
-                </button>
-              )}
-
-              <button
-                onClick={() => onResend(request.id)}
-                className="flex-1 py-3 bg-[#0A3D8F] text-white font-semibold rounded-lg hover:bg-[#083170] transition-colors text-sm whitespace-nowrap cursor-pointer"
-              >
-                <Icon icon="ri-send-plane-line" className="inline-block mr-2" />
-                {actionFeedback[request.id] === 'resent' ? 'Sent!' : 'Resend Email'}
-              </button>
-
-              <button className="flex-1 py-3 bg-white border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-colors text-sm whitespace-nowrap cursor-pointer">
-                <Icon icon="ri-download-line" className="inline-block mr-2" />
-                Download
-              </button>
-
-              <button
-                onClick={onClose}
-                className="px-5 py-3 bg-slate-100 text-slate-600 font-semibold rounded-lg hover:bg-slate-200 transition-colors text-sm whitespace-nowrap cursor-pointer"
-              >
-                Close
-              </button>
-            </div>
-        </div>
-      </div>
+    <div className="rounded-xl border border-slate-200 bg-white px-3.5 py-3">
+      <div className="text-[11px] font-medium text-slate-500">{label}</div>
+      <div className={`mt-1 text-sm font-semibold text-slate-900 ${mono ? "font-mono text-[12px]" : ""}`}>{value}</div>
     </div>
   );
 }
 
+function Input({
+  label,
+  value,
+  onChange,
+  placeholder,
+  type = "text",
+  className,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  type?: string;
+  className?: string;
+}) {
+  return (
+    <label className={`block ${className || ""}`}>
+      <div className="mb-1 text-[11px] font-medium text-slate-500">{label}</div>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-[#0A3D8F] focus:ring-2 focus:ring-[#0A3D8F]/15"
+      />
+    </label>
+  );
+}
+
+export default function ClickedDelivery({ request, onClose, onUpdated, readOnly }: ClickedDeliveryProps) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [trackingNumber, setTrackingNumber] = useState(request.trackingNumber || "");
+  const [submissionId, setSubmissionId] = useState(request.vSendDocsSubmissionId || "");
+  const [submissionNumber, setSubmissionNumber] = useState(request.vSendDocsSubmissionNumber || "");
+  const [proofOfServiceUrl, setProofOfServiceUrl] = useState(request.proofOfServiceUrl || "");
+
+  const run = async (fn: () => Promise<void>) => {
+    try {
+      setLoading(true);
+      setError(null);
+      await fn();
+      await onUpdated();
+      onClose();
+    } catch (err: any) {
+      setError(err?.message || "Action failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const s = statusMeta(request.status);
+  const src = sourceMeta(request.sourceType);
+  const addressLine = [
+    request.addressLine1,
+    request.addressLine2,
+    request.addressCity,
+    [request.addressState, request.addressZip].filter(Boolean).join(" "),
+    request.addressCountry,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3 p-5 border-b border-slate-200">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${s.className}`}>{s.label}</span>
+              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${src.className}`}>{src.label}</span>
+              <span className="text-[11px] font-mono text-slate-400 truncate">{request.id}</span>
+            </div>
+            <div className="mt-2 flex items-center gap-2 min-w-0">
+              <div className="h-9 w-9 rounded-2xl bg-gradient-to-br from-[#0A3D8F] to-[#083170] text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
+                {(request.clientName || request.clientId || "?").slice(0, 1).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-base font-bold text-slate-900 truncate">{request.clientName || request.clientId}</h2>
+                <div className="mt-0.5 text-xs text-slate-500 truncate">
+                  {request.irn ? `IRN ${request.irn}` : "IRN —"}
+                  {request.requestedAt ? ` · Requested ${new Date(request.requestedAt).toLocaleString()}` : ""}
+                </div>
+              </div>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg flex-shrink-0" aria-label="Close">
+            <i className="ri-close-line text-lg text-slate-600" />
+          </button>
+        </div>
+
+        <div className="p-5 overflow-y-auto space-y-5 bg-slate-50/60">
+          {error && <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</div>}
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <Field label="Client" value={request.clientName || request.clientId} />
+            <Field label="Source" value={src.label} />
+            <Field label="Status" value={s.label} />
+            <div className="md:col-span-3">
+              <Field label="Recipient" value={request.addressName || "—"} />
+            </div>
+            <div className="md:col-span-3">
+              <Field label="Address" value={addressLine || "—"} />
+            </div>
+            <div className="md:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Field label="Phone" value={request.addressPhone || "—"} />
+              <Field label="Email" value={request.addressEmail || "—"} />
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <div className="text-sm font-semibold text-slate-900">Fulfillment</div>
+                <div className="mt-0.5 text-xs text-slate-500">Enter tracking and optional vSendDocs details. Provide proof URL when delivered.</div>
+              </div>
+              <div className="text-[11px] text-slate-500">{request.trackingNumber ? "Tracking set" : "No tracking"}</div>
+            </div>
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input label="vSendDocs Submission ID" value={submissionId} onChange={setSubmissionId} placeholder="Optional" />
+              <Input label="vSendDocs Submission Number" value={submissionNumber} onChange={setSubmissionNumber} placeholder="Optional" />
+              <Input label="Tracking Number" value={trackingNumber} onChange={setTrackingNumber} placeholder="Required for In Transit" />
+              <Input label="Proof of Service URL" value={proofOfServiceUrl} onChange={setProofOfServiceUrl} placeholder="Required for Delivered" />
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="text-sm font-semibold text-slate-900">Decision</div>
+            <div className="mt-0.5 text-xs text-slate-500">Reject requires a reason. Approve does not.</div>
+            <div className="mt-3">
+              <label className="block">
+                <div className="mb-1 text-[11px] font-medium text-slate-500">Reject reason</div>
+                <input
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  placeholder="Required to reject this request"
+                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-[#0A3D8F] focus:ring-2 focus:ring-[#0A3D8F]/15"
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {readOnly ? (
+          <div className="p-5 border-t border-slate-200 bg-white">
+            <p className="text-xs text-slate-400 text-center">
+              Status: <span className="font-semibold text-slate-700">{s.label}</span> — view only
+            </p>
+          </div>
+        ) : (
+          <div className="p-5 border-t border-slate-200 bg-white">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <button
+                disabled={loading}
+                onClick={() => run(() => deliveriesApi.adminApprove(request.id))}
+                className="px-3 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-60 hover:bg-blue-700 transition"
+              >
+                Approve
+              </button>
+              <button
+                disabled={loading || !rejectReason.trim()}
+                onClick={() => run(() => deliveriesApi.adminReject(request.id, rejectReason))}
+                className="px-3 py-2.5 rounded-lg bg-rose-600 text-white text-sm font-semibold disabled:opacity-60 hover:bg-rose-700 transition"
+              >
+                Reject
+              </button>
+              <button
+                disabled={loading || !trackingNumber.trim()}
+                onClick={() =>
+                  run(() =>
+                    deliveriesApi.adminMarkInTransit(request.id, {
+                      trackingNumber,
+                      submissionId: submissionId || undefined,
+                      submissionNumber: submissionNumber || undefined,
+                    })
+                  )
+                }
+                className="px-3 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-semibold disabled:opacity-60 hover:bg-indigo-700 transition"
+              >
+                Mark In Transit
+              </button>
+              <button
+                disabled={loading || !proofOfServiceUrl.trim()}
+                onClick={() => run(() => deliveriesApi.adminMarkDelivered(request.id, proofOfServiceUrl))}
+                className="px-3 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold disabled:opacity-60 hover:bg-emerald-700 transition"
+              >
+                Mark Delivered
+              </button>
+            </div>
+            <div className="mt-3 text-[11px] text-slate-500">
+              Actions will refresh the list and close this panel on success.
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

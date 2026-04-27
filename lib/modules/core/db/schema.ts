@@ -8,11 +8,31 @@ import {
   date,
   decimal,
   int,
-  varbinary,
+  customType,
   mysqlEnum,
   index,
   uniqueIndex,
 } from "drizzle-orm/mysql-core";
+
+// Drizzle's built-in varbinary parser converts Buffer to UTF-8 string.
+// For encrypted payloads we must preserve raw bytes on reads.
+const bufferColumn = (name: string, opts: { length: number }) =>
+  customType<{ data: Buffer; driverData: Buffer | Uint8Array | string }>({
+    dataType() {
+      return `varbinary(${opts.length})`;
+    },
+    fromDriver(value): Buffer {
+      if (Buffer.isBuffer(value)) return value;
+      if (value instanceof Uint8Array) {
+        return Buffer.from(value.buffer, value.byteOffset, value.byteLength);
+      }
+      if (typeof value === "string") return Buffer.from(value, "binary");
+      throw new Error(`Unexpected binary value type: ${typeof value}`);
+    },
+    toDriver(value: Buffer): Buffer {
+      return value;
+    },
+  })(name);
 
 // --- Auth / RBAC ---
 export const users = mysqlTable(
@@ -243,6 +263,10 @@ export const auditLogs = mysqlTable(
     afterState: json("after_state"),
     ipAddress: varchar("ip_address", { length: 64 }),
     userAgent: varchar("user_agent", { length: 255 }),
+    notifRecipientId: varchar("notif_recipient_id", { length: 36 }),
+    notifIsRead: boolean("notif_is_read").notNull().default(false),
+    notifTitle: varchar("notif_title", { length: 255 }),
+    notifTargetUrl: varchar("notif_target_url", { length: 500 }),
     createdAt: datetime("created_at", { mode: "date" }).notNull(),
   },
   (t) => ({
@@ -252,6 +276,7 @@ export const auditLogs = mysqlTable(
     entityIdx: index("al_entity_idx").on(t.entityType, t.entityId),
     actionIdx: index("al_action_idx").on(t.action),
     createdIdx: index("al_created_idx").on(t.createdAt),
+    notifRecipientIdx: index("al_notif_recipient_idx").on(t.notifRecipientId, t.notifIsRead),
   })
 );
 
@@ -270,7 +295,7 @@ export const clientBankAccounts = mysqlTable(
     accountLast4: varchar("account_last4", { length: 4 }).notNull(),
 
     // Encrypted payload stored as VARBINARY (AES-256-GCM: iv|tag|ciphertext)
-    accountNumberEnc: varbinary("account_number_enc", { length: 512 }).notNull(),
+    accountNumberEnc: bufferColumn("account_number_enc", { length: 512 }).notNull(),
     keyVersion: int("key_version").notNull().default(1),
 
     // Integrity / dedupe without decrypt (HMAC-SHA256(account_number, key_v) hex)
@@ -288,5 +313,32 @@ export const clientBankAccounts = mysqlTable(
     clientIdx: index("cba_client_idx").on(t.clientId),
     clientActiveIdx: index("cba_client_active_idx").on(t.clientId, t.status),
     hashUq: uniqueIndex("cba_client_hash_uq").on(t.clientId, t.accountNumberHash),
+  })
+);
+
+export const deliveryAddresses = mysqlTable(
+  "delivery_addresses",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    clientId: varchar("client_id", { length: 36 }).notNull(),
+    label: varchar("label", { length: 64 }).notNull(),
+    recipientName: varchar("recipient_name", { length: 128 }).notNull(),
+    line1: varchar("line1", { length: 255 }).notNull(),
+    line2: varchar("line2", { length: 255 }),
+    city: varchar("city", { length: 128 }).notNull(),
+    state: varchar("state", { length: 32 }).notNull(),
+    zip: varchar("zip", { length: 32 }).notNull(),
+    country: varchar("country", { length: 2 }).notNull().default("US"),
+    phone: varchar("phone", { length: 32 }),
+    email: varchar("email", { length: 255 }),
+    isDefault: boolean("is_default").notNull().default(false),
+    createdBy: varchar("created_by", { length: 36 }).notNull(),
+    createdAt: datetime("created_at", { mode: "date" }).notNull(),
+    updatedAt: datetime("updated_at", { mode: "date" }).notNull(),
+    deletedAt: datetime("deleted_at", { mode: "date" }),
+  },
+  (t) => ({
+    clientIdx: index("da_client_idx").on(t.clientId),
+    clientDefaultIdx: index("da_client_default_idx").on(t.clientId, t.isDefault),
   })
 );

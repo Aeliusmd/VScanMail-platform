@@ -12,6 +12,9 @@ export const auditService = {
     req?: Request; // Passing the Next.js Request object to auto-extract metadata
     ip?: string;
     userAgent?: string;
+    notifRecipientId?: string;
+    notifTitle?: string;
+    notifTargetUrl?: string;
   }) {
     // Extract metadata from request if provided
     let ip = params.ip || null;
@@ -39,6 +42,10 @@ export const auditService = {
         after_state: params.after || null,
         ip_address: ip,
         user_agent: userAgent,
+        notif_recipient_id: params.notifRecipientId || null,
+        notif_is_read: params.notifRecipientId ? false : undefined,
+        notif_title: params.notifTitle || null,
+        notif_target_url: params.notifTargetUrl || null,
       });
     } catch (err) {
       console.error("[AUDIT_SERVICE_FAILURE]", err);

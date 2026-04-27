@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   FALLBACK_ACCOUNT,
   fetchCustomerAccount,
@@ -16,10 +17,43 @@ import {
 import { useOrgContext } from "../components/OrgContext";
 import { billingApi, type UsageSummary } from "@/lib/api/billing";
 import { bankAccountsApi, type BankAccountListItem } from "@/lib/api/bankAccounts";
+import { deliveryAddressesApi, type DeliveryAddress } from "@/lib/api/delivery-addresses";
 
 type BankAccount = BankAccountListItem;
+type AddressEntry = DeliveryAddress;
+type AddressForm = {
+  label: string;
+  recipientName: string;
+  line1: string;
+  line2: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+  phone: string;
+  email: string;
+  isDefault: boolean;
+};
+const EMPTY_ADDRESS_FORM: AddressForm = {
+  label: "",
+  recipientName: "",
+  line1: "",
+  line2: "",
+  city: "",
+  state: "",
+  zip: "",
+  country: "US",
+  phone: "",
+  email: "",
+  isDefault: false,
+};
 
-type AccountTab = "profile" | "bank-accounts" | "security" | "notifications" | "billing";
+type AccountTab = "profile" | "bank-accounts" | "delivery-addresses" | "security" | "notifications" | "billing";
+const ACCOUNT_TABS: readonly AccountTab[] = ["profile", "bank-accounts", "delivery-addresses", "security", "notifications", "billing"];
+
+function isAccountTab(value: string | null): value is AccountTab {
+  return !!value && ACCOUNT_TABS.includes(value as AccountTab);
+}
 
 function scanUsagePercent(used: number, limit: number): number {
   if (limit <= 0) return 0;
@@ -69,14 +103,22 @@ const SUBSCRIPTION_PLANS = [
 
 export default function CustomerAccountPage() {
   const org = useOrgContext();
+  const searchParams = useSearchParams();
   const companyId = org.clientId ?? "demo";
-
-  const [activeTab, setActiveTab] = useState<AccountTab>("profile");
+  const tabFromQuery = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState<AccountTab>(
+    isAccountTab(tabFromQuery) ? tabFromQuery : "profile"
+  );
   const [accountLoading, setAccountLoading] = useState(true);
   const [accountError, setAccountError] = useState<string | null>(null);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [showAddBank, setShowAddBank] = useState(false);
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
+  const [deliveryAddresses, setDeliveryAddresses] = useState<AddressEntry[]>([]);
+  const [showAddAddress, setShowAddAddress] = useState(false);
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+  const [addressFormError, setAddressFormError] = useState("");
+  const [addressForm, setAddressForm] = useState<AddressForm>(EMPTY_ADDRESS_FORM);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -214,6 +256,120 @@ export default function CustomerAccountPage() {
     return String(s || "").replace(/\D/g, "");
   }
 
+  const normalizeAddressPayload = (input: AddressForm) => ({
+    label: input.label.trim(),
+    recipientName: input.recipientName.trim(),
+    line1: input.line1.trim(),
+    line2: input.line2.trim() || undefined,
+    city: input.city.trim(),
+    state: input.state.trim().toUpperCase(),
+    zip: input.zip.trim(),
+    country: (input.country.trim() || "US").toUpperCase(),
+    phone: input.phone.trim() || undefined,
+    email: input.email.trim() || undefined,
+    isDefault: input.isDefault,
+  });
+
+  const validateAddressForm = (input: AddressForm): string | null => {
+    if (!input.label.trim() || !input.recipientName.trim() || !input.line1.trim() || !input.city.trim() || !input.state.trim() || !input.zip.trim()) {
+      return "Please complete all required fields.";
+    }
+    if (input.state.trim().length !== 2) {
+      return "State must be a 2-letter code (e.g. CA).";
+    }
+    return null;
+  };
+
+  const loadDeliveryAddresses = useCallback(async () => {
+    try {
+      const list = await deliveryAddressesApi.list();
+      setDeliveryAddresses(list);
+    } catch (e) {
+      console.error("Failed to load delivery addresses:", e);
+      showSuccess(e instanceof Error ? e.message : "Failed to load delivery addresses");
+    }
+  }, []);
+
+  const openAddAddress = () => {
+    setEditingAddressId(null);
+    setAddressFormError("");
+    setAddressForm(EMPTY_ADDRESS_FORM);
+    setShowAddAddress(true);
+  };
+
+  const openEditAddress = (entry: AddressEntry) => {
+    setEditingAddressId(entry.id);
+    setAddressFormError("");
+    setAddressForm({
+      label: entry.label,
+      recipientName: entry.recipientName,
+      line1: entry.line1,
+      line2: entry.line2 || "",
+      city: entry.city,
+      state: entry.state,
+      zip: entry.zip,
+      country: entry.country || "US",
+      phone: entry.phone || "",
+      email: entry.email || "",
+      isDefault: entry.isDefault,
+    });
+    setShowAddAddress(true);
+  };
+
+  const submitAddressForm = async () => {
+    const validationError = validateAddressForm(addressForm);
+    if (validationError) {
+      setAddressFormError(validationError);
+      return;
+    }
+    setAddressFormError("");
+    setSaving(true);
+    try {
+      const payload = normalizeAddressPayload(addressForm);
+      if (editingAddressId) {
+        await deliveryAddressesApi.update(editingAddressId, payload);
+        showSuccess("Delivery address updated successfully!");
+      } else {
+        await deliveryAddressesApi.create(payload);
+        showSuccess("Delivery address added successfully!");
+      }
+      setShowAddAddress(false);
+      setEditingAddressId(null);
+      setAddressForm(EMPTY_ADDRESS_FORM);
+      await loadDeliveryAddresses();
+    } catch (e) {
+      setAddressFormError(e instanceof Error ? e.message : "Failed to save delivery address");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const removeDeliveryAddress = async (id: string) => {
+    setSaving(true);
+    try {
+      await deliveryAddressesApi.remove(id);
+      showSuccess("Delivery address removed.");
+      await loadDeliveryAddresses();
+    } catch (e) {
+      showSuccess(e instanceof Error ? e.message : "Failed to remove delivery address");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const setDefaultDeliveryAddress = async (id: string) => {
+    setSaving(true);
+    try {
+      await deliveryAddressesApi.update(id, { isDefault: true });
+      showSuccess("Default delivery address updated!");
+      await loadDeliveryAddresses();
+    } catch (e) {
+      showSuccess(e instanceof Error ? e.message : "Failed to update default address");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const addBankAccount = async () => {
     setBankFormError("");
     if (!newBank.bankName || !newBank.nickname || !newBank.accountNumber) {
@@ -313,9 +469,20 @@ export default function CustomerAccountPage() {
     }
   };
 
+  useEffect(() => {
+    const nextTab: AccountTab = isAccountTab(tabFromQuery) ? tabFromQuery : "profile";
+    setActiveTab((prev) => (prev === nextTab ? prev : nextTab));
+  }, [tabFromQuery]);
+
+  useEffect(() => {
+    if (activeTab !== "delivery-addresses") return;
+    void loadDeliveryAddresses();
+  }, [activeTab, loadDeliveryAddresses]);
+
   const tabs: { key: AccountTab; label: string; icon: string }[] = [
     { key: "profile", label: "Organization Profile", icon: "ri-building-line" },
     { key: "bank-accounts", label: "Bank Accounts", icon: "ri-bank-line" },
+    { key: "delivery-addresses", label: "Delivery Addresses", icon: "ri-map-pin-user-line" },
     { key: "billing", label: "Billing & Plan", icon: "ri-price-tag-3-line" },
     { key: "security", label: "Security", icon: "ri-shield-check-line" },
     { key: "notifications", label: "Notifications", icon: "ri-notification-3-line" },
@@ -681,6 +848,187 @@ export default function CustomerAccountPage() {
                         >
                           {saving ? "Removing…" : "Remove"}
                         </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Delivery Addresses Tab */}
+            {activeTab === "delivery-addresses" && (
+              <div className="space-y-4">
+                <div className="bg-white rounded-xl border border-gray-200">
+                  <div className="flex flex-col gap-3 border-b border-gray-200 p-6 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h2 className="text-lg font-bold text-gray-900">Delivery Addresses</h2>
+                      <p className="text-sm text-gray-500 mt-0.5">Manage saved addresses for pickup deliveries</p>
+                    </div>
+                    <button
+                      onClick={openAddAddress}
+                      className="flex w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[#0A3D8F] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#083170] cursor-pointer whitespace-nowrap sm:w-auto"
+                    >
+                      <i className="ri-add-line"></i>
+                      Add New Address
+                    </button>
+                  </div>
+
+                  <div className="divide-y divide-gray-100">
+                    {deliveryAddresses.length === 0 ? (
+                      <div className="p-12 text-center">
+                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <i className="ri-map-pin-user-line text-3xl text-gray-400"></i>
+                        </div>
+                        <h3 className="text-gray-900 font-semibold mb-2">No delivery addresses added</h3>
+                        <p className="text-gray-500 text-sm mb-4">Add an address to request pickup and delivery</p>
+                        <button onClick={openAddAddress} className="px-4 py-2 bg-[#0A3D8F] text-white rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap">
+                          Add Delivery Address
+                        </button>
+                      </div>
+                    ) : (
+                      deliveryAddresses.map((addr) => (
+                        <div key={addr.id} className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:gap-5">
+                          <div className="flex items-start gap-4 sm:contents">
+                            <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-blue-50 flex items-center justify-center">
+                              <i className="ri-map-pin-2-line text-xl text-[#0A3D8F]"></i>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="mb-0.5 flex flex-wrap items-center gap-2">
+                                <h3 className="text-sm font-bold text-gray-900">{addr.label}</h3>
+                                {addr.isDefault && (
+                                  <span className="rounded-full bg-[#0A3D8F]/10 px-2 py-0.5 text-xs font-medium text-[#0A3D8F]">Default</span>
+                                )}
+                              </div>
+                              <p className="text-sm text-gray-700">{addr.recipientName}</p>
+                              <p className="text-xs text-gray-600">
+                                {addr.line1}{addr.line2 ? `, ${addr.line2}` : ""}, {addr.city}, {addr.state} {addr.zip}, {addr.country}
+                              </p>
+                              {(addr.phone || addr.email) && (
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                  {addr.phone ? `Phone: ${addr.phone}` : ""}
+                                  {addr.phone && addr.email ? " • " : ""}
+                                  {addr.email ? `Email: ${addr.email}` : ""}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 items-center justify-end gap-2 border-t border-gray-100 pt-3 sm:border-t-0 sm:pt-0">
+                            {!addr.isDefault && (
+                              <button
+                                onClick={() => setDefaultDeliveryAddress(addr.id)}
+                                className="text-xs px-3 py-1.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 cursor-pointer whitespace-nowrap"
+                              >
+                                Set Default
+                              </button>
+                            )}
+                            <button
+                              onClick={() => openEditAddress(addr)}
+                              className="text-xs px-3 py-1.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 cursor-pointer whitespace-nowrap"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => void removeDeliveryAddress(addr.id)}
+                              className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                            >
+                              <i className="ri-delete-bin-line text-base"></i>
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {showAddAddress && (
+                  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                      <div className="p-6 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white">
+                        <h2 className="text-lg font-bold text-gray-900">{editingAddressId ? "Edit Delivery Address" : "Add New Delivery Address"}</h2>
+                        <button
+                          onClick={() => {
+                            setShowAddAddress(false);
+                            setAddressFormError("");
+                            setEditingAddressId(null);
+                            setAddressForm(EMPTY_ADDRESS_FORM);
+                          }}
+                          className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 cursor-pointer"
+                        >
+                          <i className="ri-close-line text-gray-500 text-lg"></i>
+                        </button>
+                      </div>
+                      <div className="p-6 space-y-4">
+                        {addressFormError && (
+                          <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+                            <i className="ri-error-warning-fill text-red-500"></i>
+                            <span className="text-sm text-red-700">{addressFormError}</span>
+                          </div>
+                        )}
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Label <span className="text-red-500">*</span></label>
+                            <input type="text" value={addressForm.label} onChange={(e) => setAddressForm((p) => ({ ...p, label: e.target.value }))} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Recipient Name <span className="text-red-500">*</span></label>
+                            <input type="text" value={addressForm.recipientName} onChange={(e) => setAddressForm((p) => ({ ...p, recipientName: e.target.value }))} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Address Line 1 <span className="text-red-500">*</span></label>
+                            <input type="text" value={addressForm.line1} onChange={(e) => setAddressForm((p) => ({ ...p, line1: e.target.value }))} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Address Line 2</label>
+                            <input type="text" value={addressForm.line2} onChange={(e) => setAddressForm((p) => ({ ...p, line2: e.target.value }))} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1.5">City <span className="text-red-500">*</span></label>
+                            <input type="text" value={addressForm.city} onChange={(e) => setAddressForm((p) => ({ ...p, city: e.target.value }))} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1.5">State / Province <span className="text-red-500">*</span></label>
+                            <input type="text" maxLength={32} placeholder="e.g. WP" value={addressForm.state} onChange={(e) => setAddressForm((p) => ({ ...p, state: e.target.value.toUpperCase() }))} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1.5">ZIP Code <span className="text-red-500">*</span></label>
+                            <input type="text" value={addressForm.zip} onChange={(e) => setAddressForm((p) => ({ ...p, zip: e.target.value }))} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Country <span className="text-red-500">*</span></label>
+                            <input type="text" maxLength={2} placeholder="e.g. LK" value={addressForm.country} onChange={(e) => setAddressForm((p) => ({ ...p, country: e.target.value.toUpperCase() }))} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Phone</label>
+                            <input type="tel" value={addressForm.phone} onChange={(e) => setAddressForm((p) => ({ ...p, phone: e.target.value }))} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
+                            <input type="email" value={addressForm.email} onChange={(e) => setAddressForm((p) => ({ ...p, email: e.target.value }))} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
+                          </div>
+                        </div>
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input type="checkbox" checked={addressForm.isDefault} onChange={(e) => setAddressForm((p) => ({ ...p, isDefault: e.target.checked }))} className="w-4 h-4 text-[#0A3D8F] rounded" />
+                          <span className="text-sm text-gray-700">Set as default delivery address</span>
+                        </label>
+                        <div className="flex gap-3 pt-2">
+                          <button
+                            onClick={() => {
+                              setShowAddAddress(false);
+                              setAddressFormError("");
+                              setEditingAddressId(null);
+                              setAddressForm(EMPTY_ADDRESS_FORM);
+                            }}
+                            className="flex-1 py-3 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 cursor-pointer whitespace-nowrap"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => void submitAddressForm()}
+                            className="flex-1 py-3 bg-[#0A3D8F] text-white rounded-xl text-sm font-medium hover:bg-[#083170] cursor-pointer whitespace-nowrap"
+                          >
+                            {editingAddressId ? "Save Address" : "Add Address"}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>

@@ -2,10 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { chequeApi, type Cheque as ApiCheque, type ChequeStatus as ApiChequeStatus } from "@/lib/api/cheques";
 import { mailApi, type MailItem } from "@/lib/api/mail";
 import { bankAccountsApi, type BankAccountListItem } from "@/lib/api/bankAccounts";
+import { deliveryAddressesApi, type DeliveryAddress } from "@/lib/api/delivery-addresses";
 import { depositsApi } from "@/lib/api/deposits";
+import { deliveriesApi } from "@/lib/api/deliveries";
 
 type ChequeStatus = "Pending" | "Deposit Requested" | "Pickup Requested" | "Deposited" | "Picked Up";
 
@@ -31,6 +34,8 @@ interface Cheque {
 function mapApiChequeStatusToUi(status: ApiChequeStatus): ChequeStatus {
   switch (status) {
     case "flagged":
+    case "validated":
+    case "approved":
       return "Pending";
     case "deposit_requested":
       return "Deposit Requested";
@@ -38,8 +43,6 @@ function mapApiChequeStatusToUi(status: ApiChequeStatus): ChequeStatus {
       return "Deposited";
     case "cleared":
       return "Picked Up";
-    case "approved":
-    case "validated":
     default:
       return "Deposit Requested";
   }
@@ -56,6 +59,15 @@ const statusColors: Record<ChequeStatus, string> = {
 type ModalType = "deposit" | "pickup" | null;
 
 export default function CustomerChequesPage() {
+  const params = useParams<{ clientId?: string }>();
+  const clientId = params?.clientId;
+  const accountHref = clientId
+    ? `/customer/${clientId}/account?tab=bank-accounts`
+    : "/customer/account?tab=bank-accounts";
+  const deliveryAddressHref = clientId
+    ? `/customer/${clientId}/account?tab=delivery-addresses`
+    : "/customer/account?tab=delivery-addresses";
+
   const [cheques, setCheques] = useState<Cheque[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -76,6 +88,11 @@ export default function CustomerChequesPage() {
   const [selectedBank, setSelectedBank] = useState<string>("");
   const [pickupDate, setPickupDate] = useState("");
   const [pickupNotes, setPickupNotes] = useState("");
+  const [deliveryAddresses, setDeliveryAddresses] = useState<DeliveryAddress[]>([]);
+  const [deliveryAddressesLoading, setDeliveryAddressesLoading] = useState(false);
+  const [deliveryAddressesError, setDeliveryAddressesError] = useState<string | null>(null);
+  const [selectedDeliveryAddress, setSelectedDeliveryAddress] = useState<string>("");
+  const [pickupSubmitting, setPickupSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [depositSubmitting, setDepositSubmitting] = useState(false);
   const [depositError, setDepositError] = useState<string | null>(null);
@@ -153,6 +170,31 @@ export default function CustomerChequesPage() {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setDeliveryAddressesLoading(true);
+        setDeliveryAddressesError(null);
+        const list = await deliveryAddressesApi.list();
+        if (cancelled) return;
+        setDeliveryAddresses(list);
+        if (!selectedDeliveryAddress && list[0]?.id) setSelectedDeliveryAddress(list[0].id);
+      } catch (e) {
+        console.error("Failed to load delivery addresses:", e);
+        if (cancelled) return;
+        setDeliveryAddresses([]);
+        setDeliveryAddressesError("Failed to load delivery addresses.");
+      } finally {
+        if (!cancelled) setDeliveryAddressesLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -290,6 +332,9 @@ export default function CustomerChequesPage() {
     setModalType(type);
     setDepositError(null);
     if (type === "deposit" && !selectedBank && bankAccounts[0]?.id) setSelectedBank(bankAccounts[0].id);
+    if (type === "pickup" && !selectedDeliveryAddress && deliveryAddresses[0]?.id) {
+      setSelectedDeliveryAddress(deliveryAddresses[0].id);
+    }
   };
 
   const handleDeposit = async () => {
@@ -324,22 +369,42 @@ export default function CustomerChequesPage() {
     }
   };
 
-  const handlePickup = () => {
+  const handlePickup = async () => {
     if (!modalCheque) return;
-    setCheques((prev) =>
-      prev.map((c) =>
-        c.id === modalCheque.id
-          ? { ...c, status: "Pickup Requested", tag: "In Process", tagColor: "bg-[#0A3D8F]/10 text-[#0A3D8F]", read: true }
-          : c
-      )
-    );
-    if (selectedCheque?.id === modalCheque.id) setSelectedCheque(null);
-    setModalType(null);
-    setModalCheque(null);
-    setPickupDate("");
-    setPickupNotes("");
-    setSuccessMsg("Pickup request submitted successfully!");
-    setTimeout(() => setSuccessMsg(null), 4000);
+    if (!selectedDeliveryAddress) {
+      setDepositError("Please select a delivery address.");
+      return;
+    }
+
+    try {
+      setPickupSubmitting(true);
+      setDepositError(null);
+      await deliveriesApi.requestChequeDelivery(modalCheque.id, {
+        addressId: selectedDeliveryAddress,
+        preferredDate: pickupDate || undefined,
+        notes: pickupNotes || undefined,
+      });
+
+      setCheques((prev) =>
+        prev.map((c) =>
+          c.id === modalCheque.id
+            ? { ...c, status: "Pickup Requested", tag: "In Process", tagColor: "bg-[#0A3D8F]/10 text-[#0A3D8F]", read: true }
+            : c
+        )
+      );
+      if (selectedCheque?.id === modalCheque.id) setSelectedCheque(null);
+      setModalType(null);
+      setModalCheque(null);
+      setPickupDate("");
+      setPickupNotes("");
+      setSuccessMsg("Pickup request submitted successfully!");
+      setTimeout(() => setSuccessMsg(null), 4000);
+    } catch (e: any) {
+      console.error("Failed to submit pickup request:", e);
+      setDepositError(e?.message || "Failed to submit pickup request.");
+    } finally {
+      setPickupSubmitting(false);
+    }
   };
 
   const tabs = ["All", "Pending", "Deposit Requested", "Pickup Requested", "Deposited", "Picked Up"];
@@ -519,22 +584,26 @@ export default function CustomerChequesPage() {
                       <span className={!cheque.read ? "text-slate-900" : "text-slate-600"}>{cheque.amount}</span>
                     </div>
 
-                    {cheque.status === "Pending" && (
+                    {cheque.status !== "Deposited" && cheque.status !== "Picked Up" && (
                       <div className="flex w-full gap-2 sm:w-auto sm:flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          onClick={() => openModal(cheque, "deposit")}
-                          className="min-h-[44px] flex-1 px-3 py-2 bg-[#2F8F3A] text-white rounded-full text-xs font-semibold hover:bg-[#267a30] transition-colors cursor-pointer sm:flex-initial sm:px-2.5 sm:py-1"
-                        >
-                          Deposit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openModal(cheque, "pickup")}
-                          className="min-h-[44px] flex-1 px-3 py-2 bg-slate-100 text-slate-600 rounded-full text-xs font-semibold hover:bg-slate-200 transition-colors cursor-pointer sm:flex-initial sm:px-2.5 sm:py-1"
-                        >
-                          Pickup
-                        </button>
+                        {cheque.status !== "Deposit Requested" && (
+                          <button
+                            type="button"
+                            onClick={() => openModal(cheque, "deposit")}
+                            className="min-h-[44px] flex-1 px-3 py-2 bg-[#2F8F3A] text-white rounded-full text-xs font-semibold hover:bg-[#267a30] transition-colors cursor-pointer sm:flex-initial sm:px-2.5 sm:py-1"
+                          >
+                            Deposit
+                          </button>
+                        )}
+                        {cheque.status !== "Pickup Requested" && (
+                          <button
+                            type="button"
+                            onClick={() => openModal(cheque, "pickup")}
+                            className="min-h-[44px] flex-1 px-3 py-2 bg-slate-100 text-slate-600 rounded-full text-xs font-semibold hover:bg-slate-200 transition-colors cursor-pointer sm:flex-initial sm:px-2.5 sm:py-1"
+                          >
+                            Pickup
+                          </button>
+                        )}
                       </div>
                     )}
 
@@ -911,28 +980,32 @@ export default function CustomerChequesPage() {
               </div>
 
               <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:flex-wrap">
-                {selectedCheque.status === "Pending" && (
+                {selectedCheque.status !== "Deposited" && selectedCheque.status !== "Picked Up" && (
                   <>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedCheque(null);
-                        openModal(selectedCheque, "deposit");
-                      }}
-                      className="w-full py-3 bg-[#2F8F3A] text-white font-semibold rounded-lg hover:bg-[#267a30] transition-colors text-sm cursor-pointer sm:flex-1 min-w-[140px]"
-                    >
-                      <i className="ri-bank-line mr-2"></i>Deposit to Bank
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedCheque(null);
-                        openModal(selectedCheque, "pickup");
-                      }}
-                      className="w-full py-3 bg-white border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-colors text-sm cursor-pointer sm:flex-1 min-w-[140px]"
-                    >
-                      <i className="ri-hand-coin-line mr-2"></i>Request Pickup
-                    </button>
+                    {selectedCheque.status !== "Deposit Requested" && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedCheque(null);
+                          openModal(selectedCheque, "deposit");
+                        }}
+                        className="w-full py-3 bg-[#2F8F3A] text-white font-semibold rounded-lg hover:bg-[#267a30] transition-colors text-sm cursor-pointer sm:flex-1 min-w-[140px]"
+                      >
+                        <i className="ri-bank-line mr-2"></i>Deposit to Bank
+                      </button>
+                    )}
+                    {selectedCheque.status !== "Pickup Requested" && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedCheque(null);
+                          openModal(selectedCheque, "pickup");
+                        }}
+                        className="w-full py-3 bg-white border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-colors text-sm cursor-pointer sm:flex-1 min-w-[140px]"
+                      >
+                        <i className="ri-hand-coin-line mr-2"></i>Request Pickup
+                      </button>
+                    )}
                   </>
                 )}
                 <button
@@ -1068,7 +1141,7 @@ export default function CustomerChequesPage() {
                       Add a bank account first, then come back to submit a deposit request.
                     </p>
                     <Link
-                      href="../account"
+                      href={accountHref}
                       className="inline-flex items-center gap-2 mt-3 px-4 py-2 bg-[#0A3D8F] text-white text-xs font-semibold rounded-lg hover:bg-[#083170] transition-colors"
                     >
                       <i className="ri-bank-line" />
@@ -1154,12 +1227,48 @@ export default function CustomerChequesPage() {
                 </p>
               </div>
               <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Delivery Address</label>
+                {deliveryAddressesLoading ? (
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600">
+                    Loading delivery addresses…
+                  </div>
+                ) : deliveryAddressesError ? (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+                    {deliveryAddressesError}
+                  </div>
+                ) : deliveryAddresses.length === 0 ? (
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-center space-y-3">
+                    <i className="ri-map-pin-add-line text-2xl text-slate-400"></i>
+                    <p className="text-sm text-slate-600">No delivery addresses saved yet.</p>
+                    <Link
+                      href={deliveryAddressHref}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#0A3D8F] text-white text-sm font-medium rounded-lg hover:bg-[#083170]"
+                    >
+                      <i className="ri-add-line"></i>
+                      Add New Address
+                    </Link>
+                  </div>
+                ) : (
+                  <select
+                    value={selectedDeliveryAddress}
+                    onChange={(e) => setSelectedDeliveryAddress(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/30"
+                  >
+                    {deliveryAddresses.map((addr) => (
+                      <option key={addr.id} value={addr.id}>
+                        {addr.label} - {addr.recipientName}, {addr.city}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Preferred Pickup Date</label>
                 <input
                   type="date"
                   value={pickupDate}
                   onChange={(e) => setPickupDate(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/30"
+                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/30"
                 />
               </div>
               <div>
@@ -1170,7 +1279,7 @@ export default function CustomerChequesPage() {
                   placeholder="Enter your office address or any special instructions..."
                   rows={3}
                   maxLength={500}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/30 resize-none"
+                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/30 resize-none"
                 />
                 <p className="text-xs text-slate-400 text-right mt-1">{pickupNotes.length}/500</p>
               </div>
@@ -1180,6 +1289,9 @@ export default function CustomerChequesPage() {
                   Our team will confirm your pickup within 24 hours. Please have a valid ID ready.
                 </p>
               </div>
+              {depositError && (
+                <div className="px-3 py-2.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">{depositError}</div>
+              )}
               <div className="flex gap-3 pt-1">
                 <button
                   onClick={() => setModalType(null)}
@@ -1189,9 +1301,10 @@ export default function CustomerChequesPage() {
                 </button>
                 <button
                   onClick={handlePickup}
-                  className="flex-1 py-3 bg-[#0A3D8F] text-white rounded-lg text-sm font-semibold hover:bg-[#083170] cursor-pointer whitespace-nowrap"
+                  disabled={pickupSubmitting || deliveryAddresses.length === 0 || !selectedDeliveryAddress}
+                  className="flex-1 py-3 bg-[#0A3D8F] text-white rounded-lg text-sm font-semibold hover:bg-[#083170] cursor-pointer whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Submit Pickup Request
+                  {pickupSubmitting ? "Submitting..." : "Submit Pickup Request"}
                 </button>
               </div>
             </div>

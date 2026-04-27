@@ -13,6 +13,7 @@ import { useSuperAdminToolbarOptional } from '../../superadmin/components/SuperA
 import { apiClient } from '@/lib/api-client';
 import { useAdminProfile } from '../components/useAdminProfile';
 import OrganizationNotificationEditor from '../../superadmin/companies/components/OrganizationNotificationEditor';
+import NotificationBell from '../components/NotificationBell';
 
 type TabType = 'All' | 'Active' | 'Pending' | 'Inactive';
 
@@ -36,7 +37,6 @@ function CompaniesPageContent() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [localSearch, setLocalSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [openedCompany, setOpenedCompany] = useState<Company | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -362,31 +362,12 @@ function CompaniesPageContent() {
           
 
           <>
-          <div className="relative">
-            <button
-              onClick={() => {
-                setShowNotifications(!showNotifications);
-                setShowUserMenu(false);
-              }}
-              className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition cursor-pointer relative"
-            >
-              <Icon icon="ri:notification-3-line" className="text-[20px] text-slate-600" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-            </button>
-
-            {showNotifications && (
-              <div className="absolute right-0 top-12 w-[320px] bg-white rounded-2xl shadow-lg border border-gray-100 z-50 overflow-hidden">
-                <div className="px-4 py-3 border-b border-gray-100 font-semibold text-sm text-gray-900">Notifications</div>
-                <div className="px-4 py-3 text-xs text-gray-600">No new notifications</div>
-              </div>
-            )}
-          </div>
+          <NotificationBell />
 
           <div className="relative">
             <button
               onClick={() => {
                 setShowUserMenu(!showUserMenu);
-                setShowNotifications(false);
               }}
               className="flex items-center gap-2 hover:bg-gray-50 rounded-lg px-2 py-1.5 transition cursor-pointer"
             >

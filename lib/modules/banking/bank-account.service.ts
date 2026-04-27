@@ -5,6 +5,7 @@ import {
   encryptField,
   hmacSha256Hex,
 } from "../core/crypto/field-encryption";
+import { depositModel } from "../records/deposit.model";
 import { bankAccountModel } from "./bank-account.model";
 import type { CreateBankAccountInput } from "./bank-account.schema";
 
@@ -160,7 +161,7 @@ export const bankAccountService = {
 
     const aad = `client:${row.clientId}`;
     const accountNumber = decryptField(
-      { keyVersion: row.keyVersion as any, payload: row.accountNumberEnc as any },
+      { keyVersion: row.keyVersion as 1, payload: row.accountNumberEnc },
       { aad }
     );
 
@@ -184,6 +185,61 @@ export const bankAccountService = {
       nickname: row.nickname,
       accountType: row.accountType as any,
       accountNumber,
+    };
+  },
+
+  async revealForDeposit(params: {
+    actorId: string;
+    actorRole: "admin" | "super_admin";
+    chequeId: string;
+    req?: Request;
+  }): Promise<{
+    bankName: string;
+    nickname: string;
+    accountType: "checking" | "savings";
+    accountNumber: string;
+    accountLast4: string;
+  }> {
+    const chequeRow = await depositModel.findChequeRowById(params.chequeId);
+    if (!chequeRow) {
+      throw new Error("Cheque not found");
+    }
+
+    const bankAccountId = chequeRow.deposit_destination_bank_account_id;
+    if (!bankAccountId) {
+      throw new Error("No destination bank account on this deposit");
+    }
+
+    const row = await bankAccountModel.findById(bankAccountId);
+    if (!row) {
+      throw new Error("Bank account not found");
+    }
+
+    const aad = `client:${row.clientId}`;
+    const accountNumber = decryptField(
+      { keyVersion: row.keyVersion as 1, payload: row.accountNumberEnc },
+      { aad }
+    );
+
+    await auditService.log({
+      actor: params.actorId,
+      actor_role: params.actorRole,
+      action: "bank_account.revealed_for_deposit",
+      entity: row.id,
+      clientId: row.clientId,
+      after: {
+        reason: "admin_deposit_workflow",
+        chequeId: params.chequeId,
+      },
+      req: params.req,
+    });
+
+    return {
+      bankName: row.bankName,
+      nickname: row.nickname,
+      accountType: row.accountType as any,
+      accountNumber,
+      accountLast4: row.accountLast4,
     };
   },
 };

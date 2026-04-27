@@ -25,6 +25,8 @@ function mapEntityType(type: string): string {
   if (t.includes('auth') || t.includes('user')) return 'Auth';
   if (t.includes('company') || t.includes('client')) return 'Client';
   if (t === 'record' || t.includes('scan') || t.includes('mail')) return 'Records';
+  if (t === 'delivery') return 'Delivery';
+  if (t === 'deposit') return 'Cheque';
   if (t.includes('delivery')) return 'Delivery';
   if (t.includes('deposit') || t.includes('cheque')) return 'Cheque';
   if (t.includes('admin') || t.includes('profile')) return 'System';
@@ -54,6 +56,20 @@ function mapActionToLabel(action: string): string {
     'cheque.decided': 'Cheque Decision Made',
     'cheque.batch_deposited': 'Cheque Batch Deposited',
     'billing.manual_payment': 'Manual Payment Recorded',
+    'deposit.requested': 'Deposit Requested',
+    'deposit.cancelled': 'Deposit Cancelled',
+    'deposit.approved': 'Deposit Approved',
+    'deposit.rejected': 'Deposit Rejected',
+    'deposit.mark_deposited': 'Cheque Marked Deposited',
+    'deposit.slip_uploaded': 'Deposit Slip Uploaded',
+    'delivery.requested': 'Delivery Requested',
+    'delivery.cancelled': 'Delivery Cancelled',
+    'delivery.approved': 'Delivery Approved',
+    'delivery.rejected': 'Delivery Rejected',
+    'delivery.in_transit': 'Delivery In Transit',
+    'delivery.delivered': 'Delivery Completed',
+    'record.created': 'Document Scanned',
+    'record.finalized': 'Document Finalized',
   };
   return mapping[action] || action;
 }
@@ -199,7 +215,7 @@ export default function ActivityLogTab() {
                 <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider w-14">No.</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Activity</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider w-28">Category</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider w-36">Admin</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider w-36">User</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider w-28">Date</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider w-24">Time</th>
               </tr>
@@ -396,4 +412,4 @@ function LogDetailsPopup({ log, onClose }: { log: ActivityEntry; onClose: () => 
       </div>
     </div>
   );
-}
+}

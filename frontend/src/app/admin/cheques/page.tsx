@@ -11,6 +11,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { chequeApi, type Cheque as ApiCheque } from '@/lib/api/cheques';
 import OrganizationPicker from '../components/OrganizationPicker';
+import NotificationBell from '../components/NotificationBell';
 
 type TabType = 'All' | 'Pending Deposit' | 'Deposited' | 'Rejected' | 'On Hold';
 type ChequeItem = UiCheque & { archived?: boolean; archiveBox?: string };
@@ -41,7 +42,6 @@ function AllChequesPageContent() {
   const [page, setPage] = useState(1);
   const searchParams = useSearchParams();
   const [search, setSearch] = useState('');
-  const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [openedCheque, setOpenedCheque] = useState<UiCheque | null>(null);
   const [loading, setLoading] = useState(true);
@@ -162,12 +162,6 @@ function AllChequesPageContent() {
     );
   }
 
-  const notifications = [
-    { id: 1, text: 'Cheque deposited for Global Enterprises', time: '5 mins ago', unread: true },
-    { id: 2, text: 'Pending deposit for Horizon Group', time: '12 mins ago', unread: true },
-    { id: 3, text: 'Rejected cheque requires review', time: '25 mins ago', unread: false },
-  ];
-
   const visibleCheques = chequeItems;
 
   const filtered = visibleCheques.filter((c) => {
@@ -239,47 +233,12 @@ function AllChequesPageContent() {
 
           {!isSuperadminRoute && (
           <>
-          <div className="relative">
-            <button
-              onClick={() => {
-                setShowNotifications(!showNotifications);
-                setShowUserMenu(false);
-              }}
-              className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition cursor-pointer relative"
-            >
-              <Icon icon="ri:notification-3-line" className="text-[20px] text-slate-600" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-            </button>
-
-            {showNotifications && (
-              <div className="absolute right-0 top-12 w-[320px] bg-white rounded-2xl shadow-lg border border-gray-100 z-50 overflow-hidden">
-                <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                  <span className="font-semibold text-sm text-gray-900">Notifications</span>
-                  <span className="text-xs text-[#1E40AF] cursor-pointer hover:underline">Mark all read</span>
-                </div>
-                <div className="max-h-[280px] overflow-y-auto">
-                  {notifications.map((n) => (
-                    <div key={n.id} className={`px-4 py-3 border-b border-gray-50 hover:bg-gray-50 cursor-pointer flex gap-3 ${n.unread ? 'bg-[#EFF6FF]/40' : ''}`}>
-                      <div className="w-8 h-8 flex items-center justify-center rounded-full bg-[#EFF6FF] flex-shrink-0">
-                        <Icon icon="ri:bank-card-line" className="text-[#1E40AF] text-sm" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-gray-700 leading-5">{n.text}</p>
-                        <p className="text-[11px] text-gray-400 mt-0.5">{n.time}</p>
-                      </div>
-                      {n.unread && <span className="w-2 h-2 bg-[#1E40AF] rounded-full flex-shrink-0 mt-1.5"></span>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          <NotificationBell />
 
           <div className="relative">
             <button
               onClick={() => {
                 setShowUserMenu(!showUserMenu);
-                setShowNotifications(false);
               }}
               className="flex items-center gap-2 hover:bg-gray-50 rounded-lg px-2 py-1.5 transition cursor-pointer"
             >

@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS delivery_addresses (
+  id VARCHAR(36) NOT NULL,
+  client_id VARCHAR(36) NOT NULL,
+  label VARCHAR(64) NOT NULL,
+  recipient_name VARCHAR(128) NOT NULL,
+  line1 VARCHAR(255) NOT NULL,
+  line2 VARCHAR(255) NULL,
+  city VARCHAR(128) NOT NULL,
+  state VARCHAR(32) NOT NULL,
+  zip VARCHAR(32) NOT NULL,
+  country VARCHAR(2) NOT NULL DEFAULT 'US',
+  phone VARCHAR(32) NULL,
+  email VARCHAR(255) NULL,
+  is_default BOOLEAN NOT NULL DEFAULT FALSE,
+  created_by VARCHAR(36) NOT NULL,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL,
+  deleted_at DATETIME NULL,
+  PRIMARY KEY (id),
+  INDEX da_client_idx (client_id),
+  INDEX da_client_default_idx (client_id, is_default)
+);

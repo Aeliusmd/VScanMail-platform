@@ -1,345 +1,296 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from 'react';
-import { Icon } from '@iconify/react';
-import { deliveries, type DeliveryRequest } from '../../../mocks/deliveries';
-import DeliveryToolbar from './components/DeliveryToolbar';
-import DeliveryRow from './components/DeliveryRow';
-import ClickedDelivery from './components/ClickedDelivery';
-import styles from './page.module.css';
-import mailStyles from '../mails/page.module.css';
-import { usePathname, useSearchParams, useRouter } from 'next/navigation';
-import { useAdminProfile } from '../components/useAdminProfile';
-import Link from 'next/link';
-import { useSuperAdminToolbarOptional } from '../../superadmin/components/SuperAdminToolbarContext';
+import { useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
+import { deliveriesApi, type DeliveryDto } from "@/lib/api/deliveries";
+import ClickedDelivery from "./components/ClickedDelivery";
 
-type TabType = 'All' | 'Pending' | 'In Transit' | 'Delivered' | 'Failed';
+type TabType = "All" | "Pending" | "Approved" | "In Transit" | "Delivered" | "Rejected" | "Cancelled";
 
-const TABS: TabType[] = ['All', 'Pending', 'In Transit', 'Delivered', 'Failed'];
-const PER_PAGE = 10;
-
-export default function DeliveriesPage() {
-  return (
-    <Suspense fallback={null}>
-      <DeliveriesPageContent />
-    </Suspense>
-  );
+function toTab(status: DeliveryDto["status"]): TabType {
+  switch (status) {
+    case "pending":
+      return "Pending";
+    case "approved":
+      return "Approved";
+    case "in_transit":
+      return "In Transit";
+    case "delivered":
+      return "Delivered";
+    case "rejected":
+      return "Rejected";
+    case "cancelled":
+      return "Cancelled";
+    default:
+      return "All";
+  }
 }
 
-function DeliveriesPageContent() {
-  const { userData, initials, displayName, displayRole } = useAdminProfile();
-  const [activeTab, setActiveTab] = useState<TabType>('All');
-  const [page, setPage] = useState(1);
-  const [localSearch, setLocalSearch] = useState('');
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [showUserMenu, setShowUserMenu] = useState(false);
+function statusMeta(status: DeliveryDto["status"]): {
+  label: TabType;
+  pillClass: string;
+  accentClass: string;
+} {
+  const label = toTab(status);
+  switch (status) {
+    case "pending":
+      return { label, pillClass: "bg-amber-50 text-amber-700 ring-1 ring-amber-200", accentClass: "bg-amber-500" };
+    case "approved":
+      return { label, pillClass: "bg-blue-50 text-blue-700 ring-1 ring-blue-200", accentClass: "bg-blue-600" };
+    case "in_transit":
+      return { label, pillClass: "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200", accentClass: "bg-indigo-600" };
+    case "delivered":
+      return { label, pillClass: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200", accentClass: "bg-emerald-600" };
+    case "rejected":
+      return { label, pillClass: "bg-rose-50 text-rose-700 ring-1 ring-rose-200", accentClass: "bg-rose-600" };
+    case "cancelled":
+      return { label, pillClass: "bg-slate-100 text-slate-700 ring-1 ring-slate-200", accentClass: "bg-slate-500" };
+    default:
+      return { label, pillClass: "bg-slate-100 text-slate-700 ring-1 ring-slate-200", accentClass: "bg-slate-400" };
+  }
+}
 
-  const [requests, setRequests] = useState<DeliveryRequest[]>(deliveries);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [openedRequest, setOpenedRequest] = useState<DeliveryRequest | null>(null);
-  const [actionFeedback, setActionFeedback] = useState<Record<string, string>>({});
+function sourceMeta(sourceType: DeliveryDto["sourceType"]): { label: string; className: string } {
+  if (sourceType === "cheque") return { label: "Cheque", className: "bg-[#0A3D8F]/10 text-[#0A3D8F]" };
+  return { label: "Mail", className: "bg-slate-100 text-slate-700" };
+}
 
-  const searchParams = useSearchParams();
-  const tabFromUrl = searchParams.get('tab');
-  const router = useRouter();
-  const pathname = usePathname();
-  const isSuperadminRoute = pathname.startsWith('/superadmin');
-  const scanPath = isSuperadminRoute ? '/superadmin/scan' : '/admin/scan';
-  const superToolbar = useSuperAdminToolbarOptional();
-  const search = isSuperadminRoute && superToolbar ? superToolbar.search : localSearch;
+export default function AdminDeliveriesPage() {
+  const pathname = usePathname() ?? "";
+  const isSuperadminRoute = pathname.startsWith("/superadmin");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [tab, setTab] = useState<TabType>("All");
+  const [rows, setRows] = useState<DeliveryDto[]>([]);
+  const [opened, setOpened] = useState<DeliveryDto | null>(null);
 
-  useEffect(() => {
-    if (!isSuperadminRoute || !superToolbar) return;
-    setPage(1);
-  }, [superToolbar?.search, isSuperadminRoute, superToolbar]);
-
-  useEffect(() => {
-    if (!tabFromUrl) return;
-    const nextTab = (TABS as string[]).includes(tabFromUrl) ? (tabFromUrl as TabType) : null;
-    if (nextTab && nextTab !== activeTab) {
-      setActiveTab(nextTab);
-      setPage(1);
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await deliveriesApi.adminList();
+      setRows(data);
+    } catch (err: any) {
+      setError(err?.message || "Failed to load delivery requests.");
+    } finally {
+      setLoading(false);
     }
-  }, [tabFromUrl, activeTab]);
+  };
 
-  const notifications = useMemo(
-    () => [
-      { id: 1, text: 'New delivery request created for Tech Solutions Inc', time: '5 mins ago', unread: true },
-      { id: 2, text: 'Tracking updated for Global Enterprises delivery', time: '12 mins ago', unread: true },
-      { id: 3, text: 'Delivery completed for Innovate Corp', time: '25 mins ago', unread: false },
-      { id: 4, text: 'Delivery attempt failed for Prime Industries', time: '1 hour ago', unread: false },
-    ],
-    []
-  );
+  useEffect(() => {
+    load();
+  }, []);
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return requests.filter((r) => {
-      const matchTab = activeTab === 'All' || r.status === activeTab;
-      const matchSearch =
-        q === '' ||
-        r.company.toLowerCase().includes(q) ||
-        r.mailSubject.toLowerCase().includes(q) ||
-        r.deliveryAddress.toLowerCase().includes(q) ||
-        r.trackingNumber.toLowerCase().includes(q) ||
-        r.id.toLowerCase().includes(q);
-      return matchTab && matchSearch;
+    return rows.filter((r) => {
+      const matchesTab = tab === "All" || toTab(r.status) === tab;
+      const q = query.toLowerCase();
+      const matchesSearch =
+        !q ||
+        r.id.toLowerCase().includes(q) ||
+        r.irn.toLowerCase().includes(q) ||
+        (r.clientName || "").toLowerCase().includes(q) ||
+        (r.trackingNumber || "").toLowerCase().includes(q);
+      return matchesTab && matchesSearch;
     });
-  }, [requests, activeTab, search]);
+  }, [rows, tab, query]);
 
-  const paginated = useMemo(() => {
-    return filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
-  }, [filtered, page]);
+  const metrics = useMemo(() => {
+    const total = rows.length;
+    const pending = rows.filter((r) => r.status === "pending").length;
+    const active = rows.filter((r) => r.status === "approved" || r.status === "in_transit").length;
+    const delivered = rows.filter((r) => r.status === "delivered").length;
+    return { total, pending, active, delivered };
+  }, [rows]);
 
-  const allChecked = useMemo(() => {
-    if (filtered.length === 0) return false;
-    return filtered.every((r) => selectedIds.has(r.id));
-  }, [filtered, selectedIds]);
-
-  const selectedCount = selectedIds.size;
-
-  const tabCount = useMemo(() => {
-    const counts: Record<TabType, number> = {
-      All: requests.length,
-      Pending: 0,
-      'In Transit': 0,
-      Delivered: 0,
-      Failed: 0,
-    };
-    for (const r of requests) counts[r.status] += 1;
-    return counts;
-  }, [requests]);
-
-  const onToggleSelect = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const onToggleAll = () => {
-    if (allChecked) setSelectedIds(new Set());
-    else setSelectedIds(new Set(filtered.map((r) => r.id)));
-  };
-
-  const onMarkReadSelected = () => {
-    if (selectedIds.size === 0) return;
-    const ids = new Set(selectedIds);
-    setRequests((prev) => prev.map((r) => (ids.has(r.id) ? { ...r, read: true } : r)));
-    setOpenedRequest((prev) => (prev && ids.has(prev.id) ? { ...prev, read: true } : prev));
-    setSelectedIds(new Set());
-  };
-
-  const onToggleStar = (id: string) => {
-    setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, starred: !r.starred } : r)));
-  };
-
-  const openRequest = (request: DeliveryRequest) => {
-    setRequests((prev) => prev.map((r) => (r.id === request.id ? { ...r, read: true } : r)));
-    setOpenedRequest({ ...request, read: true });
-  };
-
-  const handleMarkDelivered = (id: string) => {
-    setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status: 'Delivered' } : r)));
-    setActionFeedback((prev) => ({ ...prev, [id]: 'delivered' }));
-    window.setTimeout(() => setActionFeedback((prev) => ({ ...prev, [id]: '' })), 2500);
-    setOpenedRequest((prev) => (prev?.id === id ? { ...prev, status: 'Delivered' } : prev));
-  };
-
-  const handleResend = (id: string) => {
-    setActionFeedback((prev) => ({ ...prev, [id]: 'resent' }));
-    window.setTimeout(() => setActionFeedback((prev) => ({ ...prev, [id]: '' })), 2500);
-  };
+  const tabs: TabType[] = ["All", "Pending", "Approved", "In Transit", "Delivered", "Rejected", "Cancelled"];
 
   return (
-    <div className={styles.pageContainer}>
-      {!isSuperadminRoute && (
-      <div className={mailStyles.topBar}>
-        <div className={mailStyles.searchContainer}>
-          
-          <div className={mailStyles.searchIcon}>
-            <Icon icon="ri:search-line" className="text-sm" />
+    <div className="min-h-screen bg-slate-50 p-4 sm:p-6">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Delivery Requests</h1>
+            <p className="text-sm text-slate-500">Admin queue for cheque and mail pickups/deliveries</p>
           </div>
-         
-          <input
-            type="text"
-            placeholder="Search delivery requests..."
-            value={localSearch}
-            onChange={(e) => {
-              setLocalSearch(e.target.value);
-              setPage(1);
-            }}
-            className={mailStyles.searchInput}
-          />
-        </div>
-
-        <div className={mailStyles.topActions}>
-        <Link href={scanPath}>
-          <button className={mailStyles.newScanBtn} onClick={() => {}}>
-            <div className={mailStyles.newScanIcon}>
-              <Icon icon="ri:scan-2-line" className="text-sm" />
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+              <div className="text-[11px] text-slate-500">Total</div>
+              <div className="text-sm font-semibold text-slate-900">{metrics.total}</div>
             </div>
-            New Scan
-          </button>
-          </Link>
-
-          <>
-          <div className="relative">
-            <button
-              onClick={() => {
-                setShowNotifications(!showNotifications);
-                setShowUserMenu(false);
-              }}
-              className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition cursor-pointer relative"
-            >
-              <div className={mailStyles.notifIconWrap}>
-                <Icon icon="ri:notification-3-line" className="text-[20px] leading-none" />
-              </div>
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-            </button>
-
-            {showNotifications && (
-              <div className="absolute right-0 top-12 w-[320px] bg-white rounded-2xl shadow-lg border border-gray-100 z-50 overflow-hidden">
-                <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                  <span className="font-semibold text-sm text-gray-900">Notifications</span>
-                  <span className="text-xs text-[#1E40AF] cursor-pointer hover:underline">Mark all read</span>
-                </div>
-                <div className="max-h-[280px] overflow-y-auto">
-                  {notifications.map((n) => (
-                    <div
-                      key={n.id}
-                      className={`px-4 py-3 border-b border-gray-50 hover:bg-gray-50 cursor-pointer flex gap-3 ${
-                        n.unread ? 'bg-[#EFF6FF]/40' : ''
-                      }`}
-                    >
-                      <div className="w-8 h-8 flex items-center justify-center rounded-full bg-[#EFF6FF] flex-shrink-0">
-                        <Icon icon="ri:mail-line" className="text-[#1E40AF] text-sm" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-gray-700 leading-5">{n.text}</p>
-                        <p className="text-[11px] text-gray-400 mt-0.5">{n.time}</p>
-                      </div>
-                      {n.unread && <span className="w-2 h-2 bg-[#1E40AF] rounded-full flex-shrink-0 mt-1.5"></span>}
-                    </div>
-                  ))}
-                </div>
-                <div className="px-4 py-2 text-center">
-                  <span className="text-xs text-[#1E40AF] cursor-pointer hover:underline">View all notifications</span>
-                </div>
-              </div>
-            )}
+            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+              <div className="text-[11px] text-slate-500">Pending</div>
+              <div className="text-sm font-semibold text-slate-900">{metrics.pending}</div>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+              <div className="text-[11px] text-slate-500">Active</div>
+              <div className="text-sm font-semibold text-slate-900">{metrics.active}</div>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+              <div className="text-[11px] text-slate-500">Delivered</div>
+              <div className="text-sm font-semibold text-slate-900">{metrics.delivered}</div>
+            </div>
           </div>
-
-          <div className="relative">
-            <button
-              onClick={() => {
-                setShowUserMenu(!showUserMenu);
-                setShowNotifications(false);
-              }}
-              className="flex items-center gap-2 hover:bg-gray-50 rounded-lg px-2 py-1.5 transition cursor-pointer"
-            >
-              <div className="w-8 h-8 rounded-full bg-[#1E40AF] flex items-center justify-center text-white font-bold text-sm overflow-hidden flex-shrink-0">
-                {userData?.avatarUrl ? <img src={userData.avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : initials}
-              </div>
-              <div className="text-left">
-                <p className="text-sm font-semibold text-gray-900 leading-4">{displayName}</p>
-                <p className="text-xs text-gray-500 uppercase">{displayRole}</p>
-              </div>
-              <div className="w-4 h-4 flex items-center justify-center text-gray-400 hidden sm:flex">
-                <Icon icon="ri:arrow-down-s-line" className="text-base" />
-              </div>
-            </button>
-
-            {showUserMenu && (
-              <div className="absolute right-0 top-12 w-[180px] bg-white rounded-2xl shadow-lg border border-gray-100 z-50 py-1 overflow-hidden">
-                 <Link href="/admin/settings/profile" className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
-                  <div className="w-4 h-4 flex items-center justify-center"><Icon icon="ri:user-line" className="text-sm" /></div>
-                  My Profile
-                </Link>
-                <Link
-                  href="/admin/settings"
-                  onClick={() => setShowUserMenu(false)}
-                  className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
-                >
-                  <div className="w-4 h-4 flex items-center justify-center"><Icon icon="ri:settings-3-line" className="text-sm" /></div>
-                  Settings
-                </Link>
-                <div className="border-t border-gray-100 my-1"></div>
-                <a href="/login" className="flex items-center gap-2 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 cursor-pointer">
-                  <div className="w-4 h-4 flex items-center justify-center">
-                    <Icon icon="ri:logout-box-r-line" className="text-sm" />
-                  </div>
-                  Sign Out
-                </a>
-              </div>
-            )}
-          </div>
-          </>
         </div>
-      </div>
-      )}
 
-      <DeliveryToolbar
-        total={filtered.length}
-        selectedCount={selectedCount}
-        allChecked={allChecked}
-        page={page}
-        perPage={PER_PAGE}
-        onToggleAll={onToggleAll}
-        onMarkReadSelected={onMarkReadSelected}
-        onPrev={() => setPage((p) => Math.max(1, p - 1))}
-        onNext={() => setPage((p) => (page * PER_PAGE < filtered.length ? p + 1 : p))}
-      />
+        {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-      <div className={styles.tabsContainer}>
-        {TABS.map((tab) => (
-          <button
-            key={tab}
-            onClick={() => {
-              setActiveTab(tab);
-              setPage(1);
-              router.replace(`${pathname}?tab=${encodeURIComponent(tab)}`);
-            }}
-            className={`${styles.tab} ${activeTab === tab ? styles.tabActive : ''}`}
-          >
-            {tab}
-            {tab !== 'All' && <span className={styles.tabCount}>{tabCount[tab]}</span>}
-          </button>
-        ))}
-      </div>
+        <div className="bg-white rounded-xl border border-slate-200 mb-4">
+          <div className="p-4 border-b border-slate-100">
+            <div className="w-full md:w-[440px]">
+              <div className="relative">
+                <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search by ID, client, IRN, tracking…"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2.5 text-sm border border-slate-200 rounded-lg outline-none text-slate-900 placeholder:text-slate-400 focus:border-[#0A3D8F] focus:ring-2 focus:ring-[#0A3D8F]/15"
+                />
+              </div>
+              <div className="mt-1 text-[11px] text-slate-500">Tip: Paste an ID or IRN to jump straight to a request.</div>
+            </div>
+          </div>
+          <div className="flex items-center px-4 overflow-x-auto">
+            {tabs.map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap ${
+                  tab === t ? "border-[#0A3D8F] text-[#0A3D8F]" : "border-transparent text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
 
-      <div className={styles.tableContainer}>
-        {paginated.length > 0 ? (
-          paginated.map((request) => (
-            <DeliveryRow
-              key={request.id}
-              request={request}
-              selected={selectedIds.has(request.id)}
-              onSelect={onToggleSelect}
-              onToggleStar={onToggleStar}
-              onOpen={() => openRequest(request)}
-            />
-          ))
+        {loading ? (
+          <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+            <div className="p-4 border-b border-slate-100">
+              <div className="h-4 w-40 bg-slate-100 rounded animate-pulse" />
+            </div>
+            <div className="divide-y divide-slate-100">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="h-3 w-36 bg-slate-100 rounded animate-pulse" />
+                      <div className="mt-2 h-4 w-56 bg-slate-100 rounded animate-pulse" />
+                      <div className="mt-2 h-3 w-72 bg-slate-100 rounded animate-pulse" />
+                    </div>
+                    <div className="w-28">
+                      <div className="h-6 w-24 bg-slate-100 rounded-full animate-pulse" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="bg-white rounded-xl border border-slate-200 p-10 text-center">
+            <div className="mx-auto w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-500">
+              <i className="ri-inbox-2-line text-xl" />
+            </div>
+            <div className="mt-3 text-sm font-semibold text-slate-900">No delivery requests</div>
+            <div className="mt-1 text-sm text-slate-500">Try switching tabs or clearing your search.</div>
+          </div>
         ) : (
-          <div className={styles.emptyState}>
-            <Icon icon="ri:inbox-line" className="text-4xl text-gray-300 mb-2" />
-            <p>No delivery requests found</p>
+          <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-3">
+              <div className="text-sm font-semibold text-slate-900">Queue</div>
+              <div className="text-xs text-slate-500">{filtered.length} shown</div>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {filtered.map((r) => {
+                const s = statusMeta(r.status);
+                const src = sourceMeta(r.sourceType);
+                const addressLine = [
+                  r.addressLine1,
+                  r.addressLine2,
+                  r.addressCity,
+                  [r.addressState, r.addressZip].filter(Boolean).join(" "),
+                  r.addressCountry,
+                ]
+                  .filter(Boolean)
+                  .join(", ");
+
+                const secondary = [
+                  r.irn ? `IRN ${r.irn}` : null,
+                  r.requestedAt ? `Requested ${new Date(r.requestedAt).toLocaleString()}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ");
+
+                return (
+                  <button
+                    key={r.id}
+                    onClick={() => setOpened(r)}
+                    className="group w-full text-left hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3D8F]/30"
+                  >
+                    <div className="relative px-4 py-4">
+                      <div className={`absolute left-0 top-0 h-full w-1 ${s.accentClass}`} />
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${s.pillClass}`}>
+                              {s.label}
+                            </span>
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${src.className}`}>
+                              {src.label}
+                            </span>
+                            <span className="text-[11px] font-mono text-slate-400 truncate">{r.id}</span>
+                          </div>
+
+                          <div className="mt-2 flex items-center gap-2 min-w-0">
+                            <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-[#0A3D8F] to-[#083170] text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
+                              {(r.clientName || r.clientId || "?").slice(0, 1).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-sm font-semibold text-slate-900 truncate">
+                                {r.clientName || r.clientId}
+                              </div>
+                              <div className="text-xs text-slate-500 truncate">{secondary || "—"}</div>
+                            </div>
+                          </div>
+
+                          {addressLine ? (
+                            <div className="mt-2 text-xs text-slate-500 truncate">
+                              <span className="text-slate-400">To:</span> {r.addressName ? `${r.addressName} · ` : ""}{addressLine}
+                            </div>
+                          ) : null}
+                        </div>
+
+                        <div className="flex-shrink-0 text-right">
+                          <div className="text-[11px] text-slate-500">Tracking</div>
+                          <div className="mt-1 text-xs font-semibold text-slate-900 max-w-[180px] truncate">
+                            {r.trackingNumber || "Not set"}
+                          </div>
+                          <div className="mt-2 inline-flex items-center gap-1 text-[11px] text-slate-500">
+                            <i className="ri-arrow-right-s-line text-slate-400" />
+                            <span className="group-hover:text-[#0A3D8F] transition-colors">Open</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
 
-      {openedRequest && (
+      {opened && (
         <ClickedDelivery
-          request={openedRequest}
-          actionFeedback={actionFeedback}
-          onClose={() => setOpenedRequest(null)}
-          onMarkDelivered={handleMarkDelivered}
-          onResend={handleResend}
+          request={opened}
+          onClose={() => setOpened(null)}
+          onUpdated={load}
+          readOnly={isSuperadminRoute}
         />
       )}
     </div>
   );
 }
-

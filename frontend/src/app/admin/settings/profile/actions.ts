@@ -1,7 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { verifyAccessToken } from "@/lib/modules/auth/jwt";
+import { verifyAccessToken, signAccessToken } from "@/lib/modules/auth/jwt";
 import { db } from "@/lib/modules/core/db/mysql";
 import { users, profiles } from "@/lib/modules/core/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -48,17 +48,28 @@ async function getAuthenticatedUser() {
     if (!userRows[0]) throw new Error("User not found");
     
     const profileRows = await db
-        .select()
+        .select({
+          role: profiles.role,
+          clientId: profiles.clientId,
+        })
         .from(profiles)
         .where(eq(profiles.userId, decoded.sub))
         .limit(1);
+
+    if (!profileRows[0]) {
+      throw new Error("Profile not found");
+    }
 
     return {
         user: userRows[0],
         profile: profileRows[0],
     };
   } catch (err) {
-    throw new Error("Unauthorized");
+    const message =
+      err instanceof Error ? err.message : "Unauthorized";
+    throw new Error(
+      process.env.NODE_ENV === "development" ? message : "Unauthorized"
+    );
   }
 }
 
@@ -90,6 +101,18 @@ export async function updateProfile(formData: z.infer<typeof profileSchema>) {
       clientId: profile.clientId ?? undefined,
       before,
       after: validatedData,
+    });
+
+    const cookieStore = await cookies();
+    const newToken = await signAccessToken({
+      sub: user.id,
+      email: validatedData.email,
+    });
+    cookieStore.set("sb-access-token", newToken, {
+      httpOnly: false,
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60,
+      sameSite: "lax",
     });
 
     revalidatePath("/admin/settings/profile");

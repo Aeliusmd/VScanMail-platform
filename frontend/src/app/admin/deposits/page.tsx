@@ -8,6 +8,7 @@ import { depositsApi, type DepositDto } from '@/lib/api/deposits';
 import { mailApi, type MailItem } from '@/lib/api/mail';
 import { useSuperAdminToolbarOptional } from '../../superadmin/components/SuperAdminToolbarContext';
 import { useAdminProfile } from '../components/useAdminProfile';
+import NotificationBell from '../components/NotificationBell';
 
 type DepositRequest = {
   id: string; // UI id like DEP-xxxxxx
@@ -31,6 +32,9 @@ type DepositRequest = {
   requestedBy: string;
   notes?: string;
   depositDate?: string;
+  destinationBankLast4: string | null;
+  destinationBankAccountId: string | null;
+  slipAiResult?: any | null;
 };
 
 const statusColors: Record<DepositRequest['status'], string> = {
@@ -113,6 +117,9 @@ function mapDepositToRequest(d: DepositDto): DepositRequest {
     requestedBy: d.clientName || 'Client',
     notes: d.rejectReason || undefined,
     depositDate,
+    destinationBankLast4: d.destinationBankLast4 ?? null,
+    destinationBankAccountId: d.destinationBankAccountId ?? null,
+    slipAiResult: d.slipAiResult ?? null,
   };
 }
 
@@ -130,6 +137,7 @@ function DepositsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabFromUrl = searchParams.get('tab');
+  const highlightId = searchParams.get('highlight');
 
   const statusFilter = useMemo((): StatusTab => {
     if (!tabFromUrl) return 'All';
@@ -147,7 +155,6 @@ function DepositsPageContent() {
     ? '/superadmin/settings'
     : '/admin/settings';
 
-  const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [localSearch, setLocalSearch] = useState('');
   const superToolbar = useSuperAdminToolbarOptional();
@@ -156,10 +163,16 @@ function DepositsPageContent() {
   const [requests, setRequests] = useState<DepositRequest[]>([]);
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [allChecked, setAllChecked] = useState(false);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const highlightHandledRef = useRef(false);
 
   const [showApproveDateInput, setShowApproveDateInput] = useState(false);
   const [depositDateInput, setDepositDateInput] = useState('');
   const [depositDateError, setDepositDateError] = useState('');
+  const approveDateInputRef = useRef<HTMLInputElement | null>(null);
+  const [revealedAccount, setRevealedAccount] = useState<{ number: string; expiresAt: number } | null>(null);
+  const [revealingAccount, setRevealingAccount] = useState(false);
+  const [revealAccountError, setRevealAccountError] = useState('');
 
   const [showSendSlipModal, setShowSendSlipModal] = useState(false);
   const [slipUploading, setSlipUploading] = useState(false);
@@ -195,6 +208,24 @@ function DepositsPageContent() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!highlightId || highlightHandledRef.current) return;
+    if (requests.length === 0) return;
+    const target = requests.find((r) => r.chequeId === highlightId);
+    if (!target) return;
+
+    highlightHandledRef.current = true;
+    openRequest(target);
+    setHighlightedId(highlightId);
+    const timer = window.setTimeout(() => setHighlightedId(null), 3000);
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('highlight');
+    router.replace(params.toString() ? `${pathname}?${params.toString()}` : pathname);
+
+    return () => window.clearTimeout(timer);
+  }, [highlightId, requests, pathname, router, searchParams]);
 
   const setTab = (tab: StatusTab) => {
     router.replace(`${pathname}?tab=${encodeURIComponent(tab)}`);
@@ -243,14 +274,18 @@ function DepositsPageContent() {
     setShowApproveDateInput(false);
     setDepositDateInput('');
     setDepositDateError('');
+    setRevealedAccount(null);
+    setRevealingAccount(false);
+    setRevealAccountError('');
     setShowSendSlipModal(false);
-    setSlipUploaded(false);
+    const existingAi = request.slipAiResult ?? null;
+    setSlipUploaded(!!existingAi);
     setSlipUploading(false);
     setSlipSent(false);
     setSlipUploadError('');
     setSlipFile(null);
     setSlipPreviewUrl(null);
-    setSlipResult(null);
+    setSlipResult(existingAi);
 
     setSelectedMailItem(null);
     setSelectedMailError('');
@@ -279,6 +314,9 @@ function DepositsPageContent() {
     setShowApproveDateInput(false);
     setDepositDateInput('');
     setDepositDateError('');
+    setRevealedAccount(null);
+    setRevealingAccount(false);
+    setRevealAccountError('');
     setShowSendSlipModal(false);
     setSlipUploaded(false);
     setSlipUploading(false);
@@ -295,9 +333,28 @@ function DepositsPageContent() {
     setChequeViewerUrl(null);
   };
 
+  const handleRevealAccount = async () => {
+    if (!selectedRequest) return;
+
+    setRevealingAccount(true);
+    setRevealAccountError('');
+    try {
+      const result = await depositsApi.revealAccount(selectedRequest.chequeId);
+      setRevealedAccount({
+        number: result.accountNumber,
+        expiresAt: Date.now() + 30_000,
+      });
+    } catch (error: any) {
+      setRevealAccountError(error?.message || 'Could not load account number. Try again.');
+    } finally {
+      setRevealingAccount(false);
+    }
+  };
+
   const handleClickApprove = () => {
     setShowApproveDateInput(true);
-    setDepositDateInput('');
+    const today = new Date().toISOString().split('T')[0];
+    setDepositDateInput(today);
     setDepositDateError('');
   };
 
@@ -306,9 +363,9 @@ function DepositsPageContent() {
       setDepositDateError('Please enter a deposit date.');
       return;
     }
-    const dateRegex = /^\d{4}\/\d{2}\/\d{2}$/;
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (!dateRegex.test(depositDateInput.trim())) {
-      setDepositDateError('Please use format YYYY/MM/DD (e.g. 2026/03/28).');
+      setDepositDateError('Please select a valid deposit date.');
       return;
     }
     setDepositDateError('');
@@ -437,6 +494,18 @@ function DepositsPageContent() {
     };
   }, [slipPreviewUrl]);
 
+  useEffect(() => {
+    if (!revealedAccount) return;
+    const ms = revealedAccount.expiresAt - Date.now();
+    if (ms <= 0) {
+      setRevealedAccount(null);
+      return;
+    }
+
+    const timer = window.setTimeout(() => setRevealedAccount(null), ms);
+    return () => window.clearTimeout(timer);
+  }, [revealedAccount]);
+
   const totalAmount = requests.reduce(
     (sum, r) => sum + parseFloat(r.amount.replace(/[$,]/g, '')),
     0
@@ -447,12 +516,6 @@ function DepositsPageContent() {
 
   const countForStatus = (s: StatusTab) =>
     s === 'All' ? requests.length : requests.filter((r) => r.status === s).length;
-
-  const notifications = [
-    { id: 1, text: 'Deposit approved for Tech Solutions Inc', time: '5 mins ago', unread: true },
-    { id: 2, text: 'Pending deposit review for Summit LLC', time: '12 mins ago', unread: true },
-    { id: 3, text: 'Rejected deposit requires action', time: '25 mins ago', unread: false },
-  ];
 
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-white">
@@ -483,60 +546,13 @@ function DepositsPageContent() {
             </Link>
 
               <>
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowNotifications(!showNotifications);
-                      setShowUserMenu(false);
-                    }}
-                    className="relative p-2 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
-                  >
-                    <Icon icon="ri:notification-3-line" className="text-slate-600 text-xl" />
-                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
-                  </button>
-                  {showNotifications && (
-                    <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 overflow-hidden">
-                      <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-                        <h3 className="font-semibold text-slate-900 text-sm">Notifications</h3>
-                        <button
-                          type="button"
-                          className="text-xs text-[#0A3D8F] font-medium whitespace-nowrap cursor-pointer"
-                        >
-                          Mark all read
-                        </button>
-                      </div>
-                      <div className="max-h-[240px] overflow-y-auto">
-                        {notifications.map((n) => (
-                          <div
-                            key={n.id}
-                            className={`px-4 py-3 border-b border-slate-50 flex gap-3 ${
-                              n.unread ? 'bg-[#EFF6FF]/40' : ''
-                            }`}
-                          >
-                            <div className="w-8 h-8 flex items-center justify-center rounded-full bg-[#EFF6FF] shrink-0">
-                              <Icon icon="ri:mail-line" className="text-[#1E40AF] text-sm" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs text-slate-700 leading-5">{n.text}</p>
-                              <p className="text-[11px] text-slate-400 mt-0.5">{n.time}</p>
-                            </div>
-                            {n.unread && (
-                              <span className="w-2 h-2 bg-[#1E40AF] rounded-full shrink-0 mt-1" />
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <NotificationBell />
 
                 <div className="relative pl-2 sm:pl-3 border-l border-slate-200">
                   <button
                     type="button"
                     onClick={() => {
                       setShowUserMenu(!showUserMenu);
-                      setShowNotifications(false);
                     }}
                     className="flex items-center gap-2 hover:bg-slate-50 rounded-lg px-1 py-1 transition cursor-pointer"
                   >
@@ -706,7 +722,9 @@ function DepositsPageContent() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') openRequest(request);
                 }}
-                className="flex items-center group px-3 sm:px-4 py-3 hover:bg-slate-50 transition-colors cursor-pointer"
+                className={`flex items-center group px-3 sm:px-4 py-3 hover:bg-slate-50 transition-colors cursor-pointer ${
+                  highlightedId === request.chequeId ? 'ring-2 ring-blue-400 animate-pulse' : ''
+                }`}
                 onClick={() => openRequest(request)}
               >
                 <div
@@ -940,9 +958,64 @@ function DepositsPageContent() {
                   </span>
                 </div>
                 <div className="p-4 bg-slate-50 rounded-xl">
-                  <p className="text-xs text-slate-500 mb-1">Bank Details</p>
-                  <p className="text-sm font-semibold text-slate-900">{selectedRequest.bankName}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">Cheque No. #{selectedRequest.chequeNumber}</p>
+                  <p className="text-xs text-slate-500 mb-2">Bank Details</p>
+                  <p className="text-sm font-semibold text-slate-900">
+                    {selectedRequest.bankName.split(' (')[0]}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-0.5 mb-3">
+                    {selectedRequest.bankName.includes('(')
+                      ? `Account: ${selectedRequest.bankName.split('(')[1]?.replace(')', '')}`
+                      : null}
+                  </p>
+
+                  <div className="mt-2 pt-2 border-t border-slate-200">
+                    <p className="text-[11px] text-slate-400 mb-1.5 font-medium uppercase tracking-wide">
+                      Account Number
+                    </p>
+
+                    {!revealedAccount ? (
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-sm text-slate-500 tracking-widest">
+                          •••• •••• {selectedRequest.destinationBankLast4 ?? '••••'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleRevealAccount}
+                          disabled={revealingAccount}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#0A3D8F]/8 hover:bg-[#0A3D8F]/15 text-[#0A3D8F] text-xs font-medium transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          {revealingAccount ? (
+                            <Icon icon="ri:loader-4-line" className="animate-spin text-xs" />
+                          ) : (
+                            <Icon icon="ri:eye-line" className="text-xs" />
+                          )}
+                          {revealingAccount ? 'Loading…' : 'View'}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono text-sm text-slate-900 bg-amber-50 border border-amber-200 rounded px-2 py-0.5 tracking-wider">
+                          {revealedAccount.number}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => navigator.clipboard.writeText(revealedAccount.number)}
+                          className="flex items-center gap-1 px-2 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-medium transition-colors cursor-pointer"
+                        >
+                          <Icon icon="ri:file-copy-line" className="text-xs" />
+                          Copy
+                        </button>
+                        <span className="text-[10px] text-amber-600 flex items-center gap-0.5 w-full mt-0.5">
+                          <Icon icon="ri:time-line" className="text-[10px]" />
+                          Hides in 30s
+                        </span>
+                      </div>
+                    )}
+
+                    {revealAccountError && (
+                      <p className="text-xs text-red-500 mt-1">{revealAccountError}</p>
+                    )}
+                  </div>
                 </div>
                 <div className="p-4 bg-slate-50 rounded-xl">
                   <p className="text-xs text-slate-500 mb-1">Requested By</p>
@@ -982,27 +1055,53 @@ function DepositsPageContent() {
                 </div>
               </div>
 
-              {showApproveDateInput && selectedRequest.status === 'Pending' && (
+              {!isSuperadminRoute && showApproveDateInput && selectedRequest.status === 'Pending' && (
                 <div className="p-4 bg-[#0A3D8F]/5 rounded-xl border border-[#0A3D8F]/20">
                   <div className="flex items-center gap-2 mb-3">
-                    <Icon icon="ri:calendar-line" className="text-[#0A3D8F] text-base" />
-                    <p className="text-sm font-semibold text-[#0A3D8F]">Enter Deposit Date</p>
+                    <Icon icon="ri:calendar-check-line" className="text-[#0A3D8F] text-base" />
+                    <p className="text-sm font-semibold text-[#0A3D8F]">Select Deposit Date</p>
                   </div>
                   <div className="flex flex-col sm:flex-row sm:items-start gap-3">
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 relative">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const input = approveDateInputRef.current;
+                          if (!input) return;
+                          if (typeof input.showPicker === 'function') {
+                            input.showPicker();
+                          } else {
+                            input.focus();
+                            input.click();
+                          }
+                        }}
+                        className={`w-full px-4 py-2.5 rounded-lg border text-sm text-left flex items-center justify-between transition-all ${
+                          depositDateError
+                            ? 'border-red-400 bg-red-50'
+                            : 'border-slate-300 bg-white hover:border-[#0A3D8F] focus:border-[#0A3D8F]'
+                        }`}
+                      >
+                        <span className={depositDateInput ? 'text-slate-900' : 'text-slate-400'}>
+                          {depositDateInput
+                            ? new Date(`${depositDateInput}T00:00:00`).toLocaleDateString('en-US', {
+                                weekday: 'short',
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                              })
+                            : 'Select date'}
+                        </span>
+                        <Icon icon="ri:calendar-line" className="text-[#0A3D8F] text-base shrink-0 ml-2" />
+                      </button>
                       <input
-                        type="text"
-                        placeholder="YYYY/MM/DD  e.g. 2026/03/28"
+                        ref={approveDateInputRef}
+                        type="date"
                         value={depositDateInput}
                         onChange={(e) => {
                           setDepositDateInput(e.target.value);
                           setDepositDateError('');
                         }}
-                        className={`w-full px-4 py-2.5 rounded-lg border text-sm text-black placeholder:text-slate-400 outline-none transition-all ${
-                          depositDateError
-                            ? 'border-red-400 bg-red-50'
-                            : 'border-slate-300 bg-white focus:border-[#0A3D8F]'
-                        }`}
+                        className="sr-only"
                       />
                       {depositDateError && (
                         <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
@@ -1037,7 +1136,7 @@ function DepositsPageContent() {
 
               {!showApproveDateInput && (
                 <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 pt-1">
-                  {selectedRequest.status === 'Pending' && (
+                  {!isSuperadminRoute && selectedRequest.status === 'Pending' && (
                     <>
                       <button
                         type="button"
@@ -1058,7 +1157,7 @@ function DepositsPageContent() {
                     </>
                   )}
 
-                  {selectedRequest.status === 'Approved' && (
+                  {!isSuperadminRoute && selectedRequest.status === 'Approved' && (
                     <button
                       type="button"
                       onClick={openSendSlipModal}

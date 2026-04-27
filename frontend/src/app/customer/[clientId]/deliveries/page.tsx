@@ -1,530 +1,330 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { mailApi, type MailItem } from "@/lib/api/mail";
+import { useSearchParams } from "next/navigation";
+import { deliveriesApi, type DeliveryDto } from "@/lib/api/deliveries";
 
-type DeliveryStatus = "Pending" | "On the Way" | "Delivered" | "Confirmed" | "Failed";
+type TabType = "All" | "Pending" | "Approved" | "In Transit" | "Delivered" | "Rejected" | "Cancelled";
 
-interface CustomerDeliveryRequest {
-  id: string;
-  mailSubject: string;
-  deliveryAddress: string;
-  courier: string;
-  trackingNumber: string;
-  requestedAt: string;
-  timeShort: string;
-  status: DeliveryStatus;
-  requestedBy: string;
-  recipientName?: string;
-  recipientPhone?: string;
-  notes?: string;
-  thumbnail: string;
-  aiSummary: string;
+function toTab(status: DeliveryDto["status"]): TabType {
+  switch (status) {
+    case "pending":
+      return "Pending";
+    case "approved":
+      return "Approved";
+    case "in_transit":
+      return "In Transit";
+    case "delivered":
+      return "Delivered";
+    case "rejected":
+      return "Rejected";
+    case "cancelled":
+      return "Cancelled";
+    default:
+      return "All";
+  }
 }
 
-function mapMailToDelivery(m: MailItem): CustomerDeliveryRequest {
-  const created = m.created_at ? new Date(m.created_at) : null;
-  const requestedAt = created && !Number.isNaN(created.getTime()) ? created.toLocaleString() : "—";
-  const timeShort =
-    created && !Number.isNaN(created.getTime())
-      ? created.toLocaleDateString(undefined, { month: "short", day: "numeric" })
-      : "—";
-
-  return {
-    id: `DEL-${m.id.slice(-6)}`,
-    mailSubject: m.ai_summary || m.irn || "Mail item",
-    deliveryAddress: "—",
-    courier: "—",
-    trackingNumber: "—",
-    requestedAt,
-    timeShort,
-    status: m.status === "delivered" ? "Delivered" : "Pending",
-    requestedBy: m.scanned_by || "Client",
-    thumbnail: m.envelope_front_url || "",
-    aiSummary: m.ai_summary || "",
-  };
+function statusMeta(status: DeliveryDto["status"]): {
+  label: TabType;
+  pillClass: string;
+  accentClass: string;
+} {
+  const label = toTab(status);
+  switch (status) {
+    case "pending":
+      return { label, pillClass: "bg-amber-50 text-amber-700 ring-1 ring-amber-200", accentClass: "bg-amber-500" };
+    case "approved":
+      return { label, pillClass: "bg-blue-50 text-blue-700 ring-1 ring-blue-200", accentClass: "bg-blue-600" };
+    case "in_transit":
+      return { label, pillClass: "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200", accentClass: "bg-indigo-600" };
+    case "delivered":
+      return { label, pillClass: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200", accentClass: "bg-emerald-600" };
+    case "rejected":
+      return { label, pillClass: "bg-rose-50 text-rose-700 ring-1 ring-rose-200", accentClass: "bg-rose-600" };
+    case "cancelled":
+      return { label, pillClass: "bg-slate-100 text-slate-700 ring-1 ring-slate-200", accentClass: "bg-slate-500" };
+    default:
+      return { label, pillClass: "bg-slate-100 text-slate-700 ring-1 ring-slate-200", accentClass: "bg-slate-400" };
+  }
 }
 
-const statusConfig: Record<
-  DeliveryStatus,
-  { color: string; icon: string; bgBanner: string; textBanner: string; borderBanner: string }
-> = {
-  Pending: {
-    color: "bg-amber-100 text-amber-700",
-    icon: "ri-time-line",
-    bgBanner: "bg-amber-50",
-    textBanner: "text-amber-800",
-    borderBanner: "border-amber-200",
-  },
-  "On the Way": {
-    color: "bg-blue-100 text-blue-700",
-    icon: "ri-truck-line",
-    bgBanner: "bg-blue-50",
-    textBanner: "text-blue-800",
-    borderBanner: "border-blue-200",
-  },
-  Delivered: {
-    color: "bg-green-100 text-[#2F8F3A]",
-    icon: "ri-checkbox-circle-line",
-    bgBanner: "bg-green-50",
-    textBanner: "text-green-800",
-    borderBanner: "border-green-200",
-  },
-  Confirmed: {
-    color: "bg-teal-100 text-teal-700",
-    icon: "ri-verified-badge-line",
-    bgBanner: "bg-teal-50",
-    textBanner: "text-teal-800",
-    borderBanner: "border-teal-200",
-  },
-  Failed: {
-    color: "bg-red-100 text-red-700",
-    icon: "ri-close-circle-line",
-    bgBanner: "bg-red-50",
-    textBanner: "text-red-800",
-    borderBanner: "border-red-200",
-  },
-};
+function sourceMeta(sourceType: DeliveryDto["sourceType"]): { label: string; className: string } {
+  if (sourceType === "cheque") return { label: "Cheque", className: "bg-[#0A3D8F]/10 text-[#0A3D8F]" };
+  return { label: "Mail", className: "bg-slate-100 text-slate-700" };
+}
 
 export default function CustomerDeliveryRequestsPage() {
-  const [requests, setRequests] = useState<CustomerDeliveryRequest[]>([]);
+  const searchParams = useSearchParams();
+  const highlightId = searchParams.get("highlight");
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string>("All");
-  const [search, setSearch] = useState("");
-  const [selectedRequest, setSelectedRequest] = useState<CustomerDeliveryRequest | null>(null);
-  const [confirmingId, setConfirmingId] = useState<string | null>(null);
-  const [showConfirmSuccess, setShowConfirmSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [tab, setTab] = useState<TabType>("All");
+  const [rows, setRows] = useState<DeliveryDto[]>([]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    (async () => {
-      try {
-        setLoading(true);
-        const data = await mailApi.list({ limit: 100 });
-        if (cancelled) return;
-        setRequests(data.items.map(mapMailToDelivery));
-      } catch (e) {
-        console.error("Failed to load deliveries:", e);
-        if (!cancelled) setRequests([]);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const filtered = useMemo(
-    () =>
-      requests.filter((r) => {
-        const matchSearch =
-          r.mailSubject.toLowerCase().includes(search.toLowerCase()) ||
-          r.trackingNumber.toLowerCase().includes(search.toLowerCase()) ||
-          r.courier.toLowerCase().includes(search.toLowerCase()) ||
-          r.id.toLowerCase().includes(search.toLowerCase());
-        const matchStatus = statusFilter === "All" || r.status === statusFilter;
-        return matchSearch && matchStatus;
-      }),
-    [requests, search, statusFilter]
-  );
-
-  const allStatuses: DeliveryStatus[] = ["Pending", "On the Way", "Delivered", "Confirmed", "Failed"];
-
-  const counts: Record<string, number> = {
-    All: requests.length,
-    ...Object.fromEntries(allStatuses.map((s) => [s, requests.filter((r) => r.status === s).length])),
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await deliveriesApi.listMine();
+      setRows(data);
+    } catch (err: any) {
+      setError(err?.message || "Failed to load delivery requests.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleConfirmReceived = (id: string) => {
-    setConfirmingId(id);
-    setTimeout(() => {
-      setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status: "Confirmed" as const } : r)));
-      setSelectedRequest((prev) => (prev && prev.id === id ? { ...prev, status: "Confirmed" } : prev));
-      setConfirmingId(null);
-      setShowConfirmSuccess(true);
-      setTimeout(() => setShowConfirmSuccess(false), 3000);
-    }, 1400);
+  useEffect(() => {
+    load();
+  }, []);
+
+  const filtered = useMemo(() => {
+    return rows.filter((r) => {
+      const matchesTab = tab === "All" || toTab(r.status) === tab;
+      const q = query.toLowerCase();
+      const matchesSearch =
+        !q ||
+        r.id.toLowerCase().includes(q) ||
+        r.irn.toLowerCase().includes(q) ||
+        (r.trackingNumber || "").toLowerCase().includes(q) ||
+        (r.addressName || "").toLowerCase().includes(q);
+      return matchesTab && matchesSearch;
+    });
+  }, [rows, query, tab]);
+
+  const metrics = useMemo(() => {
+    const total = rows.length;
+    const pending = rows.filter((r) => r.status === "pending").length;
+    const active = rows.filter((r) => r.status === "approved" || r.status === "in_transit").length;
+    const delivered = rows.filter((r) => r.status === "delivered").length;
+    return { total, pending, active, delivered };
+  }, [rows]);
+
+  const tabs: TabType[] = ["All", "Pending", "Approved", "In Transit", "Delivered", "Rejected", "Cancelled"];
+
+  const onCancel = async (row: DeliveryDto) => {
+    if (row.status !== "pending") return;
+    try {
+      await deliveriesApi.cancel(row.id, row.sourceType);
+      await load();
+    } catch (err: any) {
+      setError(err?.message || "Failed to cancel request.");
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-6">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Delivery Requests</h1>
-              <p className="text-sm text-gray-500 mt-0.5">Track the delivery status of your mail packages</p>
+    <div className="min-h-screen bg-slate-50 p-4 sm:p-6">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Delivery Requests</h1>
+            <p className="text-sm text-slate-500">Track pickup and delivery requests for cheques and mails</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+              <div className="text-[11px] text-slate-500">Total</div>
+              <div className="text-sm font-semibold text-slate-900">{metrics.total}</div>
             </div>
-            <div className="flex items-center gap-2 text-xs font-medium flex-wrap">
-              <span className="px-3 py-1.5 bg-amber-50 text-amber-700 rounded-full border border-amber-200">
-                {counts.Pending} Pending
-              </span>
-              <span className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full border border-blue-200">
-                {counts["On the Way"]} On the Way
-              </span>
-              <span className="px-3 py-1.5 bg-green-50 text-green-700 rounded-full border border-green-200">
-                {counts.Delivered} Delivered
-              </span>
+            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+              <div className="text-[11px] text-slate-500">Pending</div>
+              <div className="text-sm font-semibold text-slate-900">{metrics.pending}</div>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+              <div className="text-[11px] text-slate-500">Active</div>
+              <div className="text-sm font-semibold text-slate-900">{metrics.active}</div>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+              <div className="text-[11px] text-slate-500">Delivered</div>
+              <div className="text-sm font-semibold text-slate-900">{metrics.delivered}</div>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 mb-5">
-          <div className="p-4 border-b border-gray-100">
-            <div className="relative max-w-md">
-              <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
-              <input
-                type="text"
-                placeholder="Search by subject, tracking number, courier..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-[#0A3D8F] transition-colors"
-              />
+        {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+
+        <div className="bg-white rounded-xl border border-slate-200 mb-4">
+          <div className="p-4 border-b border-slate-100">
+            <div className="w-full md:w-[440px]">
+              <div className="relative">
+                <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search by ID, IRN, tracking, recipient…"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2.5 text-sm border border-slate-200 rounded-lg outline-none text-slate-900 placeholder:text-slate-400 focus:border-[#0A3D8F] focus:ring-2 focus:ring-[#0A3D8F]/15"
+                />
+              </div>
+              <div className="mt-1 text-[11px] text-slate-500">Tip: Paste an ID or IRN to jump straight to a request.</div>
             </div>
           </div>
           <div className="flex items-center px-4 overflow-x-auto">
-            {(["All", ...allStatuses] as const).map((tab) => (
+            {tabs.map((t) => (
               <button
-                key={tab}
-                onClick={() => setStatusFilter(tab)}
-                className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors cursor-pointer ${
-                  statusFilter === tab ? "border-[#0A3D8F] text-[#0A3D8F]" : "border-transparent text-gray-500 hover:text-gray-700"
+                key={t}
+                onClick={() => setTab(t)}
+                className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap ${
+                  tab === t ? "border-[#0A3D8F] text-[#0A3D8F]" : "border-transparent text-slate-500 hover:text-slate-700"
                 }`}
               >
-                {tab}
-                <span
-                  className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${
-                    statusFilter === tab ? "bg-[#0A3D8F]/10 text-[#0A3D8F]" : "bg-gray-100 text-gray-500"
-                  }`}
-                >
-                  {counts[tab] ?? 0}
-                </span>
+                {t}
               </button>
             ))}
           </div>
         </div>
 
-        <div className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-3.5 mb-5 flex items-start gap-3">
-          <i className="ri-mail-check-line text-blue-500 text-lg mt-0.5 flex-shrink-0"></i>
-          <div>
-            <p className="text-sm font-semibold text-blue-800">Package Confirmation Email</p>
-            <p className="text-xs text-blue-600 mt-0.5">
-              When your package is delivered, you will receive an email with a <strong>Got the Package</strong>{" "}
-              confirmation button. You can also confirm directly from this page by clicking on any delivered request.
-            </p>
-          </div>
-        </div>
-
-        {filtered.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-16 flex flex-col items-center space-y-3">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
-              <i className="ri-truck-line text-gray-400 text-3xl"></i>
+        {loading ? (
+          <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+            <div className="p-4 border-b border-slate-100">
+              <div className="h-4 w-40 bg-slate-100 rounded animate-pulse" />
             </div>
-            <p className="text-gray-500 font-medium">No delivery requests found</p>
-            <p className="text-gray-400 text-sm">Try adjusting your search or filter</p>
+            <div className="divide-y divide-slate-100">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="h-3 w-36 bg-slate-100 rounded animate-pulse" />
+                      <div className="mt-2 h-4 w-56 bg-slate-100 rounded animate-pulse" />
+                      <div className="mt-2 h-3 w-72 bg-slate-100 rounded animate-pulse" />
+                    </div>
+                    <div className="w-28">
+                      <div className="h-6 w-24 bg-slate-100 rounded-full animate-pulse" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="bg-white rounded-xl border border-slate-200 p-10 text-center">
+            <div className="mx-auto w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-500">
+              <i className="ri-inbox-2-line text-xl" />
+            </div>
+            <div className="mt-3 text-sm font-semibold text-slate-900">No delivery requests</div>
+            <div className="mt-1 text-sm text-slate-500">Try switching tabs or clearing your search.</div>
           </div>
         ) : (
-          <div className="space-y-3">
-            {filtered.map((req) => {
-              const cfg = statusConfig[req.status];
-              return (
-                <div
-                  key={req.id}
-                  className="bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all cursor-pointer"
-                  onClick={() => setSelectedRequest(req)}
-                >
-                  <div className="flex items-center p-5 gap-5">
-                    <div className="w-20 h-14 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
-                      <img src={req.thumbnail} alt="mail" className="w-full h-full object-cover object-top" />
-                    </div>
+          <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-3">
+              <div className="text-sm font-semibold text-slate-900">Queue</div>
+              <div className="text-xs text-slate-500">{filtered.length} shown</div>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {filtered.map((r) => {
+                const s = statusMeta(r.status);
+                const src = sourceMeta(r.sourceType);
+                const highlighted = Boolean(highlightId && highlightId === r.id);
+                const addressLine = [
+                  r.addressLine1,
+                  r.addressLine2,
+                  r.addressCity,
+                  [r.addressState, r.addressZip].filter(Boolean).join(" "),
+                  r.addressCountry,
+                ]
+                  .filter(Boolean)
+                  .join(", ");
 
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-mono text-gray-400">{req.id}</span>
-                        <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${cfg.color}`}>
-                          <i className={`${cfg.icon} mr-1 text-xs`}></i>
-                          {req.status}
-                        </span>
-                        {req.status === "Delivered" && (
-                          <span className="text-xs font-medium text-green-700 bg-green-50 border border-green-200 px-2.5 py-0.5 rounded-full animate-pulse">
-                            <i className="ri-hand-heart-line mr-1 text-xs"></i>Tap to confirm receipt
-                          </span>
-                        )}
+                const secondary = [
+                  r.irn ? `IRN ${r.irn}` : null,
+                  r.requestedAt ? `Requested ${new Date(r.requestedAt).toLocaleString()}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ");
+
+                return (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => {}}
+                    className={`group w-full text-left hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3D8F]/30 ${
+                      highlighted ? "ring-2 ring-[#0A3D8F]/15" : ""
+                    }`}
+                  >
+                    <div className="relative px-4 py-4">
+                      <div className={`absolute left-0 top-0 h-full w-1 ${s.accentClass}`} />
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${s.pillClass}`}>
+                              {s.label}
+                            </span>
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${src.className}`}>
+                              {src.label}
+                            </span>
+                            <span className="text-[11px] font-mono text-slate-400 truncate">{r.id}</span>
+                          </div>
+
+                          <div className="mt-2 flex items-center gap-2 min-w-0">
+                            <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-[#0A3D8F] to-[#083170] text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
+                              {(r.addressName || "?").slice(0, 1).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-sm font-semibold text-slate-900 truncate">
+                                {r.addressName || "Recipient"}
+                              </div>
+                              <div className="text-xs text-slate-500 truncate">{secondary || "—"}</div>
+                            </div>
+                          </div>
+
+                          {addressLine ? (
+                            <div className="mt-2 text-xs text-slate-500 truncate">
+                              <span className="text-slate-400">To:</span>{" "}
+                              {r.addressName ? `${r.addressName} · ` : ""}
+                              {addressLine}
+                            </div>
+                          ) : null}
+
+                          <div className="mt-3 flex flex-wrap items-center gap-3">
+                            {r.proofOfServiceUrl && (
+                              <a
+                                href={r.proofOfServiceUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-xs text-[#0A3D8F] font-semibold hover:underline"
+                              >
+                                View Proof of Service
+                              </a>
+                            )}
+                            {r.rejectReason && (
+                              <span className="text-xs text-rose-700">Reason: {r.rejectReason}</span>
+                            )}
+                            {r.status === "pending" && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void onCancel(r);
+                                }}
+                                className="px-3 py-1.5 rounded-lg border border-rose-300 text-rose-700 text-xs font-semibold hover:bg-rose-50"
+                              >
+                                Cancel
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex-shrink-0 text-right">
+                          <div className="text-[11px] text-slate-500">Tracking</div>
+                          <div className="mt-1 text-xs font-semibold text-slate-900 max-w-[180px] truncate">
+                            {r.trackingNumber || "Not set"}
+                          </div>
+                          <div className="mt-2 inline-flex items-center gap-1 text-[11px] text-slate-500">
+                            <i className="ri-arrow-right-s-line text-slate-400" />
+                            <span className="group-hover:text-[#0A3D8F] transition-colors">Open</span>
+                          </div>
+                        </div>
                       </div>
-                      <p className="text-base font-bold text-gray-900 mt-0.5 truncate">{req.mailSubject}</p>
-                      <p className="text-xs text-gray-500 truncate">
-                        <i className="ri-map-pin-line mr-1 text-gray-400"></i>
-                        {req.deliveryAddress}
-                      </p>
                     </div>
-
-                    <div className="flex-shrink-0 hidden md:block">
-                      <p className="text-xs text-gray-400">Courier</p>
-                      <p className="text-sm font-semibold text-gray-700">{req.courier}</p>
-                      <p className="text-xs text-gray-400 font-mono mt-0.5">{req.trackingNumber}</p>
-                    </div>
-
-                    <div className="flex-shrink-0 text-right">
-                      <p className="text-xs text-gray-400">{req.timeShort}</p>
-                    </div>
-
-                    <i className="ri-arrow-right-s-line text-gray-300 text-xl flex-shrink-0"></i>
-                  </div>
-
-                  {req.status === "On the Way" && (
-                    <div className="mx-5 mb-4">
-                      <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5">
-                        <span>In transit</span>
-                        <span className="font-medium text-blue-600">On the Way</span>
-                      </div>
-                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full w-[60%] bg-gradient-to-r from-blue-400 to-blue-600 rounded-full"></div>
-                      </div>
-                      <div className="flex items-center justify-between text-[10px] text-gray-400 mt-1">
-                        <span>Picked up</span>
-                        <span>In Transit</span>
-                        <span>Delivered</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {req.status === "Failed" && req.notes && (
-                    <div className="mx-5 mb-4 px-4 py-2.5 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
-                      <i className="ri-error-warning-line text-red-600 text-sm flex-shrink-0"></i>
-                      <p className="text-xs text-red-700">{req.notes}</p>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
-      </main>
-
-      {selectedRequest && (
-        <div
-          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-6"
-          onClick={() => {
-            setSelectedRequest(null);
-            setShowConfirmSuccess(false);
-          }}
-        >
-          <div
-            className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-[#0A3D8F]/10 rounded-xl flex items-center justify-center">
-                  <i className="ri-truck-line text-[#0A3D8F] text-xl"></i>
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-gray-900">Delivery Request</h2>
-                  <p className="text-xs text-gray-400">
-                    {selectedRequest.id} - {selectedRequest.requestedAt}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setSelectedRequest(null);
-                  setShowConfirmSuccess(false);
-                }}
-                className="p-2 hover:bg-gray-100 rounded-lg cursor-pointer transition-colors"
-              >
-                <i className="ri-close-line text-gray-600 text-xl"></i>
-              </button>
-            </div>
-
-            <div className="p-6 space-y-5 overflow-y-auto flex-1 min-h-0">
-              <div className="w-full h-52 rounded-xl overflow-hidden border border-gray-200">
-                <img src={selectedRequest.thumbnail} alt="mail package" className="w-full h-full object-cover object-top" />
-              </div>
-
-              {(() => {
-                const cfg = statusConfig[selectedRequest.status];
-                return (
-                  <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${cfg.bgBanner} ${cfg.borderBanner}`}>
-                    <i
-                      className={`${cfg.icon} text-xl ${
-                        selectedRequest.status === "Pending"
-                          ? "text-amber-600"
-                          : selectedRequest.status === "On the Way"
-                            ? "text-blue-600"
-                            : selectedRequest.status === "Delivered"
-                              ? "text-green-600"
-                              : selectedRequest.status === "Confirmed"
-                                ? "text-teal-600"
-                                : "text-red-600"
-                      }`}
-                    ></i>
-                    <div>
-                      <p className={`text-sm font-bold ${cfg.textBanner}`}>
-                        {selectedRequest.status === "Pending" && "Awaiting Dispatch"}
-                        {selectedRequest.status === "On the Way" && "Package is On the Way"}
-                        {selectedRequest.status === "Delivered" && "Package Delivered - Please Confirm Receipt"}
-                        {selectedRequest.status === "Confirmed" && "Package Confirmed Received"}
-                        {selectedRequest.status === "Failed" && "Delivery Failed"}
-                      </p>
-                      <p className={`text-xs mt-0.5 ${cfg.textBanner} opacity-80`}>
-                        {selectedRequest.status === "Pending" &&
-                          "Your delivery request is queued and will be dispatched soon."}
-                        {selectedRequest.status === "On the Way" &&
-                          "Your package is currently in transit and on its way to you."}
-                        {selectedRequest.status === "Delivered" &&
-                          "Please confirm you have received the package using the button below, or via the email we sent you."}
-                        {selectedRequest.status === "Confirmed" &&
-                          "Thank you for confirming. Delivery is marked as completed."}
-                        {selectedRequest.status === "Failed" &&
-                          (selectedRequest.notes || "Delivery could not be completed. Please contact support.")}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-gray-50 rounded-xl col-span-2">
-                  <p className="text-xs text-gray-500 mb-1">Mail Subject</p>
-                  <p className="text-sm font-bold text-gray-900">{selectedRequest.mailSubject}</p>
-                </div>
-                <div className="p-4 bg-gray-50 rounded-xl col-span-2">
-                  <p className="text-xs text-gray-500 mb-2">Delivery Address</p>
-                  <div className="flex items-start gap-2">
-                    <i className="ri-map-pin-line text-[#0A3D8F] text-base flex-shrink-0 mt-0.5"></i>
-                    <p className="text-sm font-semibold text-gray-900">{selectedRequest.deliveryAddress}</p>
-                  </div>
-                  {selectedRequest.recipientName && (
-                    <div className="mt-2 pt-2 border-t border-gray-200 flex items-center gap-3">
-                      <div className="w-7 h-7 bg-[#0A3D8F]/10 rounded-full flex items-center justify-center flex-shrink-0">
-                        <i className="ri-user-line text-[#0A3D8F] text-sm"></i>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{selectedRequest.recipientName}</p>
-                        {selectedRequest.recipientPhone && <p className="text-xs text-gray-400">{selectedRequest.recipientPhone}</p>}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div className="p-4 bg-gray-50 rounded-xl">
-                  <p className="text-xs text-gray-500 mb-1">Courier</p>
-                  <p className="text-sm font-bold text-gray-900">{selectedRequest.courier}</p>
-                </div>
-                <div className="p-4 bg-gray-50 rounded-xl">
-                  <p className="text-xs text-gray-500 mb-1">Tracking Number</p>
-                  <p className="text-sm font-bold text-gray-900 font-mono">{selectedRequest.trackingNumber}</p>
-                </div>
-              </div>
-
-              <div className="p-5 bg-gradient-to-br from-[#0A3D8F]/5 to-gray-50 rounded-xl border border-[#0A3D8F]/10">
-                <div className="flex items-center gap-2 mb-2">
-                  <i className="ri-sparkling-line text-amber-500 text-lg"></i>
-                  <h3 className="text-sm font-bold text-gray-800">Summary</h3>
-                </div>
-                <p className="text-sm text-gray-700 leading-relaxed">{selectedRequest.aiSummary}</p>
-              </div>
-
-              {selectedRequest.status === "Delivered" && (
-                <div className="p-5 bg-green-50 rounded-xl border border-green-200">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                      <i className="ri-mail-check-line text-green-600 text-xl"></i>
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-bold text-green-800">Confirm Package Receipt</p>
-                      <p className="text-xs text-green-600 mt-1">
-                        Click the button below (or use the link in your email) to confirm you have received this package.
-                        This will mark the delivery as completed.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleConfirmReceived(selectedRequest.id);
-                        }}
-                        disabled={confirmingId === selectedRequest.id}
-                        className="mt-3 flex items-center gap-2 px-5 py-2.5 bg-[#2F8F3A] text-white text-sm font-bold rounded-lg hover:bg-[#267a30] transition-colors cursor-pointer disabled:opacity-70 whitespace-nowrap"
-                      >
-                        {confirmingId === selectedRequest.id ? (
-                          <>
-                            <i className="ri-loader-4-line animate-spin text-base"></i>
-                            <span>Confirming...</span>
-                          </>
-                        ) : (
-                          <>
-                            <i className="ri-checkbox-circle-fill text-base"></i>
-                            <span>Got the Package</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {selectedRequest.status === "Confirmed" && (
-                <div className="flex items-center gap-3 px-5 py-4 bg-teal-50 border border-teal-200 rounded-xl">
-                  <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <i className="ri-verified-badge-fill text-teal-600 text-xl"></i>
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-teal-800">Package Receipt Confirmed</p>
-                    <p className="text-xs text-teal-600 mt-0.5">
-                      You have confirmed receipt of this package. Delivery is now fully completed.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {selectedRequest.status === "On the Way" && (
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
-                  <div className="flex items-center gap-2 mb-3">
-                    <i className="ri-truck-line text-blue-600 text-lg"></i>
-                    <p className="text-sm font-bold text-blue-800">Shipment Progress</p>
-                  </div>
-                  <div className="relative">
-                    <div className="flex justify-between text-xs text-gray-500 mb-1.5">
-                      <span>Picked Up</span>
-                      <span className="font-semibold text-blue-600">In Transit</span>
-                      <span>Delivered</span>
-                    </div>
-                    <div className="h-2 bg-blue-100 rounded-full overflow-hidden">
-                      <div className="h-full w-[60%] bg-gradient-to-r from-blue-400 to-blue-600 rounded-full"></div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex items-center gap-3 pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedRequest(null);
-                    setShowConfirmSuccess(false);
-                  }}
-                  className="flex-1 py-3 bg-gray-100 text-gray-700 font-semibold rounded-lg hover:bg-gray-200 transition-colors text-sm cursor-pointer whitespace-nowrap"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showConfirmSuccess && (
-        <div className="fixed bottom-6 right-6 z-[70] flex items-center gap-3 px-5 py-3.5 bg-teal-600 text-white rounded-xl shadow-lg">
-          <i className="ri-checkbox-circle-fill text-xl"></i>
-          <div>
-            <p className="text-sm font-bold">Package Confirmed!</p>
-            <p className="text-xs opacity-80">Delivery has been marked as completed.</p>
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }
-

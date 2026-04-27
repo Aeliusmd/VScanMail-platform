@@ -8,6 +8,7 @@ const navItems = [
   { label: "Organizations", icon: "ri-building-4-line", href: "/superadmin/companies" },
   { label: "Deposit Requests", icon: "ri-exchange-dollar-line", href: "/superadmin/deposits" },
   { label: "Delivery Requests", icon: "ri-truck-line", href: "/superadmin/deliveries" },
+  { label: "Activity Log", icon: "ri-history-line", href: "/superadmin/activity" },
 ] as const;
 
 function isNavActive(pathname: string, href: string) {

@@ -4,37 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSuperAdminToolbarOptional } from "./SuperAdminToolbarContext";
-
-const headerNotifications = [
-  {
-    icon: "ri-building-line",
-    color: "text-[#0A3D8F]",
-    border: "border-[#0A3D8F]",
-    text: "New company registered: TechNova Solutions",
-    time: "5 mins ago",
-  },
-  {
-    icon: "ri-exchange-dollar-line",
-    color: "text-orange-600",
-    border: "border-orange-500",
-    text: "3 deposit requests awaiting approval",
-    time: "18 mins ago",
-  },
-  {
-    icon: "ri-user-add-line",
-    color: "text-sky-600",
-    border: "border-sky-500",
-    text: "Admin Sarah Mitchell logged in",
-    time: "30 mins ago",
-  },
-  {
-    icon: "ri-truck-line",
-    color: "text-slate-600",
-    border: "border-slate-400",
-    text: "Delivery confirmed by Gulf Bridge Trading",
-    time: "1 hr ago",
-  },
-];
+import { apiClient } from "@/lib/api-client";
 
 export type SuperAdminHeaderProps = {
   title: string;
@@ -63,28 +33,25 @@ export default function SuperAdminHeader({
   const showListToolbar = Boolean(hideTitleBlock && isListToolbarPage && toolbar);
 
   const menuHiddenFrom = mobileNavBreakpoint === "md" ? "md:hidden" : "lg:hidden";
-  const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const notificationsRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
-  const notificationsBtnRef = useRef<HTMLButtonElement>(null);
   const profileBtnRef = useRef<HTMLButtonElement>(null);
 
   const [userData, setUserData] = useState<{ firstName: string, lastName: string, avatarUrl: string, email: string, role: string } | null>(null);
 
   const fetchUserProfile = async () => {
-    // We can't use server actions directly in a component that might be rendered deeply without care, 
-    // but here it's fine. Alternatively, use a simple fetch.
     try {
-      const { getProfile } = await import("../settings/profile/actions");
-      const res = await getProfile();
-      if (res.success && res.data) {
+      const data = await apiClient<{
+        user?: { firstName?: string | null; lastName?: string | null; avatarUrl?: string | null; email?: string | null };
+        role?: string | null;
+      }>("/api/profile/me");
+      if (data?.user) {
         setUserData({
-          firstName: res.data.firstName || '',
-          lastName: res.data.lastName || '',
-          avatarUrl: res.data.avatarUrl || '',
-          email: res.data.email || '',
-          role: res.data.role || '',
+          firstName: data.user.firstName || '',
+          lastName: data.user.lastName || '',
+          avatarUrl: data.user.avatarUrl || '',
+          email: data.user.email || '',
+          role: data.role || '',
         });
       }
     } catch (err) {
@@ -113,8 +80,7 @@ export default function SuperAdminHeader({
   useEffect(() => {
     function handlePointerDown(e: MouseEvent) {
       const el = e.target as Node;
-      if (notificationsRef.current?.contains(el) || profileRef.current?.contains(el)) return;
-      setShowNotifications(false);
+      if (profileRef.current?.contains(el)) return;
       setShowProfile(false);
     }
     document.addEventListener("mousedown", handlePointerDown);
@@ -122,9 +88,8 @@ export default function SuperAdminHeader({
   }, []);
 
   useEffect(() => {
-    notificationsBtnRef.current?.setAttribute("aria-expanded", showNotifications ? "true" : "false");
     profileBtnRef.current?.setAttribute("aria-expanded", showProfile ? "true" : "false");
-  }, [showNotifications, showProfile]);
+  }, [showProfile]);
 
   const searchPlaceholder =
     pathname === "/superadmin/companies"
@@ -146,65 +111,12 @@ export default function SuperAdminHeader({
 
   const notificationsAndProfile = (
     <div className="flex items-center gap-3 shrink-0">
-      <div className="relative" ref={notificationsRef}>
-        <button
-          ref={notificationsBtnRef}
-          type="button"
-          onClick={() => {
-            setShowNotifications((v) => !v);
-            setShowProfile(false);
-          }}
-          className="relative flex h-11 w-11 items-center justify-center rounded-full p-2 text-[#475569] hover:bg-slate-100 transition-colors cursor-pointer"
-          aria-haspopup="true"
-          aria-label="Notifications"
-        >
-          <i className="ri-notification-3-line text-[21px] leading-none"></i>
-          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#EF4444]" aria-hidden />
-        </button>
-
-        {showNotifications && (
-          <div className="absolute right-0 mt-2 w-[min(100vw-2rem,20rem)] sm:w-80 bg-white rounded-xl border border-slate-200 shadow-lg z-50">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-2">
-              <h3 className="font-semibold text-slate-900 text-sm [font-family:Roboto,system-ui,sans-serif]">Notifications</h3>
-              <button
-                type="button"
-                className="text-xs text-[#0A3D8F] font-medium whitespace-nowrap cursor-pointer hover:underline [font-family:Roboto,system-ui,sans-serif]"
-              >
-                Mark all read
-              </button>
-            </div>
-            <div className="max-h-72 overflow-y-auto overscroll-contain">
-              {headerNotifications.map((n, i) => (
-                <div key={i} className={`p-4 hover:bg-slate-50 border-l-4 ${n.border} cursor-pointer`}>
-                  <div className="flex items-start gap-3">
-                    <i className={`${n.icon} ${n.color} text-xl mt-0.5 shrink-0`}></i>
-                    <div className="min-w-0">
-                      <p className="text-sm text-slate-800">{n.text}</p>
-                      <p className="text-xs text-slate-400 mt-1">{n.time}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="p-3 border-t border-slate-100 text-center">
-              <button
-                type="button"
-                className="text-sm text-[#0A3D8F] font-medium whitespace-nowrap cursor-pointer hover:underline [font-family:Roboto,system-ui,sans-serif]"
-              >
-                View All
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
       <div className="relative border-l border-slate-200 pl-[13px]" ref={profileRef}>
         <button
           ref={profileBtnRef}
           type="button"
           onClick={() => {
             setShowProfile((v) => !v);
-            setShowNotifications(false);
           }}
           className="flex items-center gap-2 cursor-pointer rounded-r-lg hover:bg-slate-50 py-1 min-h-[32px] pr-0 transition-colors"
           aria-haspopup="true"

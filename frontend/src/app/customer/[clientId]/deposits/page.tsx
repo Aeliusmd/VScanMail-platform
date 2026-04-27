@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { depositsApi, type DepositDto } from "@/lib/api/deposits";
 import { mailApi, type MailItem } from "@/lib/api/mail";
 
@@ -78,6 +79,9 @@ const statusConfig: Record<DepositStatus, { color: string; icon: string; label: 
 };
 
 export default function CustomerDepositRequestsPage() {
+  const params = useParams<{ clientId?: string }>();
+  const clientId = params?.clientId;
+  const router = useRouter();
   const [requests, setRequests] = useState<CustomerDepositRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("All");
@@ -89,6 +93,34 @@ export default function CustomerDepositRequestsPage() {
   const [showSlipModal, setShowSlipModal] = useState(false);
   const [chequeViewerOpen, setChequeViewerOpen] = useState(false);
   const [chequeViewerUrl, setChequeViewerUrl] = useState<string | null>(null);
+  const [cancelConfirming, setCancelConfirming] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+
+  const resetCancelState = () => {
+    setCancelConfirming(false);
+    setCancelError(null);
+    setCancelling(false);
+  };
+
+  const handleCancelDeposit = async () => {
+    if (!selectedRequest) return;
+    try {
+      setCancelling(true);
+      setCancelError(null);
+      await depositsApi.cancelRequest(selectedRequest.chequeId);
+      setRequests((prev) => prev.filter((r) => r.chequeId !== selectedRequest.chequeId));
+      resetCancelState();
+      setSelectedRequest(null);
+      setShowSlipModal(false);
+      router.push(`/customer/${clientId}/cheques`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to cancel. Try again.";
+      setCancelError(msg);
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -244,7 +276,10 @@ export default function CustomerDepositRequestsPage() {
                 <div
                   key={req.id}
                   className="bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all cursor-pointer"
-                  onClick={() => setSelectedRequest(req)}
+                  onClick={() => {
+                    resetCancelState();
+                    setSelectedRequest(req);
+                  }}
                 >
                   <div className="flex items-center p-5 gap-5">
                     <div className="w-20 h-14 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
@@ -323,6 +358,7 @@ export default function CustomerDepositRequestsPage() {
         <div
           className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-6"
           onClick={() => {
+            resetCancelState();
             setSelectedRequest(null);
             setShowSlipModal(false);
             setChequeViewerOpen(false);
@@ -347,6 +383,7 @@ export default function CustomerDepositRequestsPage() {
               </div>
               <button
                 onClick={() => {
+                  resetCancelState();
                   setSelectedRequest(null);
                   setShowSlipModal(false);
                 }}
@@ -536,16 +573,65 @@ export default function CustomerDepositRequestsPage() {
                 </div>
               )}
 
-              <div className="flex items-center gap-3 pt-1">
-                <button
-                  onClick={() => {
-                    setSelectedRequest(null);
-                    setShowSlipModal(false);
-                  }}
-                  className="flex-1 py-3 bg-gray-100 text-gray-700 font-semibold rounded-lg hover:bg-gray-200 transition-colors text-sm cursor-pointer whitespace-nowrap"
-                >
-                  Close
-                </button>
+              <div className="flex flex-col gap-3 pt-1">
+                {cancelConfirming ? (
+                  <div className="w-full space-y-3">
+                    <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-xl">
+                      <p className="text-sm font-semibold text-red-800">Cancel this deposit request?</p>
+                      <p className="text-xs text-red-600 mt-0.5">
+                        The request will be withdrawn and the cheque returned to your inbox. You can re-request later.
+                      </p>
+                    </div>
+                    {cancelError && <p className="text-xs text-red-600 px-1">{cancelError}</p>}
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCancelConfirming(false);
+                          setCancelError(null);
+                        }}
+                        disabled={cancelling}
+                        className="flex-1 py-3 bg-gray-100 text-gray-700 font-semibold rounded-lg hover:bg-gray-200 transition-colors text-sm cursor-pointer whitespace-nowrap disabled:opacity-50"
+                      >
+                        Keep Request
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCancelDeposit}
+                        disabled={cancelling}
+                        className="flex-1 py-3 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors text-sm cursor-pointer whitespace-nowrap disabled:opacity-50"
+                      >
+                        {cancelling ? "Cancelling…" : "Yes, Cancel"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    {selectedRequest.status === "Open Deposit Request" && (
+                      <button
+                        type="button"
+                        onClick={() => setCancelConfirming(true)}
+                        className="flex-1 py-3 bg-red-50 text-red-700 border border-red-200 font-semibold rounded-lg hover:bg-red-100 transition-colors text-sm cursor-pointer whitespace-nowrap"
+                      >
+                        <i className="ri-close-circle-line mr-1.5"></i>
+                        Cancel Deposit Request
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        resetCancelState();
+                        setSelectedRequest(null);
+                        setShowSlipModal(false);
+                      }}
+                      className={`py-3 bg-gray-100 text-gray-700 font-semibold rounded-lg hover:bg-gray-200 transition-colors text-sm cursor-pointer whitespace-nowrap ${
+                        selectedRequest.status === "Open Deposit Request" ? "flex-1" : "w-full"
+                      }`}
+                    >
+                      Close
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>

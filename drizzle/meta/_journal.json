@@ -43,6 +43,13 @@
       "when": 1776351600000,
       "tag": "0005_fix_subscription_clients_and_backfill_subscriptions",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1776927600000,
+      "tag": "0007_delivery_addresses",
+      "breakpoints": true
     }
   ]
 }

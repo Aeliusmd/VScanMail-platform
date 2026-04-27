@@ -1,7 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth, withRole } from "@/lib/modules/auth/auth.middleware";
+import { auditService } from "@/lib/modules/audit/audit.service";
+import { db } from "@/lib/modules/core/db/mysql";
+import { clients, profiles, users } from "@/lib/modules/core/db/schema";
+import { notificationService } from "@/lib/modules/notifications/notification.service";
 import { mailItemModel } from "@/lib/modules/records/mail.model";
 import dayjs from "dayjs";
+import { and, eq } from "drizzle-orm";
+
+async function resolveClientUserId(clientId: string): Promise<string | null> {
+  const rows = await db
+    .select({ userId: profiles.userId })
+    .from(profiles)
+    .innerJoin(users, eq(users.id, profiles.userId))
+    .innerJoin(clients, eq(clients.id, profiles.clientId))
+    .where(and(eq(profiles.clientId, clientId), eq(profiles.role, "client")))
+    .limit(1);
+  return rows[0]?.userId ?? null;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -65,6 +81,35 @@ export async function POST(req: NextRequest) {
         cheque_status: aiResults.validation?.status || 'validated'
       } : {})
     }, user.id, req);
+
+    const clientUserId = await resolveClientUserId(clientId);
+    if (clientUserId) {
+      const notifTargetUrl =
+        docType === "cheque" ? `/customer/${clientId}/cheques` : `/customer/${clientId}/mails`;
+      const docLabel = String(docType || "document");
+      await auditService.log({
+        actor: user.id,
+        actor_role: user.role,
+        action: "record.finalized",
+        entity: record.id,
+        clientId,
+        after: { recordId: record.id, docType },
+        req,
+        notifRecipientId: clientUserId,
+        notifTitle: `New ${docLabel} received`,
+        notifTargetUrl,
+      });
+    }
+
+    if (docType === "cheque") {
+      notificationService
+        .sendChequeAlert(clientId, record, aiResults?.validation)
+        .catch((err) => console.error("[finalize] cheque email failed:", err));
+    } else {
+      notificationService
+        .sendNewMailAlert(clientId, record)
+        .catch((err) => console.error("[finalize] mail email failed:", err));
+    }
 
     return NextResponse.json({ 
       success: true, 

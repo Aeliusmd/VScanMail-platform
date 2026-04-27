@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { getSmtpConfig, getTransporter } from "./smtp.config";
 
 export type SendEmailInput = {
@@ -6,6 +7,8 @@ export type SendEmailInput = {
   html: string;
   text?: string;
   from?: string;
+  /** Unique token for Message-ID; avoids clients threading unrelated mails together. */
+  messageId?: string;
 };
 
 function buildFromHeader(): string {
@@ -21,12 +24,18 @@ function buildFromHeader(): string {
 export async function sendEmail(input: SendEmailInput): Promise<void> {
   try {
     const transporter = getTransporter();
+    const cfg = getSmtpConfig();
+    const domain = cfg.user.split("@")[1] ?? "vscanmail.local";
+    const uniqueId = input.messageId ?? crypto.randomUUID();
+    const messageId = `<${uniqueId}@${domain}>`;
+
     const info = await transporter.sendMail({
       from: input.from ?? buildFromHeader(),
       to: input.to,
       subject: input.subject,
       html: input.html,
       text: input.text,
+      messageId,
     });
 
     if (process.env.NODE_ENV !== "test") {

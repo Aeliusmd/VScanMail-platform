@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAdminProfile } from '../components/useAdminProfile';
 import { mailApi, type MailItem as ApiMailItem } from '@/lib/api/mail';
 import { chequeApi, type Cheque as ApiCheque } from '@/lib/api/cheques';
+import NotificationBell from '../components/NotificationBell';
 
 interface ArchivedMail {
   id: string;
@@ -90,7 +91,6 @@ const chequeStatusColors: Record<ArchivedCheque['status'], string> = {
 
 export default function AdminArchivedMailsPage() {
   const { userData, initials, displayName, displayRole } = useAdminProfile();
-  const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [activeTab, setActiveTab] = useState<'mails' | 'cheques'>('mails');
   const [loading, setLoading] = useState(true);
@@ -335,42 +335,12 @@ export default function AdminArchivedMailsPage() {
             </div>
 
             <div className="flex items-center space-x-2 sm:space-x-3 ml-2 sm:ml-4 flex-shrink-0">
-              <div className="relative">
-                <button
-                  onClick={() => {
-                    setShowNotifications((prev) => !prev);
-                    setShowUserMenu(false);
-                  }}
-                  className="relative p-2 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
-                >
-                  <i className="ri-notification-3-line text-slate-600 text-xl"></i>
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
-                </button>
-                {showNotifications && (
-                  <div className="absolute right-0 top-12 w-72 bg-white rounded-xl shadow-lg border border-slate-200 z-50 overflow-hidden">
-                    <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-                      <span className="text-sm font-semibold text-slate-800">Notifications</span>
-                      <span className="text-xs text-[#0A3D8F] cursor-pointer">Mark all read</span>
-                    </div>
-                    <div className="max-h-64 overflow-y-auto">
-                      <div className="px-4 py-3 border-b border-slate-100 hover:bg-slate-50 cursor-pointer">
-                        <p className="text-xs text-slate-700">2 mails moved to archive box BOX-2025-A1</p>
-                        <p className="text-[11px] text-slate-400 mt-1">2 min ago</p>
-                      </div>
-                      <div className="px-4 py-3 hover:bg-slate-50 cursor-pointer">
-                        <p className="text-xs text-slate-700">1 cheque unarchived and returned to processing queue</p>
-                        <p className="text-[11px] text-slate-400 mt-1">10 min ago</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <NotificationBell />
 
               <div className="relative pl-3 border-l border-slate-200">
                 <button
                   onClick={() => {
                     setShowUserMenu((prev) => !prev);
-                    setShowNotifications(false);
                   }}
                   className="flex items-center space-x-2 hover:bg-slate-50 rounded-lg px-2 py-1.5 transition cursor-pointer"
                 >

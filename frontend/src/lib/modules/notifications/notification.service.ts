@@ -397,6 +397,383 @@ export const notificationService = {
     });
   },
 
+  async sendDepositRequestEmailToAdmin(params: {
+    adminEmail: string;
+    companyName: string;
+    chequeId: string;
+    amount: string | number;
+    bankName: string;
+    bankNickname: string;
+  }) {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+    const targetUrl = `${appUrl}/admin/deposits?highlight=${encodeURIComponent(params.chequeId)}`;
+    const amountText =
+      typeof params.amount === "number"
+        ? params.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        : String(params.amount ?? "—");
+
+    const html = wrapInTemplate(`
+      <h1 style="font-size: 20px; color: #0f172a; margin-top: 0;">New Deposit Request</h1>
+      <p style="color: #64748b; font-size: 15px;">
+        A customer has submitted a new cheque deposit request and it is ready for your review.
+      </p>
+
+      <div class="highlight-box">
+        <table class="detail-table">
+          <tr>
+            <td class="label">Customer</td>
+            <td class="value">${escapeHtml(params.companyName)}</td>
+          </tr>
+          <tr>
+            <td class="label">Cheque ID</td>
+            <td class="value">${escapeHtml(params.chequeId)}</td>
+          </tr>
+          <tr>
+            <td class="label">Amount</td>
+            <td class="value">${escapeHtml(amountText)}</td>
+          </tr>
+          <tr>
+            <td class="label">Bank</td>
+            <td class="value">${escapeHtml(params.bankName)}</td>
+          </tr>
+          <tr>
+            <td class="label">Account Name</td>
+            <td class="value">${escapeHtml(params.bankNickname)}</td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="text-align: center; margin-top: 32px;">
+        <a href="${targetUrl}" class="button">
+          Review Deposit Request
+        </a>
+      </div>
+    `);
+
+    await sendEmail({
+      to: params.adminEmail,
+      subject: `VScanMail — New Deposit Request (${params.companyName}) #${params.chequeId.slice(-6)}`,
+      html,
+      messageId: `deposit-request-${params.chequeId.replace(/[^a-zA-Z0-9-]/g, "")}`,
+    });
+  },
+
+  async sendDepositCancelledEmailToAdmin(params: {
+    adminEmail: string;
+    companyName: string;
+    chequeId: string;
+    amount: string | number;
+  }) {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+    const targetUrl = `${appUrl}/admin/deposits?highlight=${encodeURIComponent(params.chequeId)}`;
+    const amountText =
+      typeof params.amount === "number"
+        ? params.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        : String(params.amount ?? "—");
+
+    const html = wrapInTemplate(`
+      <h1 style="font-size: 20px; color: #0f172a; margin-top: 0;">Deposit request cancelled</h1>
+      <p style="color: #64748b; font-size: 15px;">
+        The customer withdrew a pending deposit request before it was processed.
+      </p>
+
+      <div class="highlight-box">
+        <table class="detail-table">
+          <tr>
+            <td class="label">Customer</td>
+            <td class="value">${escapeHtml(params.companyName)}</td>
+          </tr>
+          <tr>
+            <td class="label">Cheque ID</td>
+            <td class="value">${escapeHtml(params.chequeId)}</td>
+          </tr>
+          <tr>
+            <td class="label">Amount</td>
+            <td class="value">${escapeHtml(amountText)}</td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="text-align: center; margin-top: 32px;">
+        <a href="${targetUrl}" class="button">
+          Open Deposits
+        </a>
+      </div>
+    `);
+
+    await sendEmail({
+      to: params.adminEmail,
+      subject: `VScanMail — Deposit cancelled (${params.companyName}) #${params.chequeId.slice(-6)}`,
+      html,
+      messageId: `deposit-cancel-${params.chequeId.replace(/[^a-zA-Z0-9-]/g, "")}-${Date.now()}`,
+    });
+  },
+
+  async sendDeliveryRequestEmailToAdmin(params: {
+    adminEmail: string;
+    companyName: string;
+    requestId: string;
+    sourceType: "cheque" | "mail";
+    irn: string;
+    recipientName: string;
+  }) {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+    const targetUrl = `${appUrl}/admin/deliveries?highlight=${encodeURIComponent(params.requestId)}`;
+    const html = wrapInTemplate(`
+      <h1 style="font-size: 20px; color: #0f172a; margin-top: 0;">New Delivery Request</h1>
+      <p style="color: #64748b; font-size: 15px;">A customer has requested a pickup/delivery action.</p>
+      <div class="highlight-box">
+        <table class="detail-table">
+          <tr><td class="label">Customer</td><td class="value">${escapeHtml(params.companyName)}</td></tr>
+          <tr><td class="label">Request ID</td><td class="value">${escapeHtml(params.requestId)}</td></tr>
+          <tr><td class="label">Source</td><td class="value">${escapeHtml(params.sourceType)}</td></tr>
+          <tr><td class="label">IRN</td><td class="value">${escapeHtml(params.irn)}</td></tr>
+          <tr><td class="label">Recipient</td><td class="value">${escapeHtml(params.recipientName)}</td></tr>
+        </table>
+      </div>
+      <div style="text-align: center; margin-top: 32px;">
+        <a href="${targetUrl}" class="button">Review Delivery Request</a>
+      </div>
+    `);
+    await sendEmail({
+      to: params.adminEmail,
+      subject: `VScanMail — New Delivery Request (${params.companyName}) #${params.requestId.slice(-6)}`,
+      html,
+      messageId: `delivery-request-${params.requestId.replace(/[^a-zA-Z0-9-]/g, "")}`,
+    });
+  },
+
+  async sendDeliveryCancelledEmailToAdmin(params: {
+    adminEmail: string;
+    companyName: string;
+    requestId: string;
+    sourceType: "cheque" | "mail";
+    irn: string;
+  }) {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+    const targetUrl = `${appUrl}/admin/deliveries?highlight=${encodeURIComponent(params.requestId)}`;
+    const html = wrapInTemplate(`
+      <h1 style="font-size: 20px; color: #0f172a; margin-top: 0;">Delivery request cancelled</h1>
+      <p style="color: #64748b; font-size: 15px;">The customer cancelled a pending delivery request.</p>
+      <div class="highlight-box">
+        <table class="detail-table">
+          <tr><td class="label">Customer</td><td class="value">${escapeHtml(params.companyName)}</td></tr>
+          <tr><td class="label">Request ID</td><td class="value">${escapeHtml(params.requestId)}</td></tr>
+          <tr><td class="label">Source</td><td class="value">${escapeHtml(params.sourceType)}</td></tr>
+          <tr><td class="label">IRN</td><td class="value">${escapeHtml(params.irn)}</td></tr>
+        </table>
+      </div>
+      <div style="text-align: center; margin-top: 32px;">
+        <a href="${targetUrl}" class="button">Open Deliveries</a>
+      </div>
+    `);
+    await sendEmail({
+      to: params.adminEmail,
+      subject: `VScanMail — Delivery cancelled (${params.companyName}) #${params.requestId.slice(-6)}`,
+      html,
+      messageId: `delivery-cancel-${params.requestId.replace(/[^a-zA-Z0-9-]/g, "")}-${Date.now()}`,
+    });
+  },
+
+  async sendDeliveryApprovedEmailToClient(params: { toEmail: string; requestId: string; sourceType: "cheque" | "mail"; irn: string }) {
+    const html = wrapInTemplate(`
+      <h1 style="font-size: 20px; color: #0f172a; margin-top: 0;">Delivery request approved</h1>
+      <p style="color: #64748b; font-size: 15px;">Your request is approved and will be processed soon.</p>
+      <div class="highlight-box">
+        <table class="detail-table">
+          <tr><td class="label">Request ID</td><td class="value">${escapeHtml(params.requestId)}</td></tr>
+          <tr><td class="label">Source</td><td class="value">${escapeHtml(params.sourceType)}</td></tr>
+          <tr><td class="label">IRN</td><td class="value">${escapeHtml(params.irn)}</td></tr>
+        </table>
+      </div>
+    `);
+    await sendEmail({ to: params.toEmail, subject: `VScanMail — Delivery approved #${params.requestId.slice(-6)}`, html });
+  },
+
+  async sendDeliveryRejectedEmailToClient(params: {
+    toEmail: string;
+    requestId: string;
+    sourceType: "cheque" | "mail";
+    irn: string;
+    reason: string;
+  }) {
+    const html = wrapInTemplate(`
+      <h1 style="font-size: 20px; color: #0f172a; margin-top: 0;">Delivery request rejected</h1>
+      <p style="color: #64748b; font-size: 15px;">Your request was rejected. See the reason below.</p>
+      <div class="highlight-box">
+        <table class="detail-table">
+          <tr><td class="label">Request ID</td><td class="value">${escapeHtml(params.requestId)}</td></tr>
+          <tr><td class="label">Source</td><td class="value">${escapeHtml(params.sourceType)}</td></tr>
+          <tr><td class="label">IRN</td><td class="value">${escapeHtml(params.irn)}</td></tr>
+          <tr><td class="label">Reason</td><td class="value">${escapeHtml(params.reason)}</td></tr>
+        </table>
+      </div>
+    `);
+    await sendEmail({ to: params.toEmail, subject: `VScanMail — Delivery rejected #${params.requestId.slice(-6)}`, html });
+  },
+
+  async sendDeliveryInTransitEmailToClient(params: {
+    toEmail: string;
+    requestId: string;
+    sourceType: "cheque" | "mail";
+    irn: string;
+    trackingNumber: string;
+  }) {
+    const html = wrapInTemplate(`
+      <h1 style="font-size: 20px; color: #0f172a; margin-top: 0;">Delivery in transit</h1>
+      <p style="color: #64748b; font-size: 15px;">Your delivery is now in transit.</p>
+      <div class="highlight-box">
+        <table class="detail-table">
+          <tr><td class="label">Request ID</td><td class="value">${escapeHtml(params.requestId)}</td></tr>
+          <tr><td class="label">Source</td><td class="value">${escapeHtml(params.sourceType)}</td></tr>
+          <tr><td class="label">IRN</td><td class="value">${escapeHtml(params.irn)}</td></tr>
+          <tr><td class="label">Tracking #</td><td class="value">${escapeHtml(params.trackingNumber)}</td></tr>
+        </table>
+      </div>
+    `);
+    await sendEmail({ to: params.toEmail, subject: `VScanMail — Delivery in transit #${params.requestId.slice(-6)}`, html });
+  },
+
+  async sendDeliveryDeliveredEmailToClient(params: {
+    toEmail: string;
+    requestId: string;
+    sourceType: "cheque" | "mail";
+    irn: string;
+    proofOfServiceUrl: string;
+  }) {
+    const html = wrapInTemplate(`
+      <h1 style="font-size: 20px; color: #0f172a; margin-top: 0;">Delivery completed</h1>
+      <p style="color: #64748b; font-size: 15px;">Your item has been marked delivered.</p>
+      <div class="highlight-box">
+        <table class="detail-table">
+          <tr><td class="label">Request ID</td><td class="value">${escapeHtml(params.requestId)}</td></tr>
+          <tr><td class="label">Source</td><td class="value">${escapeHtml(params.sourceType)}</td></tr>
+          <tr><td class="label">IRN</td><td class="value">${escapeHtml(params.irn)}</td></tr>
+        </table>
+      </div>
+      <div style="text-align: center; margin-top: 24px;">
+        <a href="${escapeHtml(params.proofOfServiceUrl)}" class="button">View Proof of Service</a>
+      </div>
+    `);
+    await sendEmail({ to: params.toEmail, subject: `VScanMail — Delivery completed #${params.requestId.slice(-6)}`, html });
+  },
+
+  async sendDepositApprovedEmailToClient(params: {
+    toEmail: string;
+    chequeId: string;
+    amount: number;
+    bankName: string;
+  }) {
+    const amountText = Number(params.amount || 0).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    const html = wrapInTemplate(`
+      <h1 style="font-size: 20px; color: #0f172a; margin-top: 0;">Deposit approved</h1>
+      <p style="color: #64748b; font-size: 15px;">Your deposit request has been approved and will be processed.</p>
+      <div class="highlight-box">
+        <table class="detail-table">
+          <tr><td class="label">Cheque ID</td><td class="value">${escapeHtml(params.chequeId)}</td></tr>
+          <tr><td class="label">Amount</td><td class="value">${escapeHtml(amountText)}</td></tr>
+          <tr><td class="label">Bank</td><td class="value">${escapeHtml(params.bankName)}</td></tr>
+        </table>
+      </div>
+    `);
+    await sendEmail({
+      to: params.toEmail,
+      subject: `VScanMail — Deposit approved #${params.chequeId.slice(-6)}`,
+      html,
+    });
+  },
+
+  async sendDepositRejectedEmailToClient(params: {
+    toEmail: string;
+    chequeId: string;
+    amount: number;
+    reason: string;
+  }) {
+    const amountText = Number(params.amount || 0).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    const html = wrapInTemplate(`
+      <h1 style="font-size: 20px; color: #0f172a; margin-top: 0;">Deposit rejected</h1>
+      <p style="color: #64748b; font-size: 15px;">Your deposit request was rejected. See the reason below.</p>
+      <div class="highlight-box">
+        <table class="detail-table">
+          <tr><td class="label">Cheque ID</td><td class="value">${escapeHtml(params.chequeId)}</td></tr>
+          <tr><td class="label">Amount</td><td class="value">${escapeHtml(amountText)}</td></tr>
+          <tr><td class="label">Reason</td><td class="value">${escapeHtml(params.reason)}</td></tr>
+        </table>
+      </div>
+    `);
+    await sendEmail({
+      to: params.toEmail,
+      subject: `VScanMail — Deposit rejected #${params.chequeId.slice(-6)}`,
+      html,
+    });
+  },
+
+  async sendDepositCompletedEmailToClient(params: {
+    toEmail: string;
+    chequeId: string;
+    amount: number;
+    slipDate?: string | null;
+    slipAmount?: number | null;
+    slipReference?: string | null;
+    slipBankName?: string | null;
+    slipAccountLast4?: string | null;
+  }) {
+    const amountText = Number(params.amount || 0).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    const slipAmountText =
+      typeof params.slipAmount === "number" && Number.isFinite(params.slipAmount)
+        ? Number(params.slipAmount).toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })
+        : null;
+    const html = wrapInTemplate(`
+      <h1 style="font-size: 20px; color: #0f172a; margin-top: 0;">Cheque deposited</h1>
+      <p style="color: #64748b; font-size: 15px;">Your cheque has been marked as deposited.</p>
+      <div class="highlight-box">
+        <table class="detail-table">
+          <tr><td class="label">Cheque ID</td><td class="value">${escapeHtml(params.chequeId)}</td></tr>
+          <tr><td class="label">Amount</td><td class="value">${escapeHtml(amountText)}</td></tr>
+          ${
+            params.slipDate
+              ? `<tr><td class="label">Deposit Date</td><td class="value">${escapeHtml(params.slipDate)}</td></tr>`
+              : ""
+          }
+          ${
+            slipAmountText
+              ? `<tr><td class="label">Slip Amount</td><td class="value">${escapeHtml(slipAmountText)}</td></tr>`
+              : ""
+          }
+          ${
+            params.slipReference
+              ? `<tr><td class="label">Reference</td><td class="value">${escapeHtml(params.slipReference)}</td></tr>`
+              : ""
+          }
+          ${
+            params.slipBankName || params.slipAccountLast4
+              ? `<tr><td class="label">Bank / Last 4</td><td class="value">${escapeHtml(
+                  params.slipBankName || "—"
+                )}${params.slipAccountLast4 ? ` • ${escapeHtml(params.slipAccountLast4)}` : ""}</td></tr>`
+              : ""
+          }
+        </table>
+      </div>
+    `);
+    await sendEmail({
+      to: params.toEmail,
+      subject: `VScanMail — Cheque deposited #${params.chequeId.slice(-6)}`,
+      html,
+    });
+  },
+
   async sendBankAccountChangeAlert(
     clientId: string,
     payload: {

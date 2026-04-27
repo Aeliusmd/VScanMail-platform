@@ -35,3 +35,28 @@ export async function POST(
   }
 }
 
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const user = await withAuth(req);
+    withRole(user, ["client"]);
+    if (!user.clientId) return NextResponse.json({ error: "ClientId missing" }, { status: 400 });
+
+    const { id } = await params;
+
+    const result = await depositService.cancelRequest({
+      chequeId: id,
+      actorId: user.id,
+      actorRole: "client",
+      clientId: user.clientId,
+      req,
+    });
+
+    return NextResponse.json(result);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+}
+

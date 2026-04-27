@@ -44,6 +44,12 @@ export const depositsApi = {
     });
   },
 
+  cancelRequest: async (chequeId: string): Promise<void> => {
+    await apiClient<{ ok: true }>(`/api/records/cheques/${chequeId}/deposit`, {
+      method: "DELETE",
+    });
+  },
+
   listMine: async (): Promise<DepositDto[]> => {
     const res = await apiClient<{ deposits: DepositDto[] }>(`/api/customer/deposits`, {
       method: "GET",
@@ -76,6 +82,16 @@ export const depositsApi = {
     await apiClient<{ ok: true }>(`/api/admin/deposits/${chequeId}/mark-deposited`, {
       method: "POST",
     });
+  },
+
+  revealAccount: async (chequeId: string): Promise<{
+    bankName: string;
+    nickname: string;
+    accountType: string;
+    accountNumber: string;
+    accountLast4: string;
+  }> => {
+    return apiClient(`/api/admin/deposits/${chequeId}/reveal-account`, { method: "GET" });
   },
 
   adminUploadSlip: async (

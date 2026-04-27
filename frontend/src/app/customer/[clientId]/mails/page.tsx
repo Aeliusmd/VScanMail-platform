@@ -1,7 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
 import { mailApi, type MailItem, type MailStatus as ApiMailStatus } from "@/lib/api/mail";
+import { deliveryAddressesApi, type DeliveryAddress } from "@/lib/api/delivery-addresses";
+import { deliveriesApi } from "@/lib/api/deliveries";
 
 type MailStatus = "Unread" | "Read" | "Archived";
 
@@ -52,6 +56,11 @@ const statusColors: Record<MailStatus, string> = {
 };
 
 export default function CustomerMailsPage() {
+  const params = useParams<{ clientId?: string }>();
+  const clientId = params?.clientId;
+  const deliveryAddressHref = clientId
+    ? `/customer/${clientId}/account?tab=delivery-addresses`
+    : "/customer/account?tab=delivery-addresses";
   const [mails, setMails] = useState<Mail[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -65,6 +74,13 @@ export default function CustomerMailsPage() {
   const [zoomScale, setZoomScale] = useState(1);
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [allChecked, setAllChecked] = useState(false);
+  const [pickupModalMail, setPickupModalMail] = useState<Mail | null>(null);
+  const [deliveryAddresses, setDeliveryAddresses] = useState<DeliveryAddress[]>([]);
+  const [selectedDeliveryAddress, setSelectedDeliveryAddress] = useState("");
+  const [pickupDate, setPickupDate] = useState("");
+  const [pickupNotes, setPickupNotes] = useState("");
+  const [pickupError, setPickupError] = useState<string | null>(null);
+  const [pickupSubmitting, setPickupSubmitting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -125,6 +141,24 @@ export default function CustomerMailsPage() {
       cancelled = true;
     };
   }, [statusFilter]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await deliveryAddressesApi.list();
+        if (cancelled) return;
+        setDeliveryAddresses(list);
+        if (!selectedDeliveryAddress && list[0]?.id) setSelectedDeliveryAddress(list[0].id);
+      } catch (e) {
+        console.error("Failed to load delivery addresses:", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filtered = useMemo(
     () =>
@@ -254,6 +288,30 @@ export default function CustomerMailsPage() {
   const archiveMail = (id: string) => {
     setMails((prev) => prev.map((m) => (m.id === id ? { ...m, status: "Archived" } : m)));
     if (selectedMail?.id === id) setSelectedMail((prev) => (prev ? { ...prev, status: "Archived" } : null));
+  };
+
+  const handleMailPickup = async () => {
+    if (!pickupModalMail) return;
+    if (!selectedDeliveryAddress) {
+      setPickupError("Please select a delivery address.");
+      return;
+    }
+    try {
+      setPickupSubmitting(true);
+      setPickupError(null);
+      await deliveriesApi.requestMailDelivery(pickupModalMail.id, {
+        addressId: selectedDeliveryAddress,
+        preferredDate: pickupDate || undefined,
+        notes: pickupNotes || undefined,
+      });
+      setPickupModalMail(null);
+      setPickupDate("");
+      setPickupNotes("");
+    } catch (e: any) {
+      setPickupError(e?.message || "Failed to submit pickup request.");
+    } finally {
+      setPickupSubmitting(false);
+    }
   };
 
   return (
@@ -455,6 +513,18 @@ export default function CustomerMailsPage() {
                     </div>
 
                     <div className="flex items-center justify-end gap-3 sm:flex-shrink-0 sm:justify-start">
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPickupError(null);
+                            setPickupModalMail(mail);
+                          }}
+                          className="min-h-[44px] px-3 py-2 bg-slate-100 text-slate-600 rounded-full text-xs font-semibold hover:bg-slate-200 transition-colors cursor-pointer sm:px-2.5 sm:py-1"
+                        >
+                          Pickup
+                        </button>
+                      </div>
                       {mail.hasAttachment && <i className="ri-attachment-2 text-slate-400 text-base"></i>}
                       <span className="hidden text-right text-xs text-slate-400 lg:inline lg:w-12">{mail.scannedPages}p</span>
                       <span
@@ -799,6 +869,88 @@ export default function CustomerMailsPage() {
                   className="w-full py-3 bg-slate-100 text-slate-600 font-semibold rounded-lg hover:bg-slate-200 transition-colors text-sm cursor-pointer sm:w-auto sm:px-5 sm:flex-shrink-0"
                 >
                   Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pickupModalMail && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setPickupModalMail(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-6 border-b border-slate-200">
+              <h2 className="text-base font-bold text-slate-900">Request Pickup Delivery</h2>
+              <button onClick={() => setPickupModalMail(null)} className="p-2 hover:bg-slate-100 rounded-lg cursor-pointer">
+                <i className="ri-close-line text-slate-500 text-lg"></i>
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="bg-slate-50 rounded-xl p-4">
+                <p className="text-sm font-semibold text-slate-900">{pickupModalMail.subject}</p>
+                <p className="text-xs text-slate-600 mt-1">IRN: {pickupModalMail.sender}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Delivery Address</label>
+                {deliveryAddresses.length === 0 ? (
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-center space-y-3">
+                    <i className="ri-map-pin-add-line text-2xl text-slate-400"></i>
+                    <p className="text-sm text-slate-600">No delivery addresses saved yet.</p>
+                    <Link
+                      href={deliveryAddressHref}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#0A3D8F] text-white text-sm font-medium rounded-lg hover:bg-[#083170]"
+                    >
+                      <i className="ri-add-line"></i>
+                      Add New Address
+                    </Link>
+                  </div>
+                ) : (
+                  <select
+                    value={selectedDeliveryAddress}
+                    onChange={(e) => setSelectedDeliveryAddress(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/30"
+                  >
+                    {deliveryAddresses.map((addr) => (
+                      <option key={addr.id} value={addr.id}>
+                        {addr.label} - {addr.recipientName}, {addr.city}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Preferred Date</label>
+                <input
+                  type="date"
+                  value={pickupDate}
+                  onChange={(e) => setPickupDate(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/30"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Notes</label>
+                <textarea
+                  value={pickupNotes}
+                  onChange={(e) => setPickupNotes(e.target.value.slice(0, 500))}
+                  rows={3}
+                  maxLength={500}
+                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/30 resize-none"
+                />
+              </div>
+              {pickupError && <div className="px-3 py-2.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">{pickupError}</div>}
+              <div className="flex gap-3 pt-1">
+                <button
+                  onClick={() => setPickupModalMail(null)}
+                  className="flex-1 py-3 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 cursor-pointer whitespace-nowrap"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleMailPickup}
+                  disabled={pickupSubmitting || !selectedDeliveryAddress || deliveryAddresses.length === 0}
+                  className="flex-1 py-3 bg-[#0A3D8F] text-white rounded-lg text-sm font-semibold hover:bg-[#083170] cursor-pointer whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {pickupSubmitting ? "Submitting..." : "Submit Pickup Request"}
                 </button>
               </div>
             </div>

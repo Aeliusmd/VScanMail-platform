@@ -18,7 +18,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     pathname === '/admin/archive' ||
     pathname === '/admin/companies' ||
     pathname === '/admin/deposits' ||
-    pathname === '/admin/deliveries' ||
     pathname === '/admin/mails' ||
     pathname === '/admin/cheques';
 

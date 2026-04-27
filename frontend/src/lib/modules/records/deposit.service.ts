@@ -1,10 +1,16 @@
 import { auditService } from "@/lib/modules/audit/audit.service";
 import { aiService } from "@/lib/modules/ai/ai.service";
 import { bankAccountModel } from "@/lib/modules/banking/bank-account.model";
-import { getClientTableName } from "@/lib/modules/core/db/dynamic-table";
+import { clientModel } from "@/lib/modules/clients/client.model";
+import { hmacSha256Hex } from "@/lib/modules/core/crypto/field-encryption";
+import { ensureClientTableDepositColumns, getClientTableName } from "@/lib/modules/core/db/dynamic-table";
+import { clients, profiles, users } from "@/lib/modules/core/db/schema";
 import { db, sql } from "@/lib/modules/core/db/mysql";
+import { notificationService } from "@/lib/modules/notifications/notification.service";
 import { storageService } from "@/lib/modules/storage/storage.service";
+import { and, eq, inArray } from "drizzle-orm";
 import { depositModel, type DepositDecision } from "./deposit.model";
+import crypto from "crypto";
 
 function escapeIdent(ident: string) {
   return `\`${String(ident).replace(/`/g, "``")}\``;
@@ -15,6 +21,80 @@ function parseYyyyMmDd(s: string): Date | null {
   if (!m) return null;
   const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 0, 0, 0, 0);
   return Number.isNaN(d.getTime()) ? null : d;
+}
+
+type ResolvedAdmin = {
+  userId: string;
+  email: string;
+};
+
+type ResolvedClientUser = {
+  userId: string;
+  orgEmail: string;
+  userEmail: string | null;
+};
+
+async function resolveAssignedAdmin(clientId: string): Promise<ResolvedAdmin | null> {
+  const clientRows = await db
+    .select({ addedBy: clients.addedBy })
+    .from(clients)
+    .where(eq(clients.id, clientId))
+    .limit(1);
+
+  const addedBy = clientRows[0]?.addedBy ?? null;
+  if (addedBy) {
+    const assignedRows = await db
+      .select({ id: users.id, email: users.email })
+      .from(users)
+      .where(eq(users.id, addedBy))
+      .limit(1);
+    if (assignedRows[0]) {
+      return { userId: assignedRows[0].id, email: assignedRows[0].email };
+    }
+  }
+
+  const fallbackRows = await db
+    .select({ id: users.id, email: users.email })
+    .from(users)
+    .innerJoin(profiles, eq(profiles.userId, users.id))
+    .where(and(eq(users.isActive, true), inArray(profiles.role, ["admin", "super_admin"])))
+    .limit(1);
+
+  if (!fallbackRows[0]) return null;
+  return { userId: fallbackRows[0].id, email: fallbackRows[0].email };
+}
+
+async function resolveClientUser(clientId: string): Promise<ResolvedClientUser | null> {
+  const rows = await db
+    .select({ userId: profiles.userId, orgEmail: clients.email, userEmail: users.email })
+    .from(profiles)
+    .innerJoin(clients, eq(clients.id, profiles.clientId))
+    .innerJoin(users, eq(users.id, profiles.userId))
+    .where(and(eq(profiles.clientId, clientId), eq(profiles.role, "client")))
+    .limit(1);
+
+  const r = rows[0];
+  if (!r?.userId || !r?.orgEmail) return null;
+  return { userId: r.userId, orgEmail: r.orgEmail, userEmail: r.userEmail ?? null };
+}
+
+function uniqueRecipientEmails(orgEmail: string, userEmail: string | null): string[] {
+  const out: string[] = [];
+  const a = String(orgEmail || "").trim();
+  if (a) out.push(a);
+  const b = String(userEmail || "").trim();
+  if (b && b.toLowerCase() !== a.toLowerCase()) out.push(b);
+  return out;
+}
+
+function tryParseJsonLocal(v: unknown): any {
+  if (v == null) return null;
+  if (typeof v !== "string") return v;
+  try {
+    return JSON.parse(v);
+  } catch {
+    return null;
+  }
 }
 
 export const depositService = {
@@ -31,6 +111,7 @@ export const depositService = {
     if (String(chequeRow._client_id) !== params.clientId) throw new Error("Cheque does not belong to client");
 
     const tableName = String(chequeRow._table_name || (await getClientTableName(params.clientId)));
+    await ensureClientTableDepositColumns(tableName);
 
     const currentStatus = chequeRow.cheque_status as string | null;
     if (currentStatus === "deposit_requested" || currentStatus === "deposited") {
@@ -63,6 +144,9 @@ export const depositService = {
       )
     );
 
+    const client = await clientModel.findById(params.clientId);
+    const assignedAdmin = await resolveAssignedAdmin(params.clientId);
+
     await auditService.log({
       actor: params.actorId,
       actor_role: params.actorRole,
@@ -77,7 +161,105 @@ export const depositService = {
         destinationBankLast4: bank.accountLast4,
       },
       req: params.req,
+      notifRecipientId: assignedAdmin?.userId,
+      notifTitle: assignedAdmin ? `New Deposit Request — ${client.company_name}` : undefined,
+      notifTargetUrl: assignedAdmin ? `/admin/deposits?highlight=${params.chequeId}` : undefined,
     });
+
+    if (assignedAdmin) {
+      notificationService
+        .sendDepositRequestEmailToAdmin({
+          adminEmail: assignedAdmin.email,
+          companyName: client.company_name,
+          chequeId: params.chequeId,
+          amount: Number(chequeRow.cheque_amount_figures || 0),
+          bankName: bank.bankName,
+          bankNickname: bank.nickname,
+        })
+        .catch((err) => {
+          console.error("[deposit] email failed:", err);
+        });
+    }
+
+    return { ok: true };
+  },
+
+  async cancelRequest(params: {
+    chequeId: string;
+    actorId: string;
+    actorRole: "client";
+    clientId: string;
+    req?: Request;
+  }) {
+    const chequeRow = await depositModel.findChequeRowById(params.chequeId);
+    if (!chequeRow) throw new Error("Cheque not found");
+    if (String(chequeRow._client_id) !== params.clientId) throw new Error("Not authorised");
+
+    const currentStatus = chequeRow.cheque_status as string | null;
+    if (currentStatus !== "deposit_requested") {
+      throw new Error("No active deposit request to cancel");
+    }
+
+    const decision = chequeRow.deposit_decision as DepositDecision | null | string;
+    if (decision === "approved" || decision === "rejected") {
+      throw new Error("Cannot cancel after admin has already acted on this request");
+    }
+
+    const tableName = String(chequeRow._table_name || (await getClientTableName(params.clientId)));
+    await ensureClientTableDepositColumns(tableName);
+
+    await db.execute(
+      sql.raw(
+        `UPDATE ${escapeIdent(tableName)}
+         SET cheque_status = 'validated',
+             deposit_requested_at = NULL,
+             deposit_requested_by = NULL,
+             deposit_destination_bank_account_id = NULL,
+             deposit_destination_bank_name = NULL,
+             deposit_destination_bank_nickname = NULL,
+             deposit_destination_bank_last4 = NULL,
+             deposit_decision = NULL,
+             deposit_decided_by = NULL,
+             deposit_decided_at = NULL,
+             deposit_reject_reason = NULL,
+             deposit_marked_deposited_by = NULL,
+             deposit_marked_deposited_at = NULL,
+             deposit_slip_url = NULL,
+             deposit_slip_uploaded_at = NULL,
+             deposit_slip_uploaded_by = NULL,
+             deposit_slip_ai_result = NULL
+         WHERE id = '${params.chequeId.replace(/'/g, "''")}' AND record_type = 'cheque'`
+      )
+    );
+
+    const client = await clientModel.findById(params.clientId);
+    const assignedAdmin = await resolveAssignedAdmin(params.clientId);
+
+    await auditService.log({
+      actor: params.actorId,
+      actor_role: params.actorRole,
+      action: "deposit.cancelled",
+      entity: params.chequeId,
+      clientId: params.clientId,
+      after: { chequeId: params.chequeId },
+      req: params.req,
+      notifRecipientId: assignedAdmin?.userId,
+      notifTitle: assignedAdmin ? `Deposit cancelled — ${client.company_name}` : undefined,
+      notifTargetUrl: assignedAdmin ? `/admin/deposits?highlight=${encodeURIComponent(params.chequeId)}` : undefined,
+    });
+
+    if (assignedAdmin) {
+      notificationService
+        .sendDepositCancelledEmailToAdmin({
+          adminEmail: assignedAdmin.email,
+          companyName: client.company_name,
+          chequeId: params.chequeId,
+          amount: Number(chequeRow.cheque_amount_figures || 0),
+        })
+        .catch((err) => {
+          console.error("[deposit] cancel email failed:", err);
+        });
+    }
 
     return { ok: true };
   },
@@ -104,6 +286,7 @@ export const depositService = {
 
     const clientId = String(chequeRow._client_id);
     const tableName = String(chequeRow._table_name || (await getClientTableName(clientId)));
+    await ensureClientTableDepositColumns(tableName);
 
     const currentStatus = chequeRow.cheque_status as string | null;
     if (currentStatus !== "deposit_requested") {
@@ -143,6 +326,50 @@ export const depositService = {
       req: params.req,
     });
 
+    {
+      const clientUser = await resolveClientUser(clientId);
+      if (clientUser) {
+        const recipients = uniqueRecipientEmails(clientUser.orgEmail, clientUser.userEmail);
+        const amount = Number(chequeRow.cheque_amount_figures || 0);
+        const bankName = String(chequeRow.deposit_destination_bank_name || "");
+
+        await auditService.log({
+          actor: params.actorId,
+          actor_role: params.actorRole,
+          action: `deposit.${params.decision}`,
+          entity: params.chequeId,
+          clientId,
+          after: { chequeId: params.chequeId, decision: params.decision },
+          req: params.req,
+          notifRecipientId: clientUser.userId,
+          notifTitle: params.decision === "approved" ? "Deposit request approved" : "Deposit request rejected",
+          notifTargetUrl: `/customer/${clientId}/deposits`,
+        });
+
+        for (const toEmail of recipients) {
+          if (params.decision === "approved") {
+            notificationService
+              .sendDepositApprovedEmailToClient({
+                toEmail,
+                chequeId: params.chequeId,
+                amount,
+                bankName: bankName || "—",
+              })
+              .catch((err) => console.error("[deposit] approved email failed:", err));
+          } else {
+            notificationService
+              .sendDepositRejectedEmailToClient({
+                toEmail,
+                chequeId: params.chequeId,
+                amount,
+                reason: rejectReason,
+              })
+              .catch((err) => console.error("[deposit] rejected email failed:", err));
+          }
+        }
+      }
+    }
+
     return { ok: true };
   },
 
@@ -157,11 +384,14 @@ export const depositService = {
 
     const clientId = String(chequeRow._client_id);
     const tableName = String(chequeRow._table_name || (await getClientTableName(clientId)));
+    await ensureClientTableDepositColumns(tableName);
 
     const decision = chequeRow.deposit_decision as DepositDecision | null;
     if (decision && decision !== "approved") {
       throw new Error("Cannot mark deposited unless approved");
     }
+
+    const ai = tryParseJsonLocal((chequeRow as any).deposit_slip_ai_result);
 
     const now = new Date();
     const nowSql = now.toISOString().slice(0, 19).replace("T", " ");
@@ -186,6 +416,42 @@ export const depositService = {
       req: params.req,
     });
 
+    {
+      const clientUser = await resolveClientUser(clientId);
+      if (clientUser) {
+        const recipients = uniqueRecipientEmails(clientUser.orgEmail, clientUser.userEmail);
+        const amount = Number(chequeRow.cheque_amount_figures || 0);
+
+        await auditService.log({
+          actor: params.actorId,
+          actor_role: params.actorRole,
+          action: "deposit.mark_deposited",
+          entity: params.chequeId,
+          clientId,
+          after: { chequeId: params.chequeId },
+          req: params.req,
+          notifRecipientId: clientUser.userId,
+          notifTitle: "Your cheque has been deposited",
+          notifTargetUrl: `/customer/${clientId}/deposits`,
+        });
+
+        for (const toEmail of recipients) {
+          notificationService
+            .sendDepositCompletedEmailToClient({
+              toEmail,
+              chequeId: params.chequeId,
+              amount,
+              slipDate: ai?.deposit_date ?? null,
+              slipAmount: typeof ai?.amount === "number" && Number.isFinite(ai.amount) ? ai.amount : null,
+              slipReference: ai?.reference ?? null,
+              slipBankName: ai?.bank_name ?? null,
+              slipAccountLast4: ai?.account_last4 ?? null,
+            })
+            .catch((err) => console.error("[deposit] completed email failed:", err));
+        }
+      }
+    }
+
     return { ok: true };
   },
 
@@ -203,6 +469,7 @@ export const depositService = {
 
     const clientId = String(chequeRow._client_id);
     const tableName = String(chequeRow._table_name || (await getClientTableName(clientId)));
+    await ensureClientTableDepositColumns(tableName);
 
     const now = new Date();
     const nowSql = now.toISOString().slice(0, 19).replace("T", " ");
@@ -230,11 +497,47 @@ export const depositService = {
       validationIssues.push(`Slip amount (${extractedAmount}) does not match cheque amount (${chequeAmount})`);
     }
 
+    // Full account number validation (secure): hash OCR'd account_number and compare to stored HMAC hash.
+    let accountNumberMatches: boolean | null = null;
+    try {
+      const bankAccountId = chequeRow.deposit_destination_bank_account_id as string | null;
+      const bankRow = bankAccountId ? await bankAccountModel.findById(String(bankAccountId)) : null;
+      const extractedDigits = extracted.account_number ? extracted.account_number.replace(/\D/g, "") : "";
+
+      if (bankRow && extractedDigits) {
+        const computed = hmacSha256Hex(extractedDigits, { keyVersion: bankRow.keyVersion as 1 });
+        const stored = String(bankRow.accountNumberHash || "");
+
+        // timing-safe compare when possible (both hex digests)
+        if (/^[0-9a-f]+$/i.test(stored) && /^[0-9a-f]+$/i.test(computed.hex) && stored.length === computed.hex.length) {
+          accountNumberMatches = crypto.timingSafeEqual(
+            Buffer.from(stored, "hex"),
+            Buffer.from(computed.hex, "hex")
+          );
+        } else {
+          accountNumberMatches = stored === computed.hex;
+        }
+
+        if (!accountNumberMatches) {
+          validationIssues.push("Account number on slip does not match destination account");
+        }
+      }
+    } catch {
+      // If anything goes wrong, keep accountNumberMatches null (unverified) and do not add a validation issue.
+      accountNumberMatches = null;
+    }
+
+    // Never persist raw full account number in the AI JSON blob.
+    // Keep account_last4 for display, but drop account_number before saving.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { account_number: _accountNumber, ...extractedSafe } = extracted as any;
+
     const aiResult = {
-      ...extracted,
+      ...extractedSafe,
       validation: {
         cheque_amount: chequeAmount,
         amount_matches: amountMatches,
+        account_number_matches: accountNumberMatches,
         issues: validationIssues,
       },
     };

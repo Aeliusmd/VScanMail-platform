@@ -2,45 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useOrgContext } from "./OrgContext";
+import { customerNotificationsApi, type AdminNotification } from "@/lib/api/notifications";
 
 type NotificationAccent = "primary" | "success" | "amber" | "neutral";
-
-const notifications = [
-  {
-    id: 1,
-    accent: "primary" as NotificationAccent,
-    title: "New Mail Received",
-    desc: "Invoice from ABC Corp",
-    time: "2 hours ago",
-    unread: true,
-  },
-  {
-    id: 2,
-    accent: "success" as NotificationAccent,
-    title: "Cheque Deposited",
-    desc: "$5,000 deposited successfully",
-    time: "5 hours ago",
-    unread: true,
-  },
-  {
-    id: 3,
-    accent: "neutral" as NotificationAccent,
-    title: "Mail Delivery Scheduled",
-    desc: "Expected delivery: Tomorrow",
-    time: "1 day ago",
-    unread: false,
-  },
-  {
-    id: 4,
-    accent: "amber" as NotificationAccent,
-    title: "Action Required",
-    desc: "Cheque #CH-2024-016 needs your decision",
-    time: "2 days ago",
-    unread: false,
-  },
-];
 
 const accentBorder: Record<NotificationAccent, string> = {
   primary: "border-[#0A3D8F]",
@@ -53,16 +20,44 @@ function isNavActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+function formatRelativeTime(iso: string) {
+  const ms = Date.now() - new Date(iso).getTime();
+  if (Number.isNaN(ms) || ms < 0) return "just now";
+  const mins = Math.floor(ms / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min${mins === 1 ? "" : "s"} ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} hour${hrs === 1 ? "" : "s"} ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
+function pickAccent(n: AdminNotification): NotificationAccent {
+  const target = (n.notifTargetUrl || "").toLowerCase();
+  const action = String(n.action || "").toLowerCase();
+
+  if (target.includes("/deposits") || action.includes("deposit")) return "success";
+  if (target.includes("/deliveries") || action.includes("delivery")) return "primary";
+  if (action.includes("action_required") || action.includes("requires") || action.includes("flag")) return "amber";
+  if (target.includes("/mails") || action.includes("mail") || target.includes("/cheques") || action.includes("cheque"))
+    return "neutral";
+  return "neutral";
+}
+
 export default function CustomerNav() {
   const org = useOrgContext();
   const pathname = usePathname();
+  const router = useRouter();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const notificationsRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  const unreadCount = notifications.filter((n) => n.unread).length;
+  const [notifications, setNotifications] = useState<AdminNotification[]>([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const unreadCount = useMemo(() => notifications.filter((n) => !n.notifIsRead).length, [notifications]);
+
   const companyName = org.companyName || "Organization";
   const email = org.client?.email || "";
   const clientId = org.clientId;
@@ -89,10 +84,31 @@ export default function CustomerNav() {
     setShowUserMenu(false);
   }, []);
 
+  const loadNotifications = useCallback(async () => {
+    try {
+      setNotificationsLoading(true);
+      const rows = await customerNotificationsApi.list();
+      setNotifications(rows);
+    } catch (error) {
+      console.error("Failed to load customer notifications:", error);
+      setNotifications([]);
+    } finally {
+      setNotificationsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     closePanels();
     setMobileOpen(false);
   }, [pathname, closePanels]);
+
+  useEffect(() => {
+    void loadNotifications();
+    const timer = window.setInterval(() => {
+      void loadNotifications();
+    }, 30_000);
+    return () => window.clearInterval(timer);
+  }, [loadNotifications]);
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
@@ -104,10 +120,37 @@ export default function CustomerNav() {
     return () => document.removeEventListener("mousedown", handlePointerDown);
   }, [closePanels]);
 
+  const handleNotificationClick = useCallback(
+    async (n: AdminNotification) => {
+      setNotifications((prev) => prev.map((x) => (x.id === n.id ? { ...x, notifIsRead: true } : x)));
+      try {
+        await customerNotificationsApi.markRead(n.id);
+      } catch (error) {
+        console.error("Failed to mark customer notification as read:", error);
+      }
+
+      setShowNotifications(false);
+      if (n.notifTargetUrl) {
+        router.push(n.notifTargetUrl);
+      }
+    },
+    [router]
+  );
+
+  const handleMarkAllRead = useCallback(async () => {
+    setNotifications((prev) => prev.map((x) => ({ ...x, notifIsRead: true })));
+    try {
+      await customerNotificationsApi.markAllRead();
+      await loadNotifications();
+    } catch (error) {
+      console.error("Failed to mark all customer notifications as read:", error);
+    }
+  }, [loadNotifications]);
+
   return (
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-40" aria-label="Customer dashboard">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16 gap-4">
+      <div className="px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center h-16 gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
@@ -131,7 +174,7 @@ export default function CustomerNav() {
             </Link>
           </div>
 
-          <div className="hidden md:flex items-center space-x-1">
+          <div className="hidden md:flex items-center space-x-1 flex-1 justify-center">
             {navLinks.map((link) => {
               const active = isNavActive(pathname, link.href);
               return (
@@ -183,23 +226,35 @@ export default function CustomerNav() {
                     <button
                       type="button"
                       className="text-xs text-[#0A3D8F] font-medium whitespace-nowrap hover:underline"
+                      onClick={handleMarkAllRead}
                     >
                       Mark all read
                     </button>
                   </div>
                   <div className="max-h-80 overflow-y-auto">
-                    {notifications.map((n) => (
-                      <div
-                        key={n.id}
-                        className={`px-4 py-3 hover:bg-gray-50 cursor-pointer border-l-4 ${accentBorder[n.accent]} ${
-                          n.unread ? "bg-blue-50/40" : ""
-                        }`}
-                      >
-                        <p className="text-sm font-medium text-gray-900">{n.title}</p>
-                        <p className="text-xs text-gray-600 mt-0.5">{n.desc}</p>
-                        <p className="text-xs text-gray-400 mt-1">{n.time}</p>
-                      </div>
-                    ))}
+                    {notificationsLoading && (
+                      <div className="px-4 py-6 text-center text-xs text-gray-500">Loading notifications...</div>
+                    )}
+                    {!notificationsLoading && notifications.length === 0 && (
+                      <div className="px-4 py-6 text-center text-xs text-gray-500">No notifications yet.</div>
+                    )}
+                    {!notificationsLoading &&
+                      notifications.map((n) => {
+                        const accent = pickAccent(n);
+                        return (
+                          <button
+                            key={n.id}
+                            type="button"
+                            onClick={() => void handleNotificationClick(n)}
+                            className={`w-full text-left px-4 py-3 hover:bg-gray-50 cursor-pointer border-l-4 ${accentBorder[accent]} ${
+                              !n.notifIsRead ? "bg-blue-50/40" : ""
+                            }`}
+                          >
+                            <p className="text-sm font-medium text-gray-900">{n.notifTitle || "New notification"}</p>
+                            <p className="text-xs text-gray-400 mt-1">{formatRelativeTime(n.createdAt)}</p>
+                          </button>
+                        );
+                      })}
                   </div>
                   <div className="px-4 py-2 border-t border-gray-200">
                     <button
