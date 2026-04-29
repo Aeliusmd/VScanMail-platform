@@ -337,11 +337,12 @@ export const deliveryService = {
       for (const toEmail of recipients) {
         if (params.decision === "approved") {
           notificationService
-            .sendDeliveryApprovedEmailToClient({ toEmail, requestId: params.recordId, sourceType, irn })
+            .sendDeliveryApprovedEmailToClient({ clientId, toEmail, requestId: params.recordId, sourceType, irn })
             .catch((err) => console.error("[delivery] approved email failed:", err));
         } else {
           notificationService
             .sendDeliveryRejectedEmailToClient({
+              clientId,
               toEmail,
               requestId: params.recordId,
               sourceType,
@@ -418,6 +419,7 @@ export const deliveryService = {
         for (const toEmail of recipients) {
           notificationService
             .sendDeliveryInTransitEmailToClient({
+              clientId,
               toEmail,
               requestId: params.recordId,
               sourceType,
@@ -501,6 +503,7 @@ export const deliveryService = {
         for (const toEmail of recipients) {
           notificationService
             .sendDeliveryDeliveredEmailToClient({
+              clientId,
               toEmail,
               requestId: params.recordId,
               sourceType,

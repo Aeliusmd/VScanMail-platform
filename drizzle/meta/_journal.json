@@ -50,6 +50,20 @@
       "when": 1776927600000,
       "tag": "0007_delivery_addresses",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1777000000000,
+      "tag": "0008_customer_account_prefs",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1777359614519,
+      "tag": "0008_0009_clients_avatar_url",
+      "breakpoints": true
     }
   ]
 }

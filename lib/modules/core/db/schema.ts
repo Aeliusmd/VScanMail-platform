@@ -48,6 +48,8 @@ export const users = mysqlTable(
     avatarUrl: varchar("avatar_url", { length: 500 }),
     bio: text("bio"),
     language: varchar("language", { length: 10 }).notNull().default("en"),
+    loginAlertsEnabled: boolean("login_alerts_enabled").notNull().default(true),
+    sessionTimeout: varchar("session_timeout", { length: 8 }).notNull().default("30"),
     lastLoginAt: datetime("last_login_at", { mode: "date" }),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: datetime("created_at", { mode: "date" }).notNull(),
@@ -120,12 +122,15 @@ export const clients = mysqlTable(
     email: varchar("email", { length: 255 }).notNull(),
     phone: varchar("phone", { length: 64 }).notNull(),
     addressJson: json("address_json").notNull(),
+    website: varchar("website", { length: 500 }),
+    employees: varchar("employees", { length: 32 }),
     clientType: mysqlEnum("client_type", ["subscription", "manual"]).notNull().default("subscription"),
     status: mysqlEnum("status", ["active", "suspended", "pending", "inactive"]).notNull().default("pending"),
     twoFaEnabled: boolean("two_fa_enabled").notNull().default(false),
     twoFaSecret: varchar("two_fa_secret", { length: 255 }),
     addedBy: varchar("added_by", { length: 36 }),
     notes: text("notes"),
+    avatarUrl: varchar("avatar_url", { length: 500 }),
     createdAt: datetime("created_at", { mode: "date" }).notNull(),
     updatedAt: datetime("updated_at", { mode: "date" }).notNull(),
   },
@@ -228,6 +233,16 @@ export const billingPlans = mysqlTable(
     updatedAt: datetime("updated_at", { mode: "date" }).notNull(),
   }
 );
+
+// --- Billing Contact Settings (global, singleton row) ---
+export const billingContactSettings = mysqlTable("billing_contact_settings", {
+  id: int("id").primaryKey().autoincrement(),
+  contactName: varchar("contact_name", { length: 255 }).default(""),
+  contactPhone: varchar("contact_phone", { length: 64 }).default(""),
+  contactEmail: varchar("contact_email", { length: 255 }).default(""),
+  updatedBy: varchar("updated_by", { length: 36 }),
+  updatedAt: datetime("updated_at", { mode: "date" }).notNull(),
+});
 
 // --- Usage & Audit Tables ---
 export const usageEvents = mysqlTable(

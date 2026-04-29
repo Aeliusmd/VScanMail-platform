@@ -2,22 +2,43 @@ import { usageEventModel } from "./usage.model";
 import { clientModel } from "../clients/client.model";
 
 const UNIT_COSTS: Record<string, number> = {
-  envelope_scan: 0.5,
-  ai_summary: 2.0,
-  cheque_validation: 3.0,
-  cheque_approved: 0,
-  storage_gb: 0.1,
+  scan: 0.5,
+  ai_analysis: 2.0,
+  api_call: 3.0,
+  storage: 0.1,
 };
+
+function normalizeEventType(eventType: string): "scan" | "ai_analysis" | "api_call" | "storage" {
+  switch (eventType) {
+    case "envelope_scan":
+      return "scan";
+    case "ai_summary":
+      return "ai_analysis";
+    case "cheque_validation":
+    case "cheque_approved":
+      return "api_call";
+    case "storage_gb":
+      return "storage";
+    case "scan":
+    case "ai_analysis":
+    case "api_call":
+    case "storage":
+      return eventType;
+    default:
+      return "api_call";
+  }
+}
 
 export const billingService = {
   async trackUsage(clientId: string, eventType: string, quantity: number) {
-    const unitCost = UNIT_COSTS[eventType] || 0;
+    const normalizedType = normalizeEventType(eventType);
+    const unitCost = UNIT_COSTS[normalizedType] || 0;
     const totalCost = unitCost * quantity;
 
     // Track usage only
     await usageEventModel.create({
       client_id: clientId,
-      event_type: eventType,
+      event_type: normalizedType,
       quantity,
       unit_cost: unitCost,
       total_cost: totalCost,

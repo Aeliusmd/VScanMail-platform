@@ -12,3 +12,11 @@ public/uploads/*
 !public/uploads/.gitkeep
 frontend/public/uploads/*
 !frontend/public/uploads/.gitkeep
+
+# AI and Editor
+.claude/
+.cursor/
+.vscode/
+
+# Local Data
+.data/

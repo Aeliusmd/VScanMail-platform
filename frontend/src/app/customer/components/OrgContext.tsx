@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { authApi, type ClientInfo, type UserRole } from "@/lib/api/auth";
 
@@ -10,6 +10,9 @@ type OrgContextValue = {
   clientId: string | null;
   client: ClientInfo | null;
   companyName: string | null;
+  avatarUrl: string | null;
+  setAvatarUrl: (url: string | null) => void;
+  refreshClient: () => Promise<void>;
 };
 
 const OrgContext = createContext<OrgContextValue | null>(null);
@@ -20,6 +23,19 @@ export function OrgContextProvider({ children }: { children: React.ReactNode }) 
   const [role, setRole] = useState<UserRole | null>(null);
   const [clientId, setClientId] = useState<string | null>(null);
   const [client, setClient] = useState<ClientInfo | null>(null);
+  const [avatarOverride, setAvatarOverride] = useState<string | null | undefined>(undefined);
+
+  const refreshClient = useCallback(async () => {
+    const me = await authApi.me();
+    setRole(me.role);
+    setClientId(me.clientId);
+    setClient(me.client);
+    setAvatarOverride(undefined);
+  }, []);
+
+  const setAvatarUrl = useCallback((url: string | null) => {
+    setAvatarOverride(url);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,8 +73,11 @@ export function OrgContextProvider({ children }: { children: React.ReactNode }) 
       clientId,
       client,
       companyName: client?.company_name ?? null,
+      avatarUrl: avatarOverride !== undefined ? avatarOverride : (client?.avatar_url ?? null),
+      setAvatarUrl,
+      refreshClient,
     }),
-    [loading, role, clientId, client]
+    [loading, role, clientId, client, avatarOverride, setAvatarUrl, refreshClient]
   );
 
   return <OrgContext.Provider value={value}>{children}</OrgContext.Provider>;

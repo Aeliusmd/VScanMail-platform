@@ -23,10 +23,17 @@ export type SubscriptionPlanDetails = {
   chequesProcessed: number;
 };
 
+export type BillingContactSettings = {
+  contactName: string;
+  contactPhone: string;
+  contactEmail: string;
+};
+
 export type CustomerBillingResponse = {
   planType: PlanType;
   manual: ManualPlanDetails;
   subscription: SubscriptionPlanDetails;
+  contactSettings: BillingContactSettings;
 };
 
 /** Shown if the API is unreachable (dev / offline). */
@@ -53,31 +60,24 @@ export const FALLBACK_BILLING: CustomerBillingResponse = {
     mailsReceived: 248,
     chequesProcessed: 19,
   },
+  contactSettings: {
+    contactName: "",
+    contactPhone: "",
+    contactEmail: "",
+  },
 };
 
-const apiBase = () => (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000").replace(/\/$/, "");
+import { apiClient } from "./api-client";
 
-export async function fetchCustomerBilling(companyId = "demo"): Promise<CustomerBillingResponse> {
-  const url = `${apiBase()}/api/customer/billing?companyId=${encodeURIComponent(companyId)}`;
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(text || `Billing request failed (${res.status})`);
-  }
-  return res.json() as Promise<CustomerBillingResponse>;
+export async function fetchCustomerBilling(): Promise<CustomerBillingResponse> {
+  return apiClient<CustomerBillingResponse>("/api/customer/billing", { cache: "no-store" });
 }
 
 export async function postBillingUpgradeRequest(
   planId: string,
-  companyId = "demo"
 ): Promise<void> {
-  const res = await fetch(`${apiBase()}/api/customer/billing/upgrade-request`, {
+  await apiClient("/api/customer/billing/upgrade-request", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ companyId, planId }),
+    body: JSON.stringify({ planId }),
   });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(text || `Upgrade request failed (${res.status})`);
-  }
 }

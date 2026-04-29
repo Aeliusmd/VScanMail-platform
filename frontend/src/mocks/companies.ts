@@ -5,6 +5,7 @@ export interface Company {
   name: string;
   initial: string;
   avatarColor: string;
+  avatar_url?: string | null;
   industry: string;
   industryBadge: string;
   contact: string;

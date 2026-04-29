@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/modules/auth/auth.middleware";
 import { db } from "@/lib/modules/core/db/mysql";
-import { profiles, users } from "@/lib/modules/core/db/schema";
+import { clients, profiles, users } from "@/lib/modules/core/db/schema";
 import { eq } from "drizzle-orm";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
@@ -37,6 +37,18 @@ export async function POST(req: NextRequest) {
       .limit(1);
 
     await db.update(users).set({ avatarUrl: relativeUrl, updatedAt: new Date() }).where(eq(users.id, actor.id));
+
+    if (roleRows[0]?.clientId) {
+      try {
+        await db
+          .update(clients)
+          .set({ avatarUrl: relativeUrl, updatedAt: new Date() })
+          .where(eq(clients.id, roleRows[0].clientId));
+      } catch (e) {
+        // If DB migration hasn't been applied yet, don't fail avatar upload.
+        console.error("Failed to update clients.avatar_url (migration missing?)", e);
+      }
+    }
 
     await auditService.log({
       actor: actor.id,

@@ -1,23 +1,22 @@
 "use client";
 
-import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   FALLBACK_ACCOUNT,
   fetchCustomerAccount,
   saveCustomerAccount,
 } from "@/lib/customerAccount";
-import { buildBillingSubscriptionState } from "@/lib/billingLocal";
 import {
   FALLBACK_BILLING,
-  postBillingUpgradeRequest,
+  fetchCustomerBilling,
   type CustomerBillingResponse,
 } from "@/lib/customerBilling";
 import { useOrgContext } from "../components/OrgContext";
 import { billingApi, type UsageSummary } from "@/lib/api/billing";
 import { bankAccountsApi, type BankAccountListItem } from "@/lib/api/bankAccounts";
 import { deliveryAddressesApi, type DeliveryAddress } from "@/lib/api/delivery-addresses";
+import { apiClient, apiUpload } from "@/lib/api-client";
 
 type BankAccount = BankAccountListItem;
 type AddressEntry = DeliveryAddress;
@@ -48,11 +47,20 @@ const EMPTY_ADDRESS_FORM: AddressForm = {
   isDefault: false,
 };
 
-type AccountTab = "profile" | "bank-accounts" | "delivery-addresses" | "security" | "notifications" | "billing";
-const ACCOUNT_TABS: readonly AccountTab[] = ["profile", "bank-accounts", "delivery-addresses", "security", "notifications", "billing"];
+const apiBase = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+
+type AccountTab = "profile" | "bank-accounts" | "delivery-addresses" | "notifications" | "billing";
+const ACCOUNT_TABS: readonly AccountTab[] = ["profile", "bank-accounts", "delivery-addresses", "notifications", "billing"];
 
 function isAccountTab(value: string | null): value is AccountTab {
   return !!value && ACCOUNT_TABS.includes(value as AccountTab);
+}
+
+/** Legacy `?tab=security` maps to merged organization + security tab. */
+function normalizedTabQuery(value: string | null): AccountTab {
+  if (value === "security") return "profile";
+  if (isAccountTab(value)) return value;
+  return "profile";
 }
 
 function scanUsagePercent(used: number, limit: number): number {
@@ -65,6 +73,12 @@ function initialsFromProfile(companyName: string, email: string): string {
   if (t.length >= 2) return t.slice(0, 2).toUpperCase();
   const e = email.split("@")[0]?.slice(0, 2) ?? "??";
   return e.toUpperCase();
+}
+
+function resolveAvatarUrl(url?: string): string | undefined {
+  if (!url) return undefined;
+  if (/^(https?:|blob:|data:)/.test(url)) return url;
+  return apiBase && url.startsWith("/") ? `${apiBase}${url}` : url;
 }
 
 // Plan data for upgrade modal
@@ -101,14 +115,46 @@ const SUBSCRIPTION_PLANS = [
   },
 ];
 
+type UpgradePlanCard = {
+  id: string;
+  name: string;
+  price: string;
+  period: string;
+  tagline: string;
+  icon: string;
+  features: string[];
+  popular: boolean;
+};
+
+function toUpgradePlans(plans: any[]): UpgradePlanCard[] {
+  const iconById: Record<string, string> = {
+    starter: "ri-seedling-line",
+    professional: "ri-rocket-line",
+    enterprise: "ri-building-2-line",
+  };
+  return plans.map((p) => {
+    const isCustom = Number(p.price) <= 0;
+    return {
+      id: p.id,
+      name: p.name,
+      price: isCustom ? "Custom" : `$${Number(p.price)}`,
+      period: isCustom ? "" : "/mo",
+      tagline: p.id === "starter" ? "Perfect for small businesses" : p.id === "professional" ? "For growing companies" : "For large organizations",
+      icon: iconById[p.id] || "ri-price-tag-3-line",
+      features: Array.isArray(p.features) ? p.features : [],
+      popular: p.id === "professional",
+    };
+  });
+}
+
 export default function CustomerAccountPage() {
   const org = useOrgContext();
   const searchParams = useSearchParams();
   const companyId = org.clientId ?? "demo";
+  const refreshClient = org.refreshClient;
+  const setOrgAvatarUrl = org.setAvatarUrl;
   const tabFromQuery = searchParams.get("tab");
-  const [activeTab, setActiveTab] = useState<AccountTab>(
-    isAccountTab(tabFromQuery) ? tabFromQuery : "profile"
-  );
+  const [activeTab, setActiveTab] = useState<AccountTab>(normalizedTabQuery(tabFromQuery));
   const [accountLoading, setAccountLoading] = useState(true);
   const [accountError, setAccountError] = useState<string | null>(null);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
@@ -137,8 +183,15 @@ export default function CustomerAccountPage() {
   });
   const [bankFormError, setBankFormError] = useState("");
 
-  const [security, setSecurity] = useState(FALLBACK_ACCOUNT.security);
   const [notifs, setNotifs] = useState(FALLBACK_ACCOUNT.notifications);
+  const [avatarUrl, setAvatarUrl] = useState<string | undefined>();
+  const avatarFileInputRef = useRef<HTMLInputElement>(null);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [passwordError, setPasswordError] = useState("");
 
   const [billing, setBilling] = useState<CustomerBillingResponse>(() => structuredClone(FALLBACK_BILLING));
   const [usage, setUsage] = useState<UsageSummary | null>(null);
@@ -147,19 +200,21 @@ export default function CustomerAccountPage() {
   const [selectedUpgradePlan, setSelectedUpgradePlan] = useState<string | null>(null);
   const [upgradeConfirmed, setUpgradeConfirmed] = useState(false);
   const [upgradeSubmitting, setUpgradeSubmitting] = useState(false);
+  const [managePortalLoading, setManagePortalLoading] = useState(false);
+  const [upgradePlans, setUpgradePlans] = useState<UpgradePlanCard[]>(SUBSCRIPTION_PLANS as UpgradePlanCard[]);
 
   const loadAccount = useCallback(async () => {
     setAccountLoading(true);
     setAccountError(null);
     try {
-      const data = await fetchCustomerAccount(companyId);
+      const data = await fetchCustomerAccount();
       setProfile((prev) => ({
         ...data.profile,
         companyName: org.companyName || data.profile.companyName,
         email: org.client?.email || data.profile.email,
       }));
-      setSecurity(data.security);
       setNotifs(data.notifications);
+      setAvatarUrl(data.avatarUrl);
     } catch (e) {
       setAccountError(e instanceof Error ? e.message : "Could not load account");
       setProfile((prev) => ({
@@ -167,8 +222,8 @@ export default function CustomerAccountPage() {
         companyName: org.companyName || FALLBACK_ACCOUNT.profile.companyName,
         email: org.client?.email || FALLBACK_ACCOUNT.profile.email,
       }));
-      setSecurity(FALLBACK_ACCOUNT.security);
       setNotifs(FALLBACK_ACCOUNT.notifications);
+      setAvatarUrl(undefined);
     }
 
     try {
@@ -192,10 +247,34 @@ export default function CustomerAccountPage() {
     let cancelled = false;
     (async () => {
       try {
+        const b = await fetchCustomerBilling();
+        if (cancelled) return;
+        setBilling((prev) => ({
+          ...b,
+          // usage may arrive later; preserve any computed scansUsed from usage effect
+          manual: { ...b.manual, scansUsed: prev.manual.scansUsed ?? b.manual.scansUsed },
+          subscription: { ...b.subscription, scansUsed: prev.subscription.scansUsed ?? b.subscription.scansUsed },
+        }));
+      } catch (e) {
+        // keep fallback billing
+        console.error("Failed to load billing data:", e);
+      }
+
+      try {
+        const plans = await apiClient<any[]>("/api/billing/plans", { cache: "no-store" });
+        if (cancelled) return;
+        if (Array.isArray(plans) && plans.length > 0) {
+          setUpgradePlans(toUpgradePlans(plans));
+        }
+      } catch (e) {
+        console.error("Failed to load subscription plans:", e);
+      }
+
+      try {
         const u = await billingApi.getUsage();
         if (cancelled) return;
         setUsage(u);
-        const totalQty = Object.values(u.breakdown || {}).reduce((sum, b) => sum + (b?.quantity || 0), 0);
+        const totalQty = Number(u.breakdown?.scan?.quantity ?? u.breakdown?.envelope_scan?.quantity ?? 0);
         setBilling((prev) => ({
           ...prev,
           manual: { ...prev.manual, scansUsed: totalQty },
@@ -212,37 +291,95 @@ export default function CustomerAccountPage() {
     };
   }, [org.loading]);
 
+  const reloadBillingData = useCallback(async () => {
+    const b = await fetchCustomerBilling();
+    setBilling((prev) => ({
+      ...b,
+      manual: { ...b.manual, scansUsed: prev.manual.scansUsed ?? b.manual.scansUsed },
+      subscription: {
+        ...b.subscription,
+        scansUsed: prev.subscription.scansUsed ?? b.subscription.scansUsed,
+      },
+    }));
+
+    const u = await billingApi.getUsage();
+    setUsage(u);
+    const totalQty = Number(u.breakdown?.scan?.quantity ?? u.breakdown?.envelope_scan?.quantity ?? 0);
+    setBilling((prev) => ({
+      ...prev,
+      manual: { ...prev.manual, scansUsed: totalQty },
+      subscription: { ...prev.subscription, scansUsed: totalQty },
+    }));
+  }, []);
+
+  useEffect(() => {
+    const checkout = searchParams.get("checkout");
+    if (!checkout) return;
+
+    if (checkout === "success") {
+      showSuccess("Payment successful, subscription is being activated.");
+      void reloadBillingData().catch((e) => {
+        console.error("Failed to refresh billing after checkout success:", e);
+      });
+      return;
+    }
+
+    if (checkout === "cancel") {
+      showSuccess("Checkout was canceled. Your current plan remains unchanged.");
+    }
+  }, [searchParams, reloadBillingData]);
+
   const showSuccess = (msg: string) => {
     setSuccessMsg(msg);
     setTimeout(() => setSuccessMsg(""), 3500);
   };
 
-  const handleUpgradeConfirm = () => {
+  const handleUpgradeConfirm = async () => {
     if (!selectedUpgradePlan || !billing) return;
-    const plan = SUBSCRIPTION_PLANS.find((p) => p.id === selectedUpgradePlan);
-    if (!plan) return;
 
     setUpgradeSubmitting(true);
-    const next = buildBillingSubscriptionState(billing, plan);
-    setBilling(next);
+    try {
+      const result = await apiClient<{ url: string }>("/api/customer/billing/checkout", {
+        method: "POST",
+        body: JSON.stringify({ planId: selectedUpgradePlan }),
+      });
 
-    void postBillingUpgradeRequest(selectedUpgradePlan, companyId).catch(() => { });
+      if (!result?.url) {
+        throw new Error("Checkout URL was not returned by the server.");
+      }
 
-    setUpgradeSubmitting(false);
-    setUpgradeConfirmed(true);
-    window.setTimeout(() => {
-      setShowUpgradeModal(false);
-      setUpgradeConfirmed(false);
-      setSelectedUpgradePlan(null);
-      showSuccess(`Your plan is now ${plan.name}. You can change details anytime from Billing & Plan.`);
-    }, 700);
+      window.location.href = result.url;
+    } catch (error) {
+      showSuccess(error instanceof Error ? error.message : "Failed to start checkout.");
+    } finally {
+      setUpgradeSubmitting(false);
+    }
+  };
+
+  const openManageSubscriptionPortal = async () => {
+    setManagePortalLoading(true);
+    try {
+      const res = await apiClient<{ url: string }>("/api/billing/stripe/portal", {
+        method: "POST",
+      });
+      if (res?.url) {
+        window.location.href = res.url;
+        return;
+      }
+      showSuccess("Could not open billing portal.");
+    } catch (err) {
+      showSuccess(err instanceof Error ? err.message : "Could not open billing portal.");
+    } finally {
+      setManagePortalLoading(false);
+    }
   };
 
   const saveProfile = async () => {
     setSaving(true);
     try {
-      const data = await saveCustomerAccount({ profile }, companyId);
+      const data = await saveCustomerAccount({ profile });
       setProfile(data.profile);
+      if (data.avatarUrl !== undefined) setAvatarUrl(data.avatarUrl);
       setProfileDirty(false);
       showSuccess("Profile updated successfully!");
     } catch (e) {
@@ -443,24 +580,12 @@ export default function CustomerAccountPage() {
     }
   };
 
-  const saveSecurityPrefs = async () => {
-    setSaving(true);
-    try {
-      const data = await saveCustomerAccount({ security }, companyId);
-      setSecurity(data.security);
-      showSuccess("Security preferences saved!");
-    } catch (e) {
-      showSuccess(e instanceof Error ? e.message : "Failed to save");
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const saveNotificationPrefs = async () => {
     setSaving(true);
     try {
-      const data = await saveCustomerAccount({ notifications: notifs }, companyId);
+      const data = await saveCustomerAccount({ notifications: notifs });
       setNotifs(data.notifications);
+      if (data.avatarUrl !== undefined) setAvatarUrl(data.avatarUrl);
       showSuccess("Notification preferences saved!");
     } catch (e) {
       showSuccess(e instanceof Error ? e.message : "Failed to save");
@@ -469,8 +594,60 @@ export default function CustomerAccountPage() {
     }
   };
 
+  const onAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const fd = new FormData();
+    fd.append("file", file);
+    setSaving(true);
+    try {
+      const res = await apiUpload<{ ok: boolean; url: string }>("/api/profile/avatar", fd);
+      setAvatarUrl(res.url);
+      setOrgAvatarUrl(res.url);
+      refreshClient().catch(() => {});
+      showSuccess("Profile photo updated!");
+    } catch (err) {
+      showSuccess(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updatePassword = async () => {
+    setPasswordError("");
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      setPasswordError("Please fill in all password fields.");
+      return;
+    }
+    if (passwordForm.newPassword.length < 8) {
+      setPasswordError("New password must be at least 8 characters.");
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError("New password and confirmation do not match.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await apiClient<{ ok: true }>("/api/profile/password", {
+        method: "POST",
+        body: JSON.stringify(passwordForm),
+      });
+      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      showSuccess("Password updated successfully!");
+    } catch (err) {
+      setPasswordError(err instanceof Error ? err.message : "Failed to update password");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const avatarSrc = resolveAvatarUrl(avatarUrl);
+
   useEffect(() => {
-    const nextTab: AccountTab = isAccountTab(tabFromQuery) ? tabFromQuery : "profile";
+    const nextTab = normalizedTabQuery(tabFromQuery);
     setActiveTab((prev) => (prev === nextTab ? prev : nextTab));
   }, [tabFromQuery]);
 
@@ -480,11 +657,10 @@ export default function CustomerAccountPage() {
   }, [activeTab, loadDeliveryAddresses]);
 
   const tabs: { key: AccountTab; label: string; icon: string }[] = [
-    { key: "profile", label: "Organization Profile", icon: "ri-building-line" },
+    { key: "profile", label: "Organization & security", icon: "ri-building-2-line" },
     { key: "bank-accounts", label: "Bank Accounts", icon: "ri-bank-line" },
     { key: "delivery-addresses", label: "Delivery Addresses", icon: "ri-map-pin-user-line" },
     { key: "billing", label: "Billing & Plan", icon: "ri-price-tag-3-line" },
-    { key: "security", label: "Security", icon: "ri-shield-check-line" },
     { key: "notifications", label: "Notifications", icon: "ri-notification-3-line" },
   ];
 
@@ -509,12 +685,33 @@ export default function CustomerAccountPage() {
           {/* Sidebar Tabs */}
           <div className="w-full shrink-0 lg:w-56">
             <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+              <input
+                ref={avatarFileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={(e) => void onAvatarFileChange(e)}
+              />
               {/* Mobile: compact row */}
               <div className="flex items-center gap-3 border-b border-gray-200 p-4 lg:hidden">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#0A3D8F] to-[#083170]">
-                  <span className="text-lg font-bold text-white">
-                    {initialsFromProfile(profile.companyName, profile.email)}
-                  </span>
+                <div className="relative shrink-0">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#0A3D8F] to-[#083170]">
+                    {avatarSrc ? (
+                      <img src={avatarSrc} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-lg font-bold text-white">
+                        {initialsFromProfile(profile.companyName, profile.email)}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    title="Change photo"
+                    onClick={() => avatarFileInputRef.current?.click()}
+                    className="absolute -bottom-0.5 -right-0.5 flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white text-[#0A3D8F] shadow-sm hover:bg-gray-50 cursor-pointer"
+                  >
+                    <i className="ri-camera-line text-sm" />
+                  </button>
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold text-gray-900">{profile.companyName}</p>
@@ -527,10 +724,24 @@ export default function CustomerAccountPage() {
               </div>
               {/* Desktop: avatar block */}
               <div className="hidden border-b border-gray-200 p-6 text-center lg:block">
-                <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#0A3D8F] to-[#083170]">
-                  <span className="text-xl font-bold text-white">
-                    {initialsFromProfile(profile.companyName, profile.email)}
-                  </span>
+                <div className="relative mx-auto mb-3 inline-block">
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#0A3D8F] to-[#083170]">
+                    {avatarSrc ? (
+                      <img src={avatarSrc} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-xl font-bold text-white">
+                        {initialsFromProfile(profile.companyName, profile.email)}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    title="Change photo"
+                    onClick={() => avatarFileInputRef.current?.click()}
+                    className="absolute -bottom-0.5 -right-0.5 flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-[#0A3D8F] shadow-sm hover:bg-gray-50 cursor-pointer"
+                  >
+                    <i className="ri-camera-line text-base" />
+                  </button>
                 </div>
                 <p className="truncate px-1 text-sm font-bold text-gray-900">{profile.companyName}</p>
                 <p className="mt-0.5 truncate px-1 text-xs text-gray-500">{profile.email}</p>
@@ -558,11 +769,12 @@ export default function CustomerAccountPage() {
 
           {/* Content Panel */}
           <div className="min-w-0 flex-1">
-            {/* Profile Tab */}
-            {activeTab === 'profile' && (
+            {/* Organization + Security (single tab) */}
+            {activeTab === "profile" && (
+              <div className="space-y-6">
               <div className="bg-white rounded-xl border border-gray-200">
                 <div className="p-6 border-b border-gray-200">
-                  <h2 className="text-lg font-bold text-gray-900">Organization Profile</h2>
+                  <h2 className="text-lg font-bold text-gray-900">Organization details</h2>
                   <p className="text-sm text-gray-500 mt-0.5">Update your organization information and contact details</p>
                 </div>
                 <div className="p-6 space-y-5">
@@ -570,27 +782,27 @@ export default function CustomerAccountPage() {
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">Organization Name</label>
                       <input type="text" value={profile.companyName} onChange={e => { setProfile(p => ({ ...p, companyName: e.target.value })); setProfileDirty(true); }}
-                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">Primary Contact Person</label>
                       <input type="text" value={profile.contactPerson} onChange={e => { setProfile(p => ({ ...p, contactPerson: e.target.value })); setProfileDirty(true); }}
-                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">Email Address</label>
                       <input type="email" value={profile.email} onChange={e => { setProfile(p => ({ ...p, email: e.target.value })); setProfileDirty(true); }}
-                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">Phone Number</label>
                       <input type="tel" value={profile.phone} onChange={e => { setProfile(p => ({ ...p, phone: e.target.value })); setProfileDirty(true); }}
-                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">Website</label>
                       <input type="text" value={profile.website} onChange={e => { setProfile(p => ({ ...p, website: e.target.value })); setProfileDirty(true); }}
-                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                     </div>
                   </div>
 
@@ -600,23 +812,23 @@ export default function CustomerAccountPage() {
                       <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">Street Address</label>
                         <input type="text" value={profile.address} onChange={e => { setProfile(p => ({ ...p, address: e.target.value })); setProfileDirty(true); }}
-                          className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
+                          className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                       </div>
                       <div className="md:col-span-2 grid grid-cols-1 gap-4 sm:grid-cols-3">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1.5">City</label>
                           <input type="text" value={profile.city} onChange={e => { setProfile(p => ({ ...p, city: e.target.value })); setProfileDirty(true); }}
-                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
+                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1.5">State</label>
                           <input type="text" value={profile.state} onChange={e => { setProfile(p => ({ ...p, state: e.target.value })); setProfileDirty(true); }}
-                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
+                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1.5">ZIP Code</label>
                           <input type="text" value={profile.zip} onChange={e => { setProfile(p => ({ ...p, zip: e.target.value })); setProfileDirty(true); }}
-                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
+                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                         </div>
                       </div>
                     </div>
@@ -630,7 +842,7 @@ export default function CustomerAccountPage() {
                         <select
                           aria-label="Industry"
                           value={profile.industry} onChange={e => { setProfile(p => ({ ...p, industry: e.target.value })); setProfileDirty(true); }}
-                          className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30 cursor-pointer bg-white">
+                          className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30 cursor-pointer bg-white">
                           {['Technology', 'Finance', 'Healthcare', 'Manufacturing', 'Retail', 'Real Estate', 'Legal', 'Other'].map(i => <option key={i}>{i}</option>)}
                         </select>
                       </div>
@@ -639,7 +851,7 @@ export default function CustomerAccountPage() {
                         <select
                           aria-label="Number of employees"
                           value={profile.employees} onChange={e => { setProfile(p => ({ ...p, employees: e.target.value })); setProfileDirty(true); }}
-                          className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30 cursor-pointer bg-white">
+                          className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30 cursor-pointer bg-white">
                           {['1–10', '11–50', '51–200', '201–500', '500+'].map(e => <option key={e}>{e}</option>)}
                         </select>
                       </div>
@@ -656,6 +868,65 @@ export default function CustomerAccountPage() {
                     </button>
                   </div>
                 </div>
+              </div>
+
+              <div className="overflow-hidden rounded-xl border border-gray-200 border-l-4 border-l-[#0A3D8F]/50 bg-white shadow-sm">
+                <div className="p-6 border-b border-gray-100 bg-slate-50/60">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#0A3D8F]">Account protection</p>
+                  <h2 className="mt-1 text-lg font-bold text-gray-900">Security</h2>
+                  <p className="mt-0.5 text-sm text-gray-500">Password, session length, and sign-in preferences</p>
+                </div>
+                <div className="p-6 space-y-6">
+                  <div>
+                    <h3 className="mb-4 text-sm font-semibold text-gray-700">Change password</h3>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="mb-1.5 block text-sm font-medium text-gray-700">Current Password</label>
+                        <input
+                          type="password"
+                          value={passwordForm.currentPassword}
+                          onChange={(e) => setPasswordForm((p) => ({ ...p, currentPassword: e.target.value }))}
+                          placeholder="Enter current password"
+                          className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-sm font-medium text-gray-700">New Password</label>
+                        <input
+                          type="password"
+                          value={passwordForm.newPassword}
+                          onChange={(e) => setPasswordForm((p) => ({ ...p, newPassword: e.target.value }))}
+                          placeholder="Enter new password"
+                          className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-sm font-medium text-gray-700">Confirm New Password</label>
+                        <input
+                          type="password"
+                          value={passwordForm.confirmPassword}
+                          onChange={(e) => setPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))}
+                          placeholder="Re-enter new password"
+                          className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30"
+                        />
+                      </div>
+                      {passwordError && (
+                        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+                          {passwordError}
+                        </p>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => void updatePassword()}
+                        disabled={saving || accountLoading}
+                        className="mt-1 cursor-pointer whitespace-nowrap rounded-lg bg-[#0A3D8F] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#083170] disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {saving ? "Updating..." : "Update Password"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
               </div>
             )}
 
@@ -1036,87 +1307,6 @@ export default function CustomerAccountPage() {
               </div>
             )}
 
-            {/* Security Tab */}
-            {activeTab === 'security' && (
-              <div className="bg-white rounded-xl border border-gray-200">
-                <div className="p-6 border-b border-gray-200">
-                  <h2 className="text-lg font-bold text-gray-900">Security Settings</h2>
-                  <p className="text-sm text-gray-500 mt-0.5">Manage your account security and authentication</p>
-                </div>
-                <div className="p-6 space-y-6">
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-700 mb-4">Change Password</h3>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Current Password</label>
-                        <input type="password" placeholder="Enter current password"
-                          className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">New Password</label>
-                        <input type="password" placeholder="Enter new password"
-                          className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Confirm New Password</label>
-                        <input type="password" placeholder="Re-enter new password"
-                          className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
-                      </div>
-                      <button className="px-4 py-2.5 bg-[#0A3D8F] text-white rounded-lg text-sm font-medium hover:bg-[#083170] cursor-pointer whitespace-nowrap mt-1">
-                        Update Password
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="border-t border-gray-100 pt-6 space-y-4">
-                    <h3 className="text-sm font-semibold text-gray-700">Security Options</h3>
-                    {[
-                      { key: 'twoFactor' as const, label: 'Two-Factor Authentication', desc: 'Require a verification code on login' },
-                      { key: 'loginAlerts' as const, label: 'Login Alerts', desc: 'Get notified of new sign-ins to your account' },
-                    ].map(({ key, label, desc }) => (
-                      <div key={key} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{label}</p>
-                          <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
-                        </div>
-                        <button
-                          onClick={() => setSecurity(p => ({ ...p, [key]: !p[key] }))}
-                          className={`relative w-12 h-6 rounded-full transition-colors cursor-pointer ${security[key] ? 'bg-[#0A3D8F]' : 'bg-gray-300'}`}
-                        >
-                          <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-all ${security[key] ? 'left-6.5 translate-x-0.5' : 'left-0.5'}`}></span>
-                        </button>
-                      </div>
-                    ))}
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">Session Timeout</p>
-                        <p className="text-xs text-gray-500 mt-0.5">Auto logout after inactivity</p>
-                      </div>
-                      <select
-                        aria-label="Session timeout duration"
-                        value={security.sessionTimeout} onChange={e => setSecurity(p => ({ ...p, sessionTimeout: e.target.value }))}
-                        className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-700 bg-white focus:outline-none cursor-pointer">
-                        <option value="15">15 minutes</option>
-                        <option value="30">30 minutes</option>
-                        <option value="60">1 hour</option>
-                        <option value="120">2 hours</option>
-                      </select>
-                    </div>
-                    <div className="flex justify-end pt-2">
-                      <button
-                        type="button"
-                        onClick={() => void saveSecurityPrefs()}
-                        disabled={saving || accountLoading}
-                        className="px-6 py-2.5 bg-[#0A3D8F] text-white rounded-lg text-sm font-medium hover:bg-[#083170] cursor-pointer whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        {saving ? "Saving…" : "Save security settings"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Notifications Tab */}
             {activeTab === 'notifications' && (
               <div className="bg-white rounded-xl border border-gray-200">
@@ -1130,7 +1320,6 @@ export default function CustomerAccountPage() {
                     { key: 'chequeReceived' as const, label: 'New Cheque Received', desc: 'When a new cheque is scanned and ready for action' },
                     { key: 'depositComplete' as const, label: 'Deposit Completed', desc: 'When a cheque has been deposited to your account' },
                     { key: 'pickupReady' as const, label: 'Pickup Ready', desc: 'When a pickup request is ready for collection' },
-                    { key: 'weeklyReport' as const, label: 'Weekly Summary Report', desc: 'A weekly digest of all mail and cheque activity' },
                   ].map(({ key, label, desc }) => (
                     <div key={key} className="flex flex-col gap-3 rounded-xl bg-gray-50 p-4 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0">
@@ -1270,12 +1459,14 @@ export default function CustomerAccountPage() {
                               Next billing date: {billing.subscription.nextBillingDate}
                             </p>
                           </div>
-                          <Link
-                            href="/customer/select-plan"
-                            className="inline-flex cursor-pointer items-center justify-center whitespace-nowrap rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+                          <button
+                            type="button"
+                            onClick={() => void openManageSubscriptionPortal()}
+                            disabled={managePortalLoading}
+                            className="inline-flex cursor-pointer items-center justify-center whitespace-nowrap rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
                           >
-                            Manage Subscription
-                          </Link>
+                            {managePortalLoading ? "Opening..." : "Manage Subscription"}
+                          </button>
                         </div>
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                           {(
@@ -1318,12 +1509,47 @@ export default function CustomerAccountPage() {
                           ))}
                         </div>
                       </div>
-                      <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
-                        <i className="ri-information-line shrink-0 text-gray-400"></i>
-                        <p className="text-sm text-gray-500">
-                          To cancel or change your plan, please contact your account manager or reach out to support.
-                        </p>
-                      </div>
+                      {(() => {
+                        const cs = billing.contactSettings;
+                        const hasAny = Boolean(cs?.contactName || cs?.contactPhone || cs?.contactEmail);
+                        if (!hasAny) return null;
+                        return (
+                          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                            <div className="flex items-start gap-3">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100">
+                                <i className="ri-customer-service-2-line text-amber-700"></i>
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-semibold text-amber-900">Switch to a Manual Plan</p>
+                                <p className="mt-0.5 text-sm text-amber-800/80">
+                                  To switch to a manual plan, please contact our team.
+                                </p>
+
+                                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                                  {cs.contactName ? (
+                                    <div className="rounded-lg border border-amber-200 bg-white p-3">
+                                      <p className="text-xs text-amber-700/70">Contact</p>
+                                      <p className="text-sm font-semibold text-amber-900">{cs.contactName}</p>
+                                    </div>
+                                  ) : null}
+                                  {cs.contactPhone ? (
+                                    <div className="rounded-lg border border-amber-200 bg-white p-3">
+                                      <p className="text-xs text-amber-700/70">Phone</p>
+                                      <p className="text-sm font-semibold text-amber-900">{cs.contactPhone}</p>
+                                    </div>
+                                  ) : null}
+                                  {cs.contactEmail ? (
+                                    <div className="rounded-lg border border-amber-200 bg-white p-3">
+                                      <p className="text-xs text-amber-700/70">Email</p>
+                                      <p className="text-sm font-semibold text-amber-900">{cs.contactEmail}</p>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}
@@ -1349,7 +1575,7 @@ export default function CustomerAccountPage() {
 
                   <div className="p-6">
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                      {SUBSCRIPTION_PLANS.map(plan => {
+                      {upgradePlans.map(plan => {
                         const isSelected = selectedUpgradePlan === plan.id;
                         const isFeatured = plan.popular;
                         return (

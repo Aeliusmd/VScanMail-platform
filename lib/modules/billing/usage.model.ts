@@ -26,8 +26,9 @@ function rowToUsageEvent(row: typeof usageEvents.$inferSelect): UsageEvent {
 
 export const usageEventModel = {
   async create(data: Partial<UsageEvent>) {
+    const id = data.id || crypto.randomUUID();
     const toInsert: typeof usageEvents.$inferInsert = {
-      id: data.id!,
+      id,
       clientId: data.client_id!,
       eventType: data.event_type as any,
       quantity: data.quantity!,
@@ -39,7 +40,7 @@ export const usageEventModel = {
     const rows = await db
       .select()
       .from(usageEvents)
-      .where(eq(usageEvents.id, toInsert.id))
+      .where(eq(usageEvents.id, id))
       .limit(1);
     if (!rows[0]) throw new Error("Failed to create usage event");
     return rowToUsageEvent(rows[0]);

@@ -35,6 +35,6 @@ export const billingApi = {
     apiClient<{ invoices: Invoice[] }>(`/api/billing/invoices`),
 
   openStripePortal: () =>
-    apiClient<any>(`/api/stripe/portal`, { method: "POST" }),
+    apiClient<any>(`/api/billing/stripe/portal`, { method: "POST" }),
 };
 

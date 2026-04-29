@@ -38,6 +38,7 @@ export interface ClientInfo {
   two_fa_secret: string | null;
   added_by: string | null;
   notes: string | null;
+  avatar_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -71,5 +72,5 @@ export const authApi = {
       body: JSON.stringify({ email, otp }),
     }),
 
-  me: () => apiClient<MeResponse>("/api/auth/me", { method: "GET" }),
+  me: () => apiClient<MeResponse>("/api/auth/me", { method: "GET", cache: "no-store" }),
 };

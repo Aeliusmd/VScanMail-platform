@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import SuperAdminHeader from "./components/SuperAdminHeader";
 import SuperAdminSidebar from "./components/SuperAdminSidebar";
@@ -10,6 +10,18 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
   const [collapsed, setCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const pathname = usePathname();
+
+  const [dateString, setDateString] = useState<string>("");
+  useEffect(() => {
+    setDateString(
+      new Date().toLocaleDateString("en-GB", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    );
+  }, []);
 
   const isSuperadminArea = pathname?.startsWith("/superadmin");
   const isSuperadminSettings = pathname?.startsWith("/superadmin/settings");
@@ -32,16 +44,11 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
       headerSubtitle: (
         <>
           <span className="hidden sm:inline">Full system overview — </span>
-          {new Date().toLocaleDateString("en-GB", {
-            weekday: "long",
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })}
+          {dateString}
         </>
       ),
     };
-  }, [isSuperadminSettings]);
+  }, [isSuperadminSettings, dateString]);
 
   return (
     <div className="flex h-screen w-full bg-gray-50 overflow-hidden">

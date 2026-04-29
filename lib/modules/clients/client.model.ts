@@ -19,6 +19,9 @@ export type Client = {
     zip: string;
     country: string;
   };
+  website: string | null;
+  employees: string | null;
+  avatar_url: string | null;
   client_type: "subscription" | "manual";
   status: "active" | "suspended" | "pending" | "inactive";
   two_fa_enabled: boolean;
@@ -40,6 +43,9 @@ function rowToClient(row: typeof clients.$inferSelect): Client {
     email: row.email,
     phone: row.phone,
     address_json: row.addressJson as any,
+    website: row.website ?? null,
+    employees: row.employees ?? null,
+    avatar_url: row.avatarUrl ?? null,
     client_type: row.clientType as any,
     status: row.status as any,
     two_fa_enabled: Boolean(row.twoFaEnabled),
@@ -63,6 +69,8 @@ export const clientModel = {
       email: data.email!,
       phone: data.phone!,
       addressJson: data.address_json as any,
+      website: data.website ?? undefined,
+      employees: data.employees ?? undefined,
       clientType: (data.client_type as any) ?? "subscription",
       status: (data.status as any) ?? "pending",
       twoFaEnabled: Boolean(data.two_fa_enabled ?? false),
@@ -120,6 +128,11 @@ export const clientModel = {
 
     if (data.address_json !== undefined) patch.addressJson = data.address_json as any;
     if (data.addressJson !== undefined) patch.addressJson = data.addressJson as any;
+
+    if (data.website !== undefined) patch.website = data.website || null;
+    if (data.employees !== undefined) patch.employees = data.employees || null;
+    if (data.avatar_url !== undefined) patch.avatarUrl = data.avatar_url || null;
+    if (data.avatarUrl !== undefined) patch.avatarUrl = data.avatarUrl || null;
 
     if (data.status !== undefined) patch.status = data.status.toLowerCase() as any;
     if (data.two_fa_enabled !== undefined) patch.twoFaEnabled = Boolean(data.two_fa_enabled);

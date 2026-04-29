@@ -575,7 +575,16 @@ export const notificationService = {
     });
   },
 
-  async sendDeliveryApprovedEmailToClient(params: { toEmail: string; requestId: string; sourceType: "cheque" | "mail"; irn: string }) {
+  async sendDeliveryApprovedEmailToClient(params: {
+    clientId: string;
+    toEmail: string;
+    requestId: string;
+    sourceType: "cheque" | "mail";
+    irn: string;
+  }) {
+    const prefs = await notificationPreferencesService.getForClient(params.clientId);
+    if (!prefs.emailEnabled || !prefs.deliveryUpdates) return;
+
     const html = wrapInTemplate(`
       <h1 style="font-size: 20px; color: #0f172a; margin-top: 0;">Delivery request approved</h1>
       <p style="color: #64748b; font-size: 15px;">Your request is approved and will be processed soon.</p>
@@ -591,12 +600,16 @@ export const notificationService = {
   },
 
   async sendDeliveryRejectedEmailToClient(params: {
+    clientId: string;
     toEmail: string;
     requestId: string;
     sourceType: "cheque" | "mail";
     irn: string;
     reason: string;
   }) {
+    const prefs = await notificationPreferencesService.getForClient(params.clientId);
+    if (!prefs.emailEnabled || !prefs.deliveryUpdates) return;
+
     const html = wrapInTemplate(`
       <h1 style="font-size: 20px; color: #0f172a; margin-top: 0;">Delivery request rejected</h1>
       <p style="color: #64748b; font-size: 15px;">Your request was rejected. See the reason below.</p>
@@ -613,12 +626,16 @@ export const notificationService = {
   },
 
   async sendDeliveryInTransitEmailToClient(params: {
+    clientId: string;
     toEmail: string;
     requestId: string;
     sourceType: "cheque" | "mail";
     irn: string;
     trackingNumber: string;
   }) {
+    const prefs = await notificationPreferencesService.getForClient(params.clientId);
+    if (!prefs.emailEnabled || !prefs.deliveryUpdates) return;
+
     const html = wrapInTemplate(`
       <h1 style="font-size: 20px; color: #0f172a; margin-top: 0;">Delivery in transit</h1>
       <p style="color: #64748b; font-size: 15px;">Your delivery is now in transit.</p>
@@ -635,12 +652,16 @@ export const notificationService = {
   },
 
   async sendDeliveryDeliveredEmailToClient(params: {
+    clientId: string;
     toEmail: string;
     requestId: string;
     sourceType: "cheque" | "mail";
     irn: string;
     proofOfServiceUrl: string;
   }) {
+    const prefs = await notificationPreferencesService.getForClient(params.clientId);
+    if (!prefs.emailEnabled || !prefs.deliveryUpdates) return;
+
     const html = wrapInTemplate(`
       <h1 style="font-size: 20px; color: #0f172a; margin-top: 0;">Delivery completed</h1>
       <p style="color: #64748b; font-size: 15px;">Your item has been marked delivered.</p>
@@ -659,11 +680,15 @@ export const notificationService = {
   },
 
   async sendDepositApprovedEmailToClient(params: {
+    clientId: string;
     toEmail: string;
     chequeId: string;
     amount: number;
     bankName: string;
   }) {
+    const prefs = await notificationPreferencesService.getForClient(params.clientId);
+    if (!prefs.emailEnabled || !prefs.depositUpdates) return;
+
     const amountText = Number(params.amount || 0).toLocaleString(undefined, {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
@@ -687,11 +712,15 @@ export const notificationService = {
   },
 
   async sendDepositRejectedEmailToClient(params: {
+    clientId: string;
     toEmail: string;
     chequeId: string;
     amount: number;
     reason: string;
   }) {
+    const prefs = await notificationPreferencesService.getForClient(params.clientId);
+    if (!prefs.emailEnabled || !prefs.depositUpdates) return;
+
     const amountText = Number(params.amount || 0).toLocaleString(undefined, {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
@@ -715,6 +744,7 @@ export const notificationService = {
   },
 
   async sendDepositCompletedEmailToClient(params: {
+    clientId: string;
     toEmail: string;
     chequeId: string;
     amount: number;
@@ -724,6 +754,9 @@ export const notificationService = {
     slipBankName?: string | null;
     slipAccountLast4?: string | null;
   }) {
+    const prefs = await notificationPreferencesService.getForClient(params.clientId);
+    if (!prefs.emailEnabled || !prefs.depositUpdates) return;
+
     const amountText = Number(params.amount || 0).toLocaleString(undefined, {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,

@@ -61,6 +61,7 @@ export default function CustomerNav() {
   const companyName = org.companyName || "Organization";
   const email = org.client?.email || "";
   const clientId = org.clientId;
+  const avatarUrl = org.avatarUrl;
   const baseHref = clientId ? `/customer/${clientId}` : "/customer";
 
   const navLinks = [
@@ -78,6 +79,10 @@ export default function CustomerNav() {
       .slice(0, 2)
       .map((w) => w[0]?.toUpperCase() || "")
       .join("") || "??";
+
+  const avatarSrc = avatarUrl
+    ? avatarUrl.startsWith("/") ? `${process.env.NEXT_PUBLIC_API_URL ?? ""}${avatarUrl}` : avatarUrl
+    : null;
 
   const closePanels = useCallback(() => {
     setShowNotifications(false);
@@ -279,9 +284,17 @@ export default function CustomerNav() {
                 aria-haspopup="menu"
                 aria-label="Account menu"
               >
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#0A3D8F] to-[#083170] flex items-center justify-center flex-shrink-0">
-                  <span className="text-white text-xs font-bold">{initials}</span>
-                </div>
+                {avatarSrc ? (
+                  <img
+                    src={avatarSrc}
+                    alt={companyName}
+                    className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#0A3D8F] to-[#083170] flex items-center justify-center flex-shrink-0">
+                    <span className="text-white text-xs font-bold">{initials}</span>
+                  </div>
+                )}
                 <div className="hidden sm:block text-left">
                   <p className="text-xs font-semibold text-gray-900 leading-tight">{companyName}</p>
                   <p className="text-[10px] text-gray-500">Organization Account</p>

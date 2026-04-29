@@ -1,3 +1,5 @@
+import { apiClient } from "./api-client";
+
 export type CustomerProfile = {
   companyName: string;
   contactPerson: string;
@@ -25,25 +27,19 @@ export type BankAccountDto = {
   bankLogo: string;
 };
 
-export type SecurityPrefs = {
-  twoFactor: boolean;
-  loginAlerts: boolean;
-  sessionTimeout: string;
-};
-
 export type NotificationPrefs = {
   newMail: boolean;
   chequeReceived: boolean;
   depositComplete: boolean;
   pickupReady: boolean;
-  weeklyReport: boolean;
 };
 
 export type CustomerAccountResponse = {
   profile: CustomerProfile;
   bankAccounts: BankAccountDto[];
-  security: SecurityPrefs;
   notifications: NotificationPrefs;
+  /** Same-origin path e.g. `/uploads/avatars/...` from `users.avatar_url` */
+  avatarUrl?: string;
 };
 
 /** Used when the API is offline so the form still renders. */
@@ -62,46 +58,27 @@ export const FALLBACK_ACCOUNT: CustomerAccountResponse = {
     employees: "51–200",
   },
   bankAccounts: [],
-  security: { twoFactor: true, loginAlerts: true, sessionTimeout: "30" },
   notifications: {
     newMail: true,
     chequeReceived: true,
     depositComplete: true,
     pickupReady: false,
-    weeklyReport: true,
   },
 };
 
-const apiBase = () => (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000").replace(/\/$/, "");
-
-export async function fetchCustomerAccount(companyId = "demo"): Promise<CustomerAccountResponse> {
-  const url = `${apiBase()}/api/customer/account?companyId=${encodeURIComponent(companyId)}`;
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(text || `Account request failed (${res.status})`);
-  }
-  return res.json() as Promise<CustomerAccountResponse>;
+export async function fetchCustomerAccount(): Promise<CustomerAccountResponse> {
+  return apiClient<CustomerAccountResponse>("/api/customer/account", { method: "GET" });
 }
 
 export async function saveCustomerAccount(
   body: Partial<{
     profile: CustomerProfile;
     bankAccounts: BankAccountDto[];
-    security: SecurityPrefs;
     notifications: NotificationPrefs;
-  }>,
-  companyId = "demo"
+  }>
 ): Promise<CustomerAccountResponse> {
-  const url = `${apiBase()}/api/customer/account?companyId=${encodeURIComponent(companyId)}`;
-  const res = await fetch(url, {
+  return apiClient<CustomerAccountResponse>("/api/customer/account", {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(text || `Account save failed (${res.status})`);
-  }
-  return res.json() as Promise<CustomerAccountResponse>;
 }

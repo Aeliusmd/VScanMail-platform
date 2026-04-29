@@ -3,25 +3,54 @@ import { clientModel } from "@/lib/modules/clients/client.model";
 import { subscriptionModel } from "@/lib/modules/billing/subscription.model";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL!;
+const PRICE_BY_PLAN: Record<string, string | undefined> = {
+  starter: process.env.STRIPE_PRICE_STARTER,
+  professional: process.env.STRIPE_PRICE_PROFESSIONAL,
+  enterprise: process.env.STRIPE_PRICE_ENTERPRISE,
+};
+
+function normalizePlanTier(planId: string): "starter" | "professional" | "enterprise" | null {
+  if (planId === "starter" || planId === "professional" || planId === "enterprise") {
+    return planId;
+  }
+  return null;
+}
 
 export const stripeService = {
+  resolvePriceIdForPlan(planId: string) {
+    const tier = normalizePlanTier(planId);
+    if (!tier) {
+      throw new Error("Invalid planId. Expected starter, professional, or enterprise.");
+    }
+
+    const priceId = PRICE_BY_PLAN[tier];
+    if (!priceId) {
+      throw new Error(`Stripe price is not configured for plan '${tier}'.`);
+    }
+
+    return { tier, priceId };
+  },
+
   async createCustomer(email: string, name: string) {
     return stripe.customers.create({ email, name });
   },
 
   async createCheckoutSession(
     clientId: string,
-    priceId: string
+    priceId: string,
+    options?: { successUrl?: string; cancelUrl?: string }
   ) {
     const sub = await subscriptionModel.findByClient(clientId);
+    const successUrl = options?.successUrl || `${APP_URL}/dashboard?checkout=success`;
+    const cancelUrl = options?.cancelUrl || `${APP_URL}/pricing?checkout=cancel`;
 
     const session = await stripe.checkout.sessions.create({
       customer: sub?.stripe_customer_id || undefined,
       mode: "subscription",
       payment_method_types: ["card"],
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${APP_URL}/dashboard?checkout=success`,
-      cancel_url: `${APP_URL}/pricing?checkout=cancel`,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
       metadata: { clientId },
     });
 
@@ -69,13 +98,27 @@ export const stripeService = {
         if (!clientId) break;
 
         if (session.mode === "subscription") {
-          await clientModel.update(clientId, { status: "active" });
+          await clientModel.update(clientId, { status: "active", client_type: "subscription" });
           const sub = await stripe.subscriptions.retrieve(
             session.subscription as string
           );
+          const line = sub.items?.data?.[0];
+          const priceId = line?.price?.id;
+          let planTier: "starter" | "professional" | "enterprise" = "starter";
+
+          if (priceId) {
+            const resolved = (Object.entries(PRICE_BY_PLAN).find(
+              ([, value]) => value === priceId
+            )?.[0] || "starter") as "starter" | "professional" | "enterprise";
+            planTier = resolved;
+          }
+
           await subscriptionModel.upsert({
             client_id: clientId,
+            stripe_customer_id:
+              typeof sub.customer === "string" ? sub.customer : sub.customer?.id ?? null,
             stripe_subscription_id: sub.id,
+            plan_tier: planTier,
             status: "active",
             current_period_start: new Date(
               sub.current_period_start * 1000
@@ -94,8 +137,23 @@ export const stripeService = {
 
       case "customer.subscription.updated": {
         const sub = event.data.object;
+        const existing = await subscriptionModel.findByStripeSubscriptionId(sub.id);
+        const line = sub.items?.data?.[0];
+        const priceId = line?.price?.id;
+        const mappedTier = priceId
+          ? (Object.entries(PRICE_BY_PLAN).find(([, value]) => value === priceId)?.[0] as
+              | "starter"
+              | "professional"
+              | "enterprise"
+              | undefined)
+          : undefined;
+
         await subscriptionModel.upsert({
+          client_id: existing?.client_id,
+          stripe_customer_id:
+            typeof sub.customer === "string" ? sub.customer : sub.customer?.id ?? null,
           stripe_subscription_id: sub.id,
+          plan_tier: mappedTier ?? existing?.plan_tier ?? "starter",
           status: sub.status,
           current_period_start: new Date(
             sub.current_period_start * 1000

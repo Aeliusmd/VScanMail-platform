@@ -350,6 +350,7 @@ export const depositService = {
           if (params.decision === "approved") {
             notificationService
               .sendDepositApprovedEmailToClient({
+                clientId,
                 toEmail,
                 chequeId: params.chequeId,
                 amount,
@@ -359,6 +360,7 @@ export const depositService = {
           } else {
             notificationService
               .sendDepositRejectedEmailToClient({
+                clientId,
                 toEmail,
                 chequeId: params.chequeId,
                 amount,
@@ -438,6 +440,7 @@ export const depositService = {
         for (const toEmail of recipients) {
           notificationService
             .sendDepositCompletedEmailToClient({
+              clientId,
               toEmail,
               chequeId: params.chequeId,
               amount,

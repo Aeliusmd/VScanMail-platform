@@ -18,6 +18,9 @@ export default function CompanyRow({ company, selected, onSelect, onEdit, onDele
   const [starred, setStarred] = useState(company.starred);
   const [flagged, setFlagged] = useState(company.flagged);
   const showActions = Boolean(onEdit || onDelete);
+  const avatarSrc = company.avatar_url
+    ? company.avatar_url.startsWith("/") ? `${process.env.NEXT_PUBLIC_API_URL ?? ""}${company.avatar_url}` : company.avatar_url
+    : null;
 
   return (
     <div className={`${styles.row} ${selected ? styles.rowSelected : ''}`} onClick={onClick}>
@@ -52,7 +55,15 @@ export default function CompanyRow({ company, selected, onSelect, onEdit, onDele
       </div>
 
       <div className={styles.avatarWrap}>
-        <div className={`${styles.avatar} ${company.avatarColor}`}>{company.initial}</div>
+        {avatarSrc ? (
+          <img
+            src={avatarSrc}
+            alt={company.name}
+            className={`${styles.avatar} object-cover`}
+          />
+        ) : (
+          <div className={`${styles.avatar} ${company.avatarColor}`}>{company.initial}</div>
+        )}
       </div>
 
       <div className={styles.nameWrap}>

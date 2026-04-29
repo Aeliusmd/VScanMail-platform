@@ -38,6 +38,11 @@ interface CompanyOption {
   clientCode: string;
 }
 
+type ContactSettings = {
+  contactName: string;
+  contactPhone: string;
+  contactEmail: string;
+};
 
 const emptyManualForm = { clientId: '', companyName: '', amount: 299, paymentDate: new Date().toISOString().split('T')[0], startDate: new Date().toISOString().split('T')[0], durationMonths: 3, notes: '', paymentMethod: 'bank_transfer' };
 
@@ -46,6 +51,14 @@ export default function BillingTab() {
   const [manualPlans, setManualPlans] = useState<ManualPlan[]>([]);
   const [eligibleCompanies, setEligibleCompanies] = useState<CompanyOption[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [contactSettings, setContactSettings] = useState<ContactSettings>({
+    contactName: "",
+    contactPhone: "",
+    contactEmail: "",
+  });
+  const [contactSaving, setContactSaving] = useState(false);
+  const [contactSaveSuccess, setContactSaveSuccess] = useState(false);
   
   const [editPlan, setEditPlan] = useState<SubscriptionPlan | null>(null);
   const [editPlanForm, setEditPlanForm] = useState<Partial<SubscriptionPlan>>({});
@@ -68,18 +81,36 @@ export default function BillingTab() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [plansData, manualData, companiesData] = await Promise.all([
+      const [plansData, manualData, companiesData, contactData] = await Promise.all([
         apiClient<SubscriptionPlan[]>("/api/billing/plans"),
         apiClient<ManualPlan[]>("/api/billing/manual-payments"),
-        apiClient<CompanyOption[]>("/api/billing/eligible-companies")
+        apiClient<CompanyOption[]>("/api/billing/eligible-companies"),
+        apiClient<ContactSettings>("/api/billing/contact-settings"),
       ]);
       setPlans(plansData);
       setManualPlans(manualData);
       setEligibleCompanies(companiesData);
+      setContactSettings(contactData);
     } catch (error) {
       console.error("Failed to fetch billing data", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const saveContactSettings = async () => {
+    try {
+      setContactSaving(true);
+      await apiClient<ContactSettings>("/api/billing/contact-settings", {
+        method: "PUT",
+        body: JSON.stringify(contactSettings),
+      });
+      setContactSaveSuccess(true);
+      window.setTimeout(() => setContactSaveSuccess(false), 1200);
+    } catch (error) {
+      console.error("Failed to save contact settings", error);
+    } finally {
+      setContactSaving(false);
     }
   };
 
@@ -352,6 +383,77 @@ export default function BillingTab() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* ── Plan Switch Contact Details ── */}
+      <div className="space-y-4">
+        <div className="flex items-center space-x-2 pb-1">
+          <div className="w-6 h-6 bg-amber-100 rounded-md flex items-center justify-center">
+            <i className="ri-customer-service-2-line text-amber-700 text-xs"></i>
+          </div>
+          <h3 className="text-sm font-bold text-slate-800">Plan Switch Contact Details</h3>
+          <span className="text-xs text-slate-400">Shown to subscription customers</span>
+        </div>
+
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
+                Contact Name
+              </label>
+              <input
+                type="text"
+                value={contactSettings.contactName}
+                onChange={(e) => setContactSettings((p) => ({ ...p, contactName: e.target.value }))}
+                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] transition-colors"
+                placeholder="e.g., Billing Support"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
+                Phone
+              </label>
+              <input
+                type="text"
+                value={contactSettings.contactPhone}
+                onChange={(e) => setContactSettings((p) => ({ ...p, contactPhone: e.target.value }))}
+                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] transition-colors"
+                placeholder="e.g., +1 (555) 000-0000"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
+                Email
+              </label>
+              <input
+                type="email"
+                value={contactSettings.contactEmail}
+                onChange={(e) => setContactSettings((p) => ({ ...p, contactEmail: e.target.value }))}
+                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] transition-colors"
+                placeholder="e.g., billing@vscanmail.com"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={saveContactSettings}
+              disabled={contactSaving}
+              className="px-4 py-2.5 bg-[#0A3D8F] text-white text-xs font-bold rounded-xl hover:bg-[#083170] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-[#0A3D8F]/20 active:scale-[0.98]"
+            >
+              {contactSaveSuccess ? (
+                <>
+                  <i className="ri-check-line mr-1"></i>Saved!
+                </>
+              ) : contactSaving ? (
+                "Saving..."
+              ) : (
+                "Save Contact Details"
+              )}
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* ── Manual Plans ── */}
