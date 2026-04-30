@@ -14,6 +14,7 @@ type DepositRequest = {
   id: string; // UI id like DEP-xxxxxx
   chequeId: string; // real cheque id used for API actions
   mailItemId: string;
+  slipUrl?: string | null;
   company: string;
   companyEmail: string;
   bankName: string;
@@ -99,6 +100,7 @@ function mapDepositToRequest(d: DepositDto): DepositRequest {
     id: `DEP-${d.chequeId.slice(-6)}`,
     chequeId: d.chequeId,
     mailItemId: d.mailItemId,
+    slipUrl: d.slipUrl ?? null,
     company: d.clientName || 'Client',
     companyEmail: d.clientEmail || '—',
     bankName,
@@ -1177,7 +1179,16 @@ function DepositsPageContent() {
 
                   <button
                     type="button"
-                    className="flex-1 min-w-[120px] py-3 bg-white border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-colors text-sm whitespace-nowrap cursor-pointer"
+                    onClick={() => {
+                      const url = selectedRequest?.slipUrl;
+                      if (!url) return;
+                      const resolved = url.startsWith('/')
+                        ? `${process.env.NEXT_PUBLIC_API_URL ?? ''}${url}`
+                        : url;
+                      window.open(resolved, '_blank', 'noreferrer');
+                    }}
+                    disabled={!selectedRequest?.slipUrl}
+                    className="flex-1 min-w-[120px] py-3 bg-white border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-colors text-sm whitespace-nowrap cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <Icon icon="ri:download-line" className="inline mr-2" />
                     Download
@@ -1326,6 +1337,11 @@ function DepositsPageContent() {
                         const res = await depositsApi.adminUploadSlip(selectedRequest.chequeId, slipFile);
                         setSlipResult(res.aiResult);
                         setSlipUploaded(true);
+                        const slipUrl = res.slipUrl;
+                        setSelectedRequest((prev) => (prev ? { ...prev, slipUrl } : null));
+                        setRequests((prev) =>
+                          prev.map((r) => (r.id === selectedRequest.id ? { ...r, slipUrl } : r))
+                        );
                       } catch (e: any) {
                         setSlipUploadError(e?.message || 'Failed to upload/analyze slip');
                       } finally {

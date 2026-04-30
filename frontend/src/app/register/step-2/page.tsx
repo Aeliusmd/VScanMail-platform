@@ -25,6 +25,19 @@ export default function RegisterStep2() {
     }
   }, [router]);
 
+  useEffect(() => {
+    const raw = localStorage.getItem("registerStep2");
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") {
+        setFormData(parsed);
+      }
+    } catch {
+      // ignore invalid storage payload
+    }
+  }, []);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };

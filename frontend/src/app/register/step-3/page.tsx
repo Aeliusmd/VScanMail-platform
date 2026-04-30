@@ -33,10 +33,13 @@ export default function RegisterStep3() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   useEffect(() => {
     const step1Data = localStorage.getItem("registerStep1");
     if (!step1Data) router.push("/register");
+    const step2Data = localStorage.getItem("registerStep2");
+    if (!step2Data) router.push("/register/step-2");
   }, [router]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -44,6 +47,7 @@ export default function RegisterStep3() {
     setFormData({ ...formData, [name]: type === "checkbox" ? checked : value });
     setErrors({ ...errors, [name]: undefined });
     setServerError(null);
+    setSuccessMsg(null);
   };
 
   const validate = () => {
@@ -118,7 +122,10 @@ export default function RegisterStep3() {
       localStorage.removeItem("registerStep2");
       localStorage.removeItem("selectedPlanId");
 
-      router.push(`/verify-email?email=${encodeURIComponent(step1.companyEmail)}`);
+      setSuccessMsg(`We sent a 6-digit verification code to ${step1.companyEmail}.`);
+      setTimeout(() => {
+        router.push(`/verify-email?email=${encodeURIComponent(step1.companyEmail)}`);
+      }, 900);
     } catch (err: any) {
       setServerError(err.message);
     } finally {
@@ -170,9 +177,21 @@ export default function RegisterStep3() {
           </div>
 
           {serverError && (
-            <div className={styles.serverError}>
+            <div className={`${styles.serverError} ${styles.statusAnimated}`}>
               <HiInformationCircle className={styles.errorIcon} />
               <span>{serverError}</span>
+            </div>
+          )}
+
+          {successMsg && (
+            <div className={`${styles.successBanner} ${styles.statusAnimated}`}>
+              <div className={styles.successIconWrap}>
+                <HiCheck />
+              </div>
+              <div>
+                <p className={styles.successTitle}>Registration complete</p>
+                <p className={styles.successText}>{successMsg}</p>
+              </div>
             </div>
           )}
 

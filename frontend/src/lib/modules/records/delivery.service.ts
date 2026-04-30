@@ -5,6 +5,7 @@ import { ensureClientTableDeliveryColumns, getClientTableName } from "@/lib/modu
 import { db, sql } from "@/lib/modules/core/db/mysql";
 import { clients, profiles, users } from "@/lib/modules/core/db/schema";
 import { deliveryAddressModel } from "@/lib/modules/delivery/address.model";
+import { isUspsMailingAddress } from "@/lib/modules/delivery/address.schema";
 import { notificationService } from "@/lib/modules/notifications/notification.service";
 import { deliveryModel, type DeliveryStatus } from "./delivery.model";
 
@@ -118,6 +119,18 @@ export const deliveryService = {
 
     const address = await deliveryAddressModel.findByIdAndClient(params.addressId, params.clientId);
     if (!address) throw new Error("Delivery address not found");
+
+    if (
+      !isUspsMailingAddress({
+        country: address.country,
+        state: address.state,
+        zip: address.zip,
+      })
+    ) {
+      throw new Error(
+        "Selected delivery address is not USPS-compatible for vSendDocs. Use a US address with a 2-letter state code and 5-digit or ZIP+4 ZIP. Update it under Account → Delivery addresses."
+      );
+    }
 
     const tableName = String(recordRow._table_name || (await getClientTableName(params.clientId)));
     await ensureClientTableDeliveryColumns(tableName);

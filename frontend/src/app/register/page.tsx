@@ -24,6 +24,19 @@ export default function RegisterStep1() {
   });
 
   useEffect(() => {
+    const raw = localStorage.getItem("registerStep1");
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") {
+        setFormData(parsed);
+      }
+    } catch {
+      // ignore invalid storage payload
+    }
+  }, []);
+
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const plan = params.get("plan");
     if (plan) {

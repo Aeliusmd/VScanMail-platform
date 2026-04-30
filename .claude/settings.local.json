@@ -4,7 +4,8 @@
       "Bash(where.exe claude *)",
       "Bash(npx claude *)",
       "Bash(cmd.exe *)",
-      "Bash(npx *)"
+      "Bash(npx *)",
+      "Bash(xargs grep *)"
     ]
   }
 }

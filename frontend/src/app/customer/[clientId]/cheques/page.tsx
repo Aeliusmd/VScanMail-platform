@@ -9,6 +9,7 @@ import { bankAccountsApi, type BankAccountListItem } from "@/lib/api/bankAccount
 import { deliveryAddressesApi, type DeliveryAddress } from "@/lib/api/delivery-addresses";
 import { depositsApi } from "@/lib/api/deposits";
 import { deliveriesApi } from "@/lib/api/deliveries";
+import { isUspsMailingAddress } from "@/lib/usps-delivery-address";
 
 type ChequeStatus = "Pending" | "Deposit Requested" | "Pickup Requested" | "Deposited" | "Picked Up";
 
@@ -238,6 +239,18 @@ export default function CustomerChequesPage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [zoomUrl]);
 
+  const uspsAddresses = useMemo(
+    () => deliveryAddresses.filter((a) => isUspsMailingAddress(a)),
+    [deliveryAddresses]
+  );
+
+  useEffect(() => {
+    if (uspsAddresses.length === 0) return;
+    if (!selectedDeliveryAddress || !uspsAddresses.some((a) => a.id === selectedDeliveryAddress)) {
+      setSelectedDeliveryAddress(uspsAddresses[0].id);
+    }
+  }, [deliveryAddresses, uspsAddresses, selectedDeliveryAddress]);
+
   const filtered = useMemo(
     () =>
       cheques.filter((c) => {
@@ -332,8 +345,9 @@ export default function CustomerChequesPage() {
     setModalType(type);
     setDepositError(null);
     if (type === "deposit" && !selectedBank && bankAccounts[0]?.id) setSelectedBank(bankAccounts[0].id);
-    if (type === "pickup" && !selectedDeliveryAddress && deliveryAddresses[0]?.id) {
-      setSelectedDeliveryAddress(deliveryAddresses[0].id);
+    if (type === "pickup") {
+      const firstUsps = uspsAddresses[0]?.id;
+      if (firstUsps) setSelectedDeliveryAddress(firstUsps);
     }
   };
 
@@ -373,6 +387,13 @@ export default function CustomerChequesPage() {
     if (!modalCheque) return;
     if (!selectedDeliveryAddress) {
       setDepositError("Please select a delivery address.");
+      return;
+    }
+    const addr = deliveryAddresses.find((a) => a.id === selectedDeliveryAddress);
+    if (!addr || !isUspsMailingAddress(addr)) {
+      setDepositError(
+        "Choose a USPS-compatible US address (2-letter state, ZIP 12345 or ZIP+4). Update your addresses under Account → Delivery addresses."
+      );
       return;
     }
 
@@ -1248,15 +1269,29 @@ export default function CustomerChequesPage() {
                       Add New Address
                     </Link>
                   </div>
+                ) : uspsAddresses.length === 0 ? (
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-2 text-sm text-amber-900">
+                    <p>
+                      None of your saved addresses meet USPS rules for physical mail (country US, 2-letter state, ZIP
+                      12345 or ZIP+4). Edit or add an address to continue.
+                    </p>
+                    <Link
+                      href={deliveryAddressHref}
+                      className="inline-flex items-center gap-1.5 font-semibold text-[#0A3D8F] hover:underline"
+                    >
+                      Open delivery addresses
+                      <i className="ri-arrow-right-line"></i>
+                    </Link>
+                  </div>
                 ) : (
                   <select
                     value={selectedDeliveryAddress}
                     onChange={(e) => setSelectedDeliveryAddress(e.target.value)}
                     className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/30"
                   >
-                    {deliveryAddresses.map((addr) => (
+                    {uspsAddresses.map((addr) => (
                       <option key={addr.id} value={addr.id}>
-                        {addr.label} - {addr.recipientName}, {addr.city}
+                        {addr.label} - {addr.recipientName}, {addr.city}, {addr.state} {addr.zip}
                       </option>
                     ))}
                   </select>
@@ -1301,7 +1336,7 @@ export default function CustomerChequesPage() {
                 </button>
                 <button
                   onClick={handlePickup}
-                  disabled={pickupSubmitting || deliveryAddresses.length === 0 || !selectedDeliveryAddress}
+                  disabled={pickupSubmitting || uspsAddresses.length === 0 || !selectedDeliveryAddress}
                   className="flex-1 py-3 bg-[#0A3D8F] text-white rounded-lg text-sm font-semibold hover:bg-[#083170] cursor-pointer whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {pickupSubmitting ? "Submitting..." : "Submit Pickup Request"}

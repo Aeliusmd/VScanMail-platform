@@ -10,7 +10,9 @@ export type SmtpConfig = {
 };
 
 function requiredEnv(name: string): string {
-  const value = process.env[name];
+  const raw = process.env[name];
+  if (raw === undefined) throw new Error(`Missing required env var: ${name}`);
+  const value = raw.trim();
   if (!value) throw new Error(`Missing required env var: ${name}`);
   return value;
 }

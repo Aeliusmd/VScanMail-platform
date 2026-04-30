@@ -6,28 +6,33 @@ import { stripeService } from "@/lib/modules/billing/stripe.service";
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
+  const signature = req.headers.get("stripe-signature");
+
+  if (!signature) {
+    return NextResponse.json({ error: "Missing signature" }, { status: 400 });
+  }
+
+  const rawBody = Buffer.from(await req.arrayBuffer());
+
+  let event;
   try {
-    const body = await req.text();
-    const signature = req.headers.get("stripe-signature");
+    event = stripe.webhooks.constructEvent(rawBody, signature, process.env.STRIPE_WEBHOOK_SECRET!);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Invalid Stripe webhook signature";
+    console.error("Stripe webhook signature error:", message);
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
 
-    if (!signature) {
-      return NextResponse.json({ error: "Missing signature" }, { status: 400 });
-    }
-
-    const event = stripe.webhooks.constructEvent(
-      body,
-      signature,
-      process.env.STRIPE_WEBHOOK_SECRET!
-    );
-
+  try {
     await stripeService.handleWebhookEvent(event);
 
     return NextResponse.json({ received: true });
-  } catch (error: any) {
-    console.error("Stripe webhook error:", error.message);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Stripe webhook handler failed";
+    console.error("Stripe webhook handler error:", message);
     return NextResponse.json(
-      { error: error.message },
-      { status: 400 }
+      { error: message },
+      { status: 500 }
     );
   }
 }

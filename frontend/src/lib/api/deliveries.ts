@@ -108,4 +108,48 @@ export const deliveriesApi = {
       body: JSON.stringify({ proofOfServiceUrl }),
     });
   },
+
+  adminVSendDocsSubmit: (
+    id: string,
+    body: {
+      fileContent: string;
+      fileName: string;
+      postType?: string;
+      expressDelivery?: boolean;
+      duplexPrint?: boolean;
+      addressName?: string;
+      addressLine1?: string;
+      addressLine2?: string;
+      addressCity?: string;
+      addressState?: string;
+      addressZip?: string;
+    }
+  ) =>
+    apiClient<{ submissionId: string; submissionNumber: string; status: string }>(
+      `/api/admin/deliveries/${id}/vsendocs/submit`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          fileContent: body.fileContent,
+          fileName: body.fileName,
+          postType: body.postType,
+          expressDelivery: body.expressDelivery,
+          duplexPrint: body.duplexPrint,
+          addressName: body.addressName,
+          addressLine1Override: body.addressLine1,
+          addressLine2Override: body.addressLine2,
+          addressCityOverride: body.addressCity,
+          addressStateOverride: body.addressState,
+          addressZipOverride: body.addressZip,
+        }),
+      }
+    ),
+
+  adminVSendDocsStatus: (id: string) =>
+    apiClient<{ status: string; deliveryStatus: string; logs: any[] }>(
+      `/api/admin/deliveries/${id}/vsendocs/status`,
+      { method: "GET" }
+    ),
+
+  adminVSendDocsPosUrl: (id: string) => `/api/admin/deliveries/${id}/vsendocs/pos`,
 };

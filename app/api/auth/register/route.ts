@@ -21,6 +21,16 @@ export async function POST(req: NextRequest) {
     const causeMsg = error?.cause?.message || "";
     const causeCode = error?.cause?.code || error?.code || "";
 
+    if (causeCode === "ER_BAD_FIELD_ERROR") {
+      return NextResponse.json(
+        {
+          error:
+            "Registration failed due to a database schema mismatch. Please run database migrations and try again.",
+        },
+        { status: 500 }
+      );
+    }
+
     if (
       errorMsg.includes("ER_DUP_ENTRY") || 
       errorMsg.includes("users_email_uq") ||

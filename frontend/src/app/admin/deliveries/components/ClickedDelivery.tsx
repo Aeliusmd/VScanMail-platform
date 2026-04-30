@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { deliveriesApi, type DeliveryDto } from "@/lib/api/deliveries";
+import { ApiError } from "@/lib/api-client";
 
 interface ClickedDeliveryProps {
   request: DeliveryDto;
@@ -80,6 +81,20 @@ function Input({
   );
 }
 
+function flattenVsendocsSuggestions(suggestions: unknown): any[] {
+  if (!Array.isArray(suggestions)) return [];
+  const out: any[] = [];
+  for (const item of suggestions) {
+    if (!item) continue;
+    if (Array.isArray((item as any).suggestions)) {
+      out.push(...(item as any).suggestions);
+    } else if ((item as any).addressLine1 || (item as any).city || (item as any).zipCode) {
+      out.push(item);
+    }
+  }
+  return out;
+}
+
 export default function ClickedDelivery({ request, onClose, onUpdated, readOnly }: ClickedDeliveryProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,6 +103,29 @@ export default function ClickedDelivery({ request, onClose, onUpdated, readOnly 
   const [submissionId, setSubmissionId] = useState(request.vSendDocsSubmissionId || "");
   const [submissionNumber, setSubmissionNumber] = useState(request.vSendDocsSubmissionNumber || "");
   const [proofOfServiceUrl, setProofOfServiceUrl] = useState(request.proofOfServiceUrl || "");
+
+  const [vsendocsFile, setVsendocsFile] = useState<File | null>(null);
+  const [vsendocsPostType, setVsendocsPostType] = useState<
+    "Standard" | "Do not include POS" | "EAMS POS" | "Detailed POS"
+  >("Standard");
+  const [vsendocsExpress, setVsendocsExpress] = useState(false);
+  const [vsendocsDuplex, setVsendocsDuplex] = useState(false);
+  const [vsendocsLoading, setVsendocsLoading] = useState(false);
+  const [vsendocsMsg, setVsendocsMsg] = useState<string | null>(null);
+  const [vsendocsErr, setVsendocsErr] = useState<any>(null);
+  const [vsendocsStatus, setVsendocsStatus] = useState<{
+    status: string;
+    deliveryStatus: string;
+    logs: any[];
+  } | null>(null);
+
+  const [showSubmissionAddress, setShowSubmissionAddress] = useState(false);
+  const [overrideName, setOverrideName] = useState(request.addressName || "");
+  const [overrideLine1, setOverrideLine1] = useState(request.addressLine1 || "");
+  const [overrideLine2, setOverrideLine2] = useState(request.addressLine2 || "");
+  const [overrideCity, setOverrideCity] = useState(request.addressCity || "");
+  const [overrideState, setOverrideState] = useState(request.addressState || "");
+  const [overrideZip, setOverrideZip] = useState(request.addressZip || "");
 
   const run = async (fn: () => Promise<void>) => {
     try {
@@ -100,6 +138,72 @@ export default function ClickedDelivery({ request, onClose, onUpdated, readOnly 
       setError(err?.message || "Action failed.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const readFileAsBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("Failed to read file"));
+      reader.onload = () => {
+        const result = String(reader.result || "");
+        const idx = result.indexOf("base64,");
+        resolve(idx >= 0 ? result.slice(idx + "base64,".length) : result);
+      };
+      reader.readAsDataURL(file);
+    });
+
+  const submitToVSendDocs = async () => {
+    setVsendocsMsg(null);
+    setVsendocsErr(null);
+    setVsendocsStatus(null);
+    if (!vsendocsFile) return;
+
+    setVsendocsLoading(true);
+    try {
+      const fileContent = await readFileAsBase64(vsendocsFile);
+      const res = await deliveriesApi.adminVSendDocsSubmit(request.id, {
+        fileContent,
+        fileName: vsendocsFile.name || "document.pdf",
+        postType: vsendocsPostType,
+        expressDelivery: vsendocsExpress,
+        duplexPrint: vsendocsDuplex,
+        addressName: overrideName,
+        addressLine1: overrideLine1,
+        addressLine2: overrideLine2 || undefined,
+        addressCity: overrideCity,
+        addressState: overrideState,
+        addressZip: overrideZip,
+      });
+
+      setSubmissionId(res.submissionId);
+      setSubmissionNumber(res.submissionNumber);
+      setVsendocsMsg(`Submitted to vSendDocs — Submission #${res.submissionNumber}`);
+      await onUpdated();
+    } catch (err: any) {
+      const message = err?.message || "Failed to submit to vSendDocs.";
+      setVsendocsMsg(null);
+      const details = err instanceof ApiError ? err.details : err?.payload ?? err;
+      setVsendocsErr(details);
+      setError(message);
+    } finally {
+      setVsendocsLoading(false);
+    }
+  };
+
+  const checkVSendDocsStatus = async () => {
+    setVsendocsMsg(null);
+    setVsendocsErr(null);
+    setVsendocsLoading(true);
+    try {
+      const res = await deliveriesApi.adminVSendDocsStatus(request.id);
+      setVsendocsStatus(res);
+    } catch (err: any) {
+      const details = err instanceof ApiError ? err.details : err?.payload ?? err;
+      setVsendocsErr(details);
+      setError(err?.message || "Failed to check vSendDocs status.");
+    } finally {
+      setVsendocsLoading(false);
     }
   };
 
@@ -175,6 +279,185 @@ export default function ClickedDelivery({ request, onClose, onUpdated, readOnly 
               <Input label="vSendDocs Submission Number" value={submissionNumber} onChange={setSubmissionNumber} placeholder="Optional" />
               <Input label="Tracking Number" value={trackingNumber} onChange={setTrackingNumber} placeholder="Required for In Transit" />
               <Input label="Proof of Service URL" value={proofOfServiceUrl} onChange={setProofOfServiceUrl} placeholder="Required for Delivered" />
+            </div>
+
+            <div className="mt-4 border-t border-slate-100 pt-4">
+              <div className="text-sm font-semibold text-slate-900">Submit to vSendDocs</div>
+              <div className="mt-0.5 text-xs text-slate-500">
+                Attach a PDF or image and submit for mailing via vSendDocs. Submission ID/Number will be saved to this delivery record.
+              </div>
+
+              <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50/80 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowSubmissionAddress((v) => !v)}
+                  className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-100/80 transition"
+                >
+                  <span>Delivery address for submission</span>
+                  <i className={`ri-arrow-${showSubmissionAddress ? "up" : "down"}-s-line text-slate-500`} />
+                </button>
+                {showSubmissionAddress ? (
+                  <div className="border-t border-slate-200 bg-white px-3 py-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Input
+                      className="sm:col-span-2"
+                      label="Recipient name"
+                      value={overrideName}
+                      onChange={setOverrideName}
+                      placeholder="Name on envelope"
+                    />
+                    <Input
+                      className="sm:col-span-2"
+                      label="Address line 1"
+                      value={overrideLine1}
+                      onChange={setOverrideLine1}
+                      placeholder="Street address"
+                    />
+                    <Input
+                      className="sm:col-span-2"
+                      label="Address line 2 (optional)"
+                      value={overrideLine2}
+                      onChange={setOverrideLine2}
+                      placeholder="Apt, suite, etc."
+                    />
+                    <Input label="City" value={overrideCity} onChange={setOverrideCity} placeholder="City" />
+                    <Input label="State (2 letters)" value={overrideState} onChange={setOverrideState} placeholder="CA" />
+                    <Input
+                      className="sm:col-span-2"
+                      label="ZIP"
+                      value={overrideZip}
+                      onChange={setOverrideZip}
+                      placeholder="12345 or 12345-6789"
+                    />
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="block sm:col-span-2">
+                  <div className="mb-1 text-[11px] font-medium text-slate-500">Attach document (PDF or image)</div>
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(e) => setVsendocsFile(e.target.files?.[0] ?? null)}
+                    className="block w-full text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-slate-700 hover:file:bg-slate-200"
+                  />
+                </label>
+
+                <label className="block">
+                  <div className="mb-1 text-[11px] font-medium text-slate-500">Post type</div>
+                  <select
+                    value={vsendocsPostType}
+                    onChange={(e) => setVsendocsPostType(e.target.value as any)}
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-[#0A3D8F] focus:ring-2 focus:ring-[#0A3D8F]/15"
+                  >
+                    <option value="Standard">Standard</option>
+                    <option value="Do not include POS">Do not include POS</option>
+                    <option value="EAMS POS">EAMS POS</option>
+                    <option value="Detailed POS">Detailed POS</option>
+                  </select>
+                </label>
+
+                <div className="flex flex-col gap-2">
+                  <label className="flex items-center gap-2 text-sm text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={vsendocsExpress}
+                      onChange={(e) => setVsendocsExpress(e.target.checked)}
+                      className="h-4 w-4 rounded border-slate-300"
+                    />
+                    Express delivery
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={vsendocsDuplex}
+                      onChange={(e) => setVsendocsDuplex(e.target.checked)}
+                      className="h-4 w-4 rounded border-slate-300"
+                    />
+                    Duplex print
+                  </label>
+                </div>
+              </div>
+
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <button
+                  type="button"
+                  disabled={!vsendocsFile || vsendocsLoading}
+                  onClick={() => void submitToVSendDocs()}
+                  className="inline-flex items-center justify-center rounded-lg bg-[#0A3D8F] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50 hover:bg-[#083170] transition"
+                >
+                  {vsendocsLoading ? "Submitting..." : "Submit to vSendDocs"}
+                </button>
+
+                {submissionId ? (
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <button
+                      type="button"
+                      disabled={vsendocsLoading}
+                      onClick={() => void checkVSendDocsStatus()}
+                      className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition"
+                    >
+                      Check Status
+                    </button>
+                    <a
+                      href={deliveriesApi.adminVSendDocsPosUrl(request.id)}
+                      target="_blank"
+                      className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
+                      rel="noreferrer"
+                    >
+                      Download POS PDF
+                    </a>
+                  </div>
+                ) : null}
+              </div>
+
+              {vsendocsMsg && (
+                <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+                  {vsendocsMsg}
+                </div>
+              )}
+
+              {vsendocsStatus ? (
+                <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                  <div>
+                    <span className="font-semibold">Status:</span> {vsendocsStatus.status}{" "}
+                    <span className="text-slate-400">/</span>{" "}
+                    <span className="font-semibold">Delivery:</span> {vsendocsStatus.deliveryStatus}
+                  </div>
+                </div>
+              ) : null}
+
+              {vsendocsErr && (
+                <div className="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                  <div className="font-semibold">vSendDocs error details</div>
+                  {typeof vsendocsErr?.error === "string" && vsendocsErr.error ? (
+                    <p className="mt-1 text-rose-800">{vsendocsErr.error}</p>
+                  ) : null}
+                  {flattenVsendocsSuggestions(vsendocsErr?.suggestions).map((s: any, i: number) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => {
+                        if (s.addressLine1) setOverrideLine1(s.addressLine1);
+                        if (s.city) setOverrideCity(s.city);
+                        if (s.state) setOverrideState(s.state);
+                        if (s.zipCode) setOverrideZip(s.zipCode);
+                        setVsendocsErr(null);
+                        setError(null);
+                      }}
+                      className="mt-1 w-full text-left rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 hover:bg-amber-100 transition"
+                    >
+                      <span className="font-semibold">Use suggested:</span>{" "}
+                      {[s.addressLine1, s.city, s.state, s.zipCode].filter(Boolean).join(", ")}
+                    </button>
+                  ))}
+                  {vsendocsErr?.errors != null ? (
+                    <pre className="mt-1 whitespace-pre-wrap break-words">{JSON.stringify(vsendocsErr.errors, null, 2)}</pre>
+                  ) : flattenVsendocsSuggestions(vsendocsErr?.suggestions).length === 0 ? (
+                    <pre className="mt-1 whitespace-pre-wrap break-words">{JSON.stringify(vsendocsErr, null, 2)}</pre>
+                  ) : null}
+                </div>
+              )}
             </div>
           </div>
 

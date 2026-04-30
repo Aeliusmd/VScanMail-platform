@@ -64,6 +64,13 @@
       "when": 1777359614519,
       "tag": "0008_0009_clients_avatar_url",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1777359800000,
+      "tag": "0010_profiles_two_fa_secret",
+      "breakpoints": true
     }
   ]
 }

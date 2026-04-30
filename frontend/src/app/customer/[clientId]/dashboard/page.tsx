@@ -9,8 +9,12 @@ import { useOrgContext } from "../../components/OrgContext";
 
 type CustomerDashboardResponse = {
   totalMails: number;
+  unreadMails: number;
   totalCheques: number;
   pendingRequests: number;
+  pendingCheques: number;
+  totalDeposited: number;
+  bankAccounts: number;
   recentActivity: Array<{
     id: string;
     clientId: string;
@@ -36,6 +40,11 @@ function timeAgoFromIso(iso: string | null | undefined) {
   if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
   const days = Math.floor(hours / 24);
   return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
+function formatUsd(amount: number) {
+  const n = Number(amount || 0);
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 }
 
 export default function CustomerDashboard() {
@@ -148,11 +157,17 @@ export default function CustomerDashboard() {
                 <div className="w-11 h-11 rounded-lg bg-blue-50 flex items-center justify-center">
                   <i className="ri-mail-line text-xl text-[#0A3D8F]" />
                 </div>
-                <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded-full">+12%</span>
+                {dashboard ? (
+                  <span className="text-xs font-medium text-[#0A3D8F] bg-blue-50 px-2 py-0.5 rounded-full">
+                    {dashboard.unreadMails} unread
+                  </span>
+                ) : (
+                  <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">—</span>
+                )}
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-1">{dashboard?.totalMails ?? "—"}</h3>
               <p className="text-sm text-gray-500">Total Mails</p>
-              <p className="text-xs text-[#0A3D8F] mt-1 font-medium">3 unread</p>
+              {dashboard && <p className="text-xs text-[#0A3D8F] mt-1 font-medium">{dashboard.unreadMails} unread</p>}
             </div>
 
             <div className="bg-white rounded-xl p-6 border border-gray-200">
@@ -166,7 +181,11 @@ export default function CustomerDashboard() {
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-1">{dashboard?.totalCheques ?? "—"}</h3>
               <p className="text-sm text-gray-500">Cheques Received</p>
-              <p className="text-xs text-amber-600 mt-1 font-medium">Action required</p>
+              {dashboard && dashboard.pendingCheques > 0 ? (
+                <p className="text-xs text-amber-600 mt-1 font-medium">{dashboard.pendingCheques} need action</p>
+              ) : (
+                <p className="text-xs text-gray-400 mt-1">No pending cheque actions</p>
+              )}
             </div>
 
             <div className="bg-white rounded-xl p-6 border border-gray-200">
@@ -175,7 +194,9 @@ export default function CustomerDashboard() {
                   <i className="ri-exchange-dollar-line text-xl text-teal-600" />
                 </div>
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-1">$19,300</h3>
+              <h3 className="text-2xl font-bold text-gray-900 mb-1">
+                {dashboard ? formatUsd(dashboard.totalDeposited) : "—"}
+              </h3>
               <p className="text-sm text-gray-500">Total Deposited</p>
               <p className="text-xs text-gray-400 mt-1">This month</p>
             </div>
@@ -185,11 +206,16 @@ export default function CustomerDashboard() {
                 <div className="w-11 h-11 rounded-lg bg-indigo-50 flex items-center justify-center">
                   <i className="ri-bank-line text-xl text-indigo-600" />
                 </div>
-                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">2 active</span>
+                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                  {dashboard ? `${dashboard.bankAccounts} active` : "—"}
+                </span>
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-1">2</h3>
+              <h3 className="text-2xl font-bold text-gray-900 mb-1">{dashboard?.bankAccounts ?? "—"}</h3>
               <p className="text-sm text-gray-500">Bank Accounts</p>
-              <Link href={`${baseHref}/account`} className="text-xs text-[#0A3D8F] mt-1 font-medium hover:underline">
+              <Link
+                href={`${baseHref}/account?tab=bank-accounts`}
+                className="text-xs text-[#0A3D8F] mt-1 font-medium hover:underline"
+              >
                 Manage
               </Link>
             </div>
@@ -209,40 +235,56 @@ export default function CustomerDashboard() {
                 </Link>
               </div>
               <div className="divide-y divide-gray-100">
-                {recentMails.map((mail) => (
-                  <Link
-                    href={`${baseHref}/mails`}
-                    key={mail.id}
-                    className="flex gap-4 p-4 hover:bg-gray-50 cursor-pointer block"
-                  >
-                    <div className="w-16 h-12 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                      {mail.thumbnail ? (
-                        <img src={mail.thumbnail} alt={mail.subject} className="w-full h-full object-cover object-top" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">Mail</div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          {mail.status === "unread" && <span className="w-1.5 h-1.5 bg-[#0A3D8F] rounded-full flex-shrink-0" />}
-                          <h3
-                            className={`text-sm truncate ${
-                              mail.status === "unread" ? "font-bold text-gray-900" : "font-medium text-gray-700"
-                            }`}
-                          >
-                            {mail.subject}
-                          </h3>
-                        </div>
-                        <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">{mail.date}</span>
+                {recentMails.length === 0 ? (
+                  <div className="p-6 text-sm text-gray-500">
+                    No mail received yet.{" "}
+                    <Link href={`${baseHref}/mails`} className="text-[#0A3D8F] hover:underline font-medium">
+                      Go to mails
+                    </Link>
+                    .
+                  </div>
+                ) : (
+                  recentMails.map((mail) => (
+                    <Link
+                      href={`${baseHref}/mails`}
+                      key={mail.id}
+                      className="flex gap-4 p-4 hover:bg-gray-50 cursor-pointer block"
+                    >
+                      <div className="w-16 h-12 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                        {mail.thumbnail ? (
+                          <img
+                            src={mail.thumbnail}
+                            alt={mail.subject}
+                            className="w-full h-full object-cover object-top"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">Mail</div>
+                        )}
                       </div>
-                      <p className="text-xs text-gray-500 mt-0.5">{mail.sender}</p>
-                      <span className="inline-block mt-1.5 text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                        {mail.category}
-                      </span>
-                    </div>
-                  </Link>
-                ))}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            {mail.status === "unread" && (
+                              <span className="w-1.5 h-1.5 bg-[#0A3D8F] rounded-full flex-shrink-0" />
+                            )}
+                            <h3
+                              className={`text-sm truncate ${
+                                mail.status === "unread" ? "font-bold text-gray-900" : "font-medium text-gray-700"
+                              }`}
+                            >
+                              {mail.subject}
+                            </h3>
+                          </div>
+                          <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">{mail.date}</span>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-0.5">{mail.sender}</p>
+                        <span className="inline-block mt-1.5 text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                          {mail.category}
+                        </span>
+                      </div>
+                    </Link>
+                  ))
+                )}
               </div>
             </div>
 
@@ -258,38 +300,48 @@ export default function CustomerDashboard() {
                 </Link>
               </div>
               <div className="divide-y divide-gray-100">
-                {pendingCheques.map((cheque) => (
-                  <div key={cheque.id} className="p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <span className="text-xs font-mono text-gray-500">{cheque.id}</span>
-                          <span className="text-xs bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full font-medium">
-                            Action Required
-                          </span>
+                {pendingCheques.length === 0 ? (
+                  <div className="p-6 text-sm text-gray-500">
+                    No pending cheque actions.{" "}
+                    <Link href={`${baseHref}/cheques`} className="text-[#0A3D8F] hover:underline font-medium">
+                      Go to cheques
+                    </Link>
+                    .
+                  </div>
+                ) : (
+                  pendingCheques.map((cheque) => (
+                    <div key={cheque.id} className="p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="text-xs font-mono text-gray-500">{cheque.id}</span>
+                            <span className="text-xs bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full font-medium">
+                              Action Required
+                            </span>
+                          </div>
+                          <p className="text-lg font-bold text-gray-900">{formatUsd(cheque.amount)}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            From: {cheque.from} • {cheque.date}
+                          </p>
                         </div>
-                        <p className="text-lg font-bold text-gray-900">${cheque.amount.toLocaleString()}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          From: {cheque.from} • {cheque.date}
-                        </p>
+                      </div>
+                      <div className="flex gap-2 flex-wrap">
+                        <Link
+                          href={`${baseHref}/cheques`}
+                          className="flex-1 min-w-[150px] flex items-center justify-center gap-1.5 bg-[#2F8F3A] text-white px-3 py-2 rounded-lg text-xs font-medium hover:bg-[#267a2f] transition-colors whitespace-nowrap cursor-pointer"
+                        >
+                          <i className="ri-bank-line" /> Deposit
+                        </Link>
+                        <Link
+                          href={`${baseHref}/cheques`}
+                          className="flex-1 min-w-[150px] flex items-center justify-center gap-1.5 bg-gray-100 text-gray-700 px-3 py-2 rounded-lg text-xs font-medium hover:bg-gray-200 transition-colors whitespace-nowrap cursor-pointer"
+                        >
+                          <i className="ri-hand-coin-line" /> Request Pickup
+                        </Link>
                       </div>
                     </div>
-                    <div className="flex gap-2 flex-wrap">
-                      <Link
-                        href={`${baseHref}/cheques`}
-                        className="flex-1 min-w-[150px] flex items-center justify-center gap-1.5 bg-[#2F8F3A] text-white px-3 py-2 rounded-lg text-xs font-medium hover:bg-[#267a2f] transition-colors whitespace-nowrap cursor-pointer"
-                      >
-                        <i className="ri-bank-line" /> Deposit
-                      </Link>
-                      <Link
-                        href={`${baseHref}/cheques`}
-                        className="flex-1 min-w-[150px] flex items-center justify-center gap-1.5 bg-gray-100 text-gray-700 px-3 py-2 rounded-lg text-xs font-medium hover:bg-gray-200 transition-colors whitespace-nowrap cursor-pointer"
-                      >
-                        <i className="ri-hand-coin-line" /> Request Pickup
-                      </Link>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           </div>
@@ -338,6 +390,62 @@ export default function CustomerDashboard() {
                   <p className="text-xs text-gray-500">Profile & bank accounts</p>
                 </div>
                 <i className="ri-arrow-right-line text-gray-300 group-hover:text-indigo-500 ml-auto transition-colors" />
+              </Link>
+
+              <Link
+                href={`${baseHref}/account?tab=bank-accounts`}
+                className="flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:border-indigo-500 hover:bg-indigo-50/50 transition-all cursor-pointer group"
+              >
+                <div className="w-11 h-11 rounded-lg bg-indigo-50 group-hover:bg-indigo-100 flex items-center justify-center flex-shrink-0 transition-colors">
+                  <i className="ri-bank-line text-xl text-indigo-600" />
+                </div>
+                <div className="text-left">
+                  <h3 className="font-semibold text-gray-900 text-sm">Bank Accounts</h3>
+                  <p className="text-xs text-gray-500">Add or set primary</p>
+                </div>
+                <i className="ri-arrow-right-line text-gray-300 group-hover:text-indigo-500 ml-auto transition-colors" />
+              </Link>
+
+              <Link
+                href={`${baseHref}/account?tab=delivery-addresses`}
+                className="flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:border-[#0A3D8F] hover:bg-blue-50/50 transition-all cursor-pointer group"
+              >
+                <div className="w-11 h-11 rounded-lg bg-blue-50 group-hover:bg-blue-100 flex items-center justify-center flex-shrink-0 transition-colors">
+                  <i className="ri-map-pin-2-line text-xl text-[#0A3D8F]" />
+                </div>
+                <div className="text-left">
+                  <h3 className="font-semibold text-gray-900 text-sm">Delivery Addresses</h3>
+                  <p className="text-xs text-gray-500">Add a USPS address</p>
+                </div>
+                <i className="ri-arrow-right-line text-gray-300 group-hover:text-[#0A3D8F] ml-auto transition-colors" />
+              </Link>
+
+              <Link
+                href={`${baseHref}/deliveries`}
+                className="flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:border-amber-500 hover:bg-amber-50/50 transition-all cursor-pointer group"
+              >
+                <div className="w-11 h-11 rounded-lg bg-amber-50 group-hover:bg-amber-100 flex items-center justify-center flex-shrink-0 transition-colors">
+                  <i className="ri-truck-line text-xl text-amber-700" />
+                </div>
+                <div className="text-left">
+                  <h3 className="font-semibold text-gray-900 text-sm">Deliveries</h3>
+                  <p className="text-xs text-gray-500">Track pickup & USPS</p>
+                </div>
+                <i className="ri-arrow-right-line text-gray-300 group-hover:text-amber-500 ml-auto transition-colors" />
+              </Link>
+
+              <Link
+                href={`${baseHref}/deposits`}
+                className="flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:border-teal-500 hover:bg-teal-50/50 transition-all cursor-pointer group"
+              >
+                <div className="w-11 h-11 rounded-lg bg-teal-50 group-hover:bg-teal-100 flex items-center justify-center flex-shrink-0 transition-colors">
+                  <i className="ri-exchange-dollar-line text-xl text-teal-600" />
+                </div>
+                <div className="text-left">
+                  <h3 className="font-semibold text-gray-900 text-sm">Deposits</h3>
+                  <p className="text-xs text-gray-500">Review deposit history</p>
+                </div>
+                <i className="ri-arrow-right-line text-gray-300 group-hover:text-teal-500 ml-auto transition-colors" />
               </Link>
             </div>
           </div>

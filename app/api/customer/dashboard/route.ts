@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth, withRole } from "@/lib/modules/auth/auth.middleware";
 import { mailItemModel } from "@/lib/modules/records/mail.model";
 import { chequeModel } from "@/lib/modules/records/cheque.model";
+import { depositService } from "@/lib/modules/records/deposit.service";
+import { bankAccountService } from "@/lib/modules/banking/bank-account.service";
 
 function timeAgo(date: Date) {
   const diffInSeconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
@@ -44,6 +46,11 @@ export async function GET(req: NextRequest) {
     const pkgResponse = await mailItemModel.listByClient(clientId, { type: "package", limit: 1 });
     const totalMails = lettersResponse.total + pkgResponse.total;
 
+    // Unread mails (received status)
+    const lettersUnread = await mailItemModel.listByClient(clientId, { type: "letter", status: "received", limit: 1 });
+    const pkgUnread = await mailItemModel.listByClient(clientId, { type: "package", status: "received", limit: 1 });
+    const unreadMails = lettersUnread.total + pkgUnread.total;
+
     // 2) Total cheques
     const chequesResponse = await chequeModel.listByClient(clientId, 1, 1);
     const totalCheques = chequesResponse.total;
@@ -52,6 +59,24 @@ export async function GET(req: NextRequest) {
     const pendingMails = await mailItemModel.listByClient(clientId, { status: "action_required", limit: 1 });
     const pendingCheques = await chequeModel.listByClient(clientId, 1, 1, undefined, "flagged");
     const pendingRequests = pendingMails.total + pendingCheques.total;
+
+    // Pending cheques (flagged)
+    const pendingChequesCount = pendingCheques.total;
+
+    // Deposits summary (this month, marked deposited)
+    const deposits = await depositService.listMine({ clientId, limit: 500 });
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const totalDeposited = (deposits.deposits || [])
+      .filter((d: any) => d?.markedDepositedAt)
+      .filter((d: any) => {
+        const t = new Date(d.markedDepositedAt);
+        return !Number.isNaN(t.getTime()) && t >= monthStart;
+      })
+      .reduce((sum: number, d: any) => sum + Number(d.amountFigures || 0), 0);
+
+    // Bank accounts count
+    const bankAccounts = (await bankAccountService.listForClient(clientId)).length;
 
     // 4) Recent activity
     const activityResponse = await mailItemModel.listByClient(clientId, { limit: 10 });
@@ -73,8 +98,12 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       totalMails,
+      unreadMails,
       totalCheques,
       pendingRequests,
+      pendingCheques: pendingChequesCount,
+      totalDeposited,
+      bankAccounts,
       recentActivity,
     });
   } catch (error: any) {

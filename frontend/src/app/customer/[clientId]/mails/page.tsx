@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { mailApi, type MailItem, type MailStatus as ApiMailStatus } from "@/lib/api/mail";
 import { deliveryAddressesApi, type DeliveryAddress } from "@/lib/api/delivery-addresses";
 import { deliveriesApi } from "@/lib/api/deliveries";
+import { isUspsMailingAddress } from "@/lib/usps-delivery-address";
 
 type MailStatus = "Unread" | "Read" | "Archived";
 
@@ -149,7 +150,6 @@ export default function CustomerMailsPage() {
         const list = await deliveryAddressesApi.list();
         if (cancelled) return;
         setDeliveryAddresses(list);
-        if (!selectedDeliveryAddress && list[0]?.id) setSelectedDeliveryAddress(list[0].id);
       } catch (e) {
         console.error("Failed to load delivery addresses:", e);
       }
@@ -157,8 +157,19 @@ export default function CustomerMailsPage() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const uspsAddresses = useMemo(
+    () => deliveryAddresses.filter((a) => isUspsMailingAddress(a)),
+    [deliveryAddresses]
+  );
+
+  useEffect(() => {
+    if (uspsAddresses.length === 0) return;
+    if (!selectedDeliveryAddress || !uspsAddresses.some((a) => a.id === selectedDeliveryAddress)) {
+      setSelectedDeliveryAddress(uspsAddresses[0].id);
+    }
+  }, [deliveryAddresses, uspsAddresses, selectedDeliveryAddress]);
 
   const filtered = useMemo(
     () =>
@@ -294,6 +305,13 @@ export default function CustomerMailsPage() {
     if (!pickupModalMail) return;
     if (!selectedDeliveryAddress) {
       setPickupError("Please select a delivery address.");
+      return;
+    }
+    const addr = deliveryAddresses.find((a) => a.id === selectedDeliveryAddress);
+    if (!addr || !isUspsMailingAddress(addr)) {
+      setPickupError(
+        "Choose a USPS-compatible US address (2-letter state, ZIP 12345 or ZIP+4). Update your addresses under Account → Delivery addresses."
+      );
       return;
     }
     try {
@@ -519,6 +537,8 @@ export default function CustomerMailsPage() {
                           onClick={() => {
                             setPickupError(null);
                             setPickupModalMail(mail);
+                            const first = uspsAddresses[0]?.id;
+                            if (first) setSelectedDeliveryAddress(first);
                           }}
                           className="min-h-[44px] px-3 py-2 bg-slate-100 text-slate-600 rounded-full text-xs font-semibold hover:bg-slate-200 transition-colors cursor-pointer sm:px-2.5 sm:py-1"
                         >
@@ -904,15 +924,29 @@ export default function CustomerMailsPage() {
                       Add New Address
                     </Link>
                   </div>
+                ) : uspsAddresses.length === 0 ? (
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-2 text-sm text-amber-900">
+                    <p>
+                      None of your saved addresses meet USPS rules for physical mail (country US, 2-letter state, ZIP
+                      12345 or ZIP+4). Edit or add an address to continue.
+                    </p>
+                    <Link
+                      href={deliveryAddressHref}
+                      className="inline-flex items-center gap-1.5 font-semibold text-[#0A3D8F] hover:underline"
+                    >
+                      Open delivery addresses
+                      <i className="ri-arrow-right-line"></i>
+                    </Link>
+                  </div>
                 ) : (
                   <select
                     value={selectedDeliveryAddress}
                     onChange={(e) => setSelectedDeliveryAddress(e.target.value)}
                     className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/30"
                   >
-                    {deliveryAddresses.map((addr) => (
+                    {uspsAddresses.map((addr) => (
                       <option key={addr.id} value={addr.id}>
-                        {addr.label} - {addr.recipientName}, {addr.city}
+                        {addr.label} - {addr.recipientName}, {addr.city}, {addr.state} {addr.zip}
                       </option>
                     ))}
                   </select>
@@ -947,7 +981,7 @@ export default function CustomerMailsPage() {
                 </button>
                 <button
                   onClick={handleMailPickup}
-                  disabled={pickupSubmitting || !selectedDeliveryAddress || deliveryAddresses.length === 0}
+                  disabled={pickupSubmitting || !selectedDeliveryAddress || uspsAddresses.length === 0}
                   className="flex-1 py-3 bg-[#0A3D8F] text-white rounded-lg text-sm font-semibold hover:bg-[#083170] cursor-pointer whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {pickupSubmitting ? "Submitting..." : "Submit Pickup Request"}

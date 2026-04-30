@@ -16,9 +16,9 @@ REST API over HTTPS. JSON request/response. **JWT token-based authentication.**
 
 | Environment | URL |
 |---|---|
-| Production | `https://api.vsenddocs.com` |
-| QA / Staging | `https://qa-api.vsenddocs.com` |
-| Development | `https://devapi.vsenddocs.com` |
+|
+| QA / Staging | `https://devqaapi.vsendocs.com/swagger/index.html` |
+
 
 All endpoints are prefixed with `/api`. Full URL pattern: `{BASE_URL}/api/{endpoint}`.
 
@@ -717,3 +717,61 @@ async def shutdown():
 
 **Support:** `support@vsenddocs.com`
 **Docs:** `https://docs.vsenddocs.com`
+
+---
+
+## Stripe Environment Variables
+
+Add these values to `.env.local` for local Stripe checkout, portal, and webhook testing:
+
+```env
+STRIPE_SECRET_KEY=sk_test_...                  # From Stripe Dashboard -> Developers -> API keys
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...                # From: stripe listen --forward-to localhost:3010/api/billing/stripe/webhook
+STRIPE_PRICE_STARTER=price_...                 # From Stripe Dashboard -> Products -> starter plan price ID
+STRIPE_PRICE_PROFESSIONAL=price_...
+STRIPE_PRICE_ENTERPRISE=price_...
+NEXT_PUBLIC_APP_URL=http://localhost:3010
+```
+
+## Stripe Testing Checklist
+
+**Local setup:**
+
+1. Install Stripe CLI: https://docs.stripe.com/stripe-cli
+2. Login: `stripe login` (opens browser - 2FA prompt will appear, complete it)
+3. Listen for webhooks: `stripe listen --forward-to localhost:3010/api/billing/stripe/webhook`
+   - Copy the `whsec_...` secret printed and set it as `STRIPE_WEBHOOK_SECRET` in `.env.local`
+4. In a second terminal: `npm run dev` (or `npm run dev` inside `/frontend`)
+
+**Test subscription checkout (happy path):**
+
+5. Log in as a client account. Navigate to billing/upgrade.
+6. Select a plan -> click Subscribe.
+7. You are redirected to Stripe hosted checkout.
+8. Use test card: `4242 4242 4242 4242`, any future expiry, any CVC, any ZIP.
+9. Complete checkout. You are redirected to `/dashboard?checkout=success`.
+10. In the Stripe CLI terminal, confirm: `checkout.session.completed` event received and `200 OK` returned.
+11. Check DB: `subscriptions` table has a new row with `stripe_subscription_id` and `status = active`.
+
+**Test declined card:**
+
+12. Repeat steps 5-8 with card `4000 0000 0000 0002`.
+13. Stripe shows decline. User stays on checkout page. No subscription created.
+
+**Test billing portal:**
+
+14. After a successful subscription, call `POST /api/billing/stripe/portal`.
+15. You receive a `{ url }` - open it. You can see invoices, update payment method, cancel.
+
+**Test webhook events (using Stripe CLI trigger):**
+
+16. Trigger: `stripe trigger customer.subscription.updated`
+17. Trigger: `stripe trigger customer.subscription.deleted`
+18. Confirm each event is logged in the Stripe CLI terminal with `200 OK`.
+
+**Test wallet top-up:**
+
+19. Call `POST /api/billing/topup` with `{ amount: 50 }`.
+20. Use test card `4242 4242 4242 4242`.
+21. Confirm `checkout.session.completed` with `type=topup` metadata is received.

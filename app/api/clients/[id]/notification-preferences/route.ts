@@ -13,7 +13,6 @@ const prefsSchema = z.object({
 });
 
 function canAccessClientPrefs(actor: Awaited<ReturnType<typeof withAuth>>, clientId: string) {
-  if (actor.role === "super_admin") return true;
   if (actor.role === "client") return actor.clientId === clientId;
   return false;
 }
@@ -55,7 +54,7 @@ export async function PUT(
 ) {
   try {
     const actor = await withAuth(req);
-    withRole(actor, ["super_admin", "client"]);
+    withRole(actor, ["client"]);
 
     const { id: clientId } = await params;
 

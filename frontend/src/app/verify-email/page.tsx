@@ -55,8 +55,9 @@ export default function VerifyEmailPage() {
             value={otp}
             onChange={(e) => setOtp(e.target.value)}
             inputMode="numeric"
-            className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-[#0A3D8F]/20"
-            placeholder="123456"
+            maxLength={6}
+            className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-[#0A3D8F]/20 text-slate-900 placeholder:text-slate-400"
+            placeholder="Enter 6-digit code"
           />
           {error && (
             <p className="text-sm text-red-600 mt-2" role="alert">
