@@ -71,6 +71,13 @@
       "when": 1777359800000,
       "tag": "0010_profiles_two_fa_secret",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1777629672730,
+      "tag": "0010_subscription_grace_period",
+      "breakpoints": true
     }
   ]
 }

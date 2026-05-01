@@ -13,7 +13,7 @@ import {
   type CustomerBillingResponse,
 } from "@/lib/customerBilling";
 import { useOrgContext } from "../components/OrgContext";
-import { billingApi, type UsageSummary } from "@/lib/api/billing";
+import { billingApi, type BillingStatus, type UsageSummary } from "@/lib/api/billing";
 import { bankAccountsApi, type BankAccountListItem } from "@/lib/api/bankAccounts";
 import { deliveryAddressesApi, type DeliveryAddress } from "@/lib/api/delivery-addresses";
 import { apiClient, apiUpload } from "@/lib/api-client";
@@ -116,7 +116,7 @@ const SUBSCRIPTION_PLANS = [
 ];
 
 type UpgradePlanCard = {
-  id: string;
+  id: PlanTier;
   name: string;
   price: string;
   period: string;
@@ -126,13 +126,49 @@ type UpgradePlanCard = {
   popular: boolean;
 };
 
-function toUpgradePlans(plans: any[]): UpgradePlanCard[] {
+type PlanTier = "starter" | "professional" | "enterprise";
+
+type ApiBillingPlan = {
+  id: string;
+  name: string;
+  price: string | number;
+  features?: string[];
+};
+
+const PLAN_ORDER: Record<PlanTier, number> = {
+  starter: 1,
+  professional: 2,
+  enterprise: 3,
+};
+
+function isPlanTier(value: string): value is PlanTier {
+  return value === "starter" || value === "professional" || value === "enterprise";
+}
+
+function formatBillingDate(value?: string | null): string {
+  if (!value) return "not available";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
+function planActionLabel(currentPlan: PlanTier | null | undefined, targetPlan: PlanTier): string {
+  if (!currentPlan) return `Switch to ${targetPlan[0].toUpperCase()}${targetPlan.slice(1)}`;
+  if (currentPlan === targetPlan) return "Current Plan";
+  return PLAN_ORDER[targetPlan] > PLAN_ORDER[currentPlan]
+    ? `Upgrade to ${targetPlan[0].toUpperCase()}${targetPlan.slice(1)}`
+    : `Downgrade to ${targetPlan[0].toUpperCase()}${targetPlan.slice(1)}`;
+}
+
+function toUpgradePlans(plans: ApiBillingPlan[]): UpgradePlanCard[] {
   const iconById: Record<string, string> = {
     starter: "ri-seedling-line",
     professional: "ri-rocket-line",
     enterprise: "ri-building-2-line",
   };
-  return plans.map((p) => {
+  return plans.filter((p) => isPlanTier(p.id)).map((p) => {
     const isCustom = Number(p.price) <= 0;
     return {
       id: p.id,
@@ -203,26 +239,31 @@ export default function CustomerAccountPage() {
   const [upgradeSubmitting, setUpgradeSubmitting] = useState(false);
   const [managePortalLoading, setManagePortalLoading] = useState(false);
   const [upgradePlans, setUpgradePlans] = useState<UpgradePlanCard[]>(SUBSCRIPTION_PLANS as UpgradePlanCard[]);
+  const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
+  const [billingStatusLoading, setBillingStatusLoading] = useState(false);
+  const [changingPlanId, setChangingPlanId] = useState<PlanTier | null>(null);
+  const [planChangeMessage, setPlanChangeMessage] = useState<string | null>(null);
+  const [planChangeError, setPlanChangeError] = useState<string | null>(null);
 
   const loadAccount = useCallback(async () => {
     setAccountLoading(true);
     setAccountError(null);
     try {
       const data = await fetchCustomerAccount();
-      setProfile((prev) => ({
+      setProfile({
         ...data.profile,
         companyName: org.companyName || data.profile.companyName,
         email: org.client?.email || data.profile.email,
-      }));
+      });
       setNotifs(data.notifications);
       setAvatarUrl(data.avatarUrl);
     } catch (e) {
       setAccountError(e instanceof Error ? e.message : "Could not load account");
-      setProfile((prev) => ({
-        ...(FALLBACK_ACCOUNT.profile as any),
+      setProfile({
+        ...FALLBACK_ACCOUNT.profile,
         companyName: org.companyName || FALLBACK_ACCOUNT.profile.companyName,
         email: org.client?.email || FALLBACK_ACCOUNT.profile.email,
-      }));
+      });
       setNotifs(FALLBACK_ACCOUNT.notifications);
       setAvatarUrl(undefined);
     }
@@ -243,6 +284,19 @@ export default function CustomerAccountPage() {
     void loadAccount();
   }, [loadAccount]);
 
+  const loadBillingStatus = useCallback(async () => {
+    setBillingStatusLoading(true);
+    try {
+      const status = await billingApi.getStatus();
+      setBillingStatus(status);
+    } catch (e) {
+      console.error("Failed to load billing status:", e);
+      setBillingStatus(null);
+    } finally {
+      setBillingStatusLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (org.loading) return;
     let cancelled = false;
@@ -262,7 +316,15 @@ export default function CustomerAccountPage() {
       }
 
       try {
-        const plans = await apiClient<any[]>("/api/billing/plans", { cache: "no-store" });
+        const status = await billingApi.getStatus();
+        if (cancelled) return;
+        setBillingStatus(status);
+      } catch (e) {
+        console.error("Failed to load billing status:", e);
+      }
+
+      try {
+        const plans = await apiClient<ApiBillingPlan[]>("/api/billing/plans", { cache: "no-store" });
         if (cancelled) return;
         if (Array.isArray(plans) && plans.length > 0) {
           setUpgradePlans(toUpgradePlans(plans));
@@ -292,6 +354,12 @@ export default function CustomerAccountPage() {
     };
   }, [org.loading]);
 
+  useEffect(() => {
+    if (!planChangeMessage) return;
+    const t = setTimeout(() => setPlanChangeMessage(null), 4000);
+    return () => clearTimeout(t);
+  }, [planChangeMessage]);
+
   const reloadBillingData = useCallback(async () => {
     const b = await fetchCustomerBilling();
     setBilling((prev) => ({
@@ -311,7 +379,9 @@ export default function CustomerAccountPage() {
       manual: { ...prev.manual, scansUsed: totalQty },
       subscription: { ...prev.subscription, scansUsed: totalQty },
     }));
-  }, []);
+
+    await loadBillingStatus();
+  }, [loadBillingStatus]);
 
   useEffect(() => {
     const checkout = searchParams.get("checkout");
@@ -342,21 +412,39 @@ export default function CustomerAccountPage() {
 
   const handleUpgradeConfirm = async () => {
     if (!selectedUpgradePlan || !billing) return;
+    if (!isPlanTier(selectedUpgradePlan)) {
+      showToast("error", "Invalid plan selected.");
+      return;
+    }
 
     setUpgradeSubmitting(true);
     try {
-      const result = await apiClient<{ url: string }>("/api/customer/billing/checkout", {
-        method: "POST",
-        body: JSON.stringify({ planId: selectedUpgradePlan }),
-      });
+      if (billing.planType === "subscription" && billingStatus?.status && billingStatus.status !== "none") {
+        await billingApi.changeSubscription({
+          planId: selectedUpgradePlan,
+          prorationBehavior: "always_invoice",
+        });
+        setUpgradeConfirmed(true);
+        setShowUpgradeModal(false);
+        showToast(
+          "success",
+          "Plan changed successfully. Stripe has prorated your billing - no extra payment needed."
+        );
+        await reloadBillingData();
+      } else {
+        const result = await apiClient<{ url: string }>("/api/customer/billing/checkout", {
+          method: "POST",
+          body: JSON.stringify({ planId: selectedUpgradePlan }),
+        });
 
-      if (!result?.url) {
-        throw new Error("Checkout URL was not returned by the server.");
+        if (!result?.url) {
+          throw new Error("Checkout URL was not returned by the server.");
+        }
+
+        window.location.href = result.url;
       }
-
-      window.location.href = result.url;
     } catch (error) {
-      showToast("error", error instanceof Error ? error.message : "Failed to start checkout.");
+      showToast("error", error instanceof Error ? error.message : "Plan change failed. Please try again.");
     } finally {
       setUpgradeSubmitting(false);
     }
@@ -365,9 +453,7 @@ export default function CustomerAccountPage() {
   const openManageSubscriptionPortal = async () => {
     setManagePortalLoading(true);
     try {
-      const res = await apiClient<{ url: string }>("/api/billing/stripe/portal", {
-        method: "POST",
-      });
+      const res = await billingApi.openStripePortal();
       if (res?.url) {
         window.location.href = res.url;
         return;
@@ -377,6 +463,27 @@ export default function CustomerAccountPage() {
       showToast("error", err instanceof Error ? err.message : "Could not open billing portal.");
     } finally {
       setManagePortalLoading(false);
+    }
+  };
+
+  const handlePlanChange = async (planId: PlanTier) => {
+    setChangingPlanId(planId);
+    setPlanChangeMessage(null);
+    setPlanChangeError(null);
+    try {
+      await billingApi.changeSubscription({
+        planId,
+        prorationBehavior: "always_invoice",
+      });
+      setPlanChangeMessage(
+        `Switched to ${planId.charAt(0).toUpperCase() + planId.slice(1)} plan. Stripe has prorated your billing automatically.`
+      );
+      showToast("success", "Plan updated. No extra payment required - Stripe handled the proration.");
+      await reloadBillingData();
+    } catch (err) {
+      setPlanChangeError(err instanceof Error ? err.message : "Plan change failed.");
+    } finally {
+      setChangingPlanId(null);
     }
   };
 
@@ -669,6 +776,10 @@ export default function CustomerAccountPage() {
     { key: "billing", label: "Billing & Plan", icon: "ri-price-tag-3-line" },
     { key: "notifications", label: "Notifications", icon: "ri-notification-3-line" },
   ];
+  const currentPlanTier = billingStatus?.planTier ?? null;
+  const billingStatusPlanName = currentPlanTier
+    ? `${currentPlanTier[0].toUpperCase()}${currentPlanTier.slice(1)}`
+    : billing.subscription.planLabel;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -1483,6 +1594,90 @@ export default function CustomerAccountPage() {
                       </span>
                     </div>
                     <div className="p-6">
+                      {billingStatusLoading ? (
+                        <div className="mb-5 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
+                          Loading subscription status...
+                        </div>
+                      ) : billingStatus?.isInGracePeriod ? (
+                        <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex items-start gap-3">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-100">
+                                <i className="ri-error-warning-fill text-xl text-amber-700"></i>
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold text-amber-900">Payment Failed</p>
+                                <p className="mt-1 text-sm text-amber-800">
+                                  Your subscription payment failed. You have until{" "}
+                                  <span className="font-semibold">
+                                    {formatBillingDate(billingStatus.gracePeriodUntil)}
+                                  </span>{" "}
+                                  to update your payment method before your access is suspended.
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => void openManageSubscriptionPortal()}
+                              disabled={managePortalLoading}
+                              className="inline-flex cursor-pointer items-center justify-center whitespace-nowrap rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              {managePortalLoading ? "Opening..." : "Update Payment Method"}
+                            </button>
+                          </div>
+                        </div>
+                      ) : billingStatus?.graceExpired ? (
+                        <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4">
+                          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex items-start gap-3">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-100">
+                                <i className="ri-close-circle-fill text-xl text-red-700"></i>
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold text-red-900">Access Suspended</p>
+                                <p className="mt-1 text-sm text-red-700">
+                                  Your payment is overdue and access has been suspended. Please update your payment method to restore access.
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => void openManageSubscriptionPortal()}
+                              disabled={managePortalLoading}
+                              className="inline-flex cursor-pointer items-center justify-center whitespace-nowrap rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              {managePortalLoading ? "Opening..." : "Restore Access"}
+                            </button>
+                          </div>
+                        </div>
+                      ) : billingStatus?.status === "active" ? (
+                        <div className="mb-5 rounded-xl border border-green-200 bg-green-50 p-4">
+                          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex items-start gap-3">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-100">
+                                <i className="ri-checkbox-circle-fill text-xl text-[#2F8F3A]"></i>
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold text-green-900">
+                                  Active — {billingStatusPlanName} plan
+                                </p>
+                                <p className="mt-1 text-sm text-green-700">
+                                  Renews on {formatBillingDate(billingStatus.currentPeriodEnd)}
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => void openManageSubscriptionPortal()}
+                              disabled={managePortalLoading}
+                              className="inline-flex cursor-pointer items-center justify-center whitespace-nowrap rounded-lg bg-[#0A3D8F] px-4 py-2 text-sm font-semibold text-white hover:bg-[#083170] disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              {managePortalLoading ? "Opening..." : "Manage Billing"}
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
+
                       <div className="mb-5 rounded-xl border border-[#0A3D8F]/15 bg-gradient-to-br from-[#0A3D8F]/5 to-[#083170]/5 p-5">
                         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div>
@@ -1541,6 +1736,155 @@ export default function CustomerAccountPage() {
                           ))}
                         </div>
                       </div>
+
+                      <div className="mb-5 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                        <div className="border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white px-5 py-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h3 className="text-base font-bold text-gray-900">Change Plan</h3>
+                              <p className="mt-0.5 text-sm text-gray-400">
+                                Upgrades take effect immediately · Downgrades apply at next billing cycle
+                              </p>
+                            </div>
+                            <span className="hidden items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-[#0A3D8F] sm:flex">
+                              <i className="ri-shield-check-line" />
+                              Auto-proration
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="p-5">
+                          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                            {upgradePlans.map((plan) => {
+                              const isCurrent = currentPlanTier === plan.id;
+                              const actionLabel = planActionLabel(currentPlanTier, plan.id);
+                              const isChanging = changingPlanId === plan.id;
+                              const isUpgrade =
+                                !isCurrent &&
+                                currentPlanTier !== null &&
+                                PLAN_ORDER[plan.id] > PLAN_ORDER[currentPlanTier];
+                              const isDowngrade =
+                                !isCurrent &&
+                                currentPlanTier !== null &&
+                                PLAN_ORDER[plan.id] < PLAN_ORDER[currentPlanTier];
+                              const isPopular = plan.id === "professional";
+
+                              return (
+                                <div
+                                  key={plan.id}
+                                  className={`relative flex flex-col rounded-xl border-2 p-5 transition-all duration-200 ${
+                                    isCurrent
+                                      ? "border-[#0A3D8F] bg-gradient-to-br from-[#0A3D8F] to-[#0d2d6e] text-white shadow-lg"
+                                      : isChanging
+                                        ? "scale-[1.02] border-[#0A3D8F]/40 bg-white shadow-md ring-2 ring-[#0A3D8F]/20"
+                                        : "border-gray-200 bg-white hover:border-[#0A3D8F]/30 hover:shadow-sm"
+                                  }`}
+                                >
+                                  {isPopular && !isCurrent && (
+                                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-amber-400 px-3 py-0.5 text-xs font-bold text-white shadow-sm">
+                                      ★ Most Popular
+                                    </span>
+                                  )}
+
+                                  {isCurrent && (
+                                    <span className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-white/20">
+                                      <i className="ri-check-line text-sm text-white" />
+                                    </span>
+                                  )}
+
+                                  <div className="mb-1 flex items-center gap-2">
+                                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${isCurrent ? "bg-white/15" : "bg-gray-100"}`}>
+                                      <i className={`${plan.icon} text-base ${isCurrent ? "text-white" : "text-[#0A3D8F]"}`} />
+                                    </div>
+                                    <span className={`text-sm font-bold ${isCurrent ? "text-white" : "text-gray-900"}`}>
+                                      {plan.name}
+                                    </span>
+                                    {isUpgrade && (
+                                      <span className="ml-auto rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">
+                                        ↑ Upgrade
+                                      </span>
+                                    )}
+                                    {isDowngrade && (
+                                      <span className="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                                        ↓ Downgrade
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <p className={`mb-4 text-xs ${isCurrent ? "text-white/70" : "text-gray-400"}`}>
+                                    {plan.tagline}
+                                  </p>
+
+                                  <div className="mb-5">
+                                    <span className={`text-3xl font-extrabold ${isCurrent ? "text-white" : "text-gray-900"}`}>
+                                      {plan.price}
+                                    </span>
+                                    <span className={`text-xs ${isCurrent ? "text-white/60" : "text-gray-400"}`}>
+                                      {plan.period}
+                                    </span>
+                                  </div>
+
+                                  <ul className="mb-5 flex-1 space-y-2">
+                                    {plan.features.slice(0, 4).map((feature) => (
+                                      <li key={feature} className={`flex items-start gap-2 text-xs ${isCurrent ? "text-white/80" : "text-gray-500"}`}>
+                                        <i className={`ri-check-line mt-0.5 shrink-0 ${isCurrent ? "text-white" : "text-green-500"}`} />
+                                        <span>{feature}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => void handlePlanChange(plan.id)}
+                                    disabled={isCurrent || changingPlanId !== null}
+                                    className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
+                                      isCurrent
+                                        ? "border border-white/20 bg-white/10 text-white/80"
+                                        : isChanging
+                                          ? "animate-pulse bg-[#0A3D8F] text-white"
+                                          : "bg-[#0A3D8F] text-white hover:bg-[#083170] active:scale-95"
+                                    }`}
+                                  >
+                                    {isChanging ? (
+                                      <>
+                                        <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                        </svg>
+                                        Updating...
+                                      </>
+                                    ) : (
+                                      actionLabel
+                                    )}
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          <div className="mt-4 flex items-start gap-2 rounded-lg bg-blue-50 px-3 py-2.5">
+                            <i className="ri-information-line mt-0.5 shrink-0 text-sm text-[#0A3D8F]" />
+                            <p className="text-xs text-[#0A3D8F]/80">
+                              <strong>No extra payment needed.</strong> Stripe automatically prorates plan changes -
+                              upgrades charge only the difference for the remaining cycle, downgrades credit your next invoice.
+                            </p>
+                          </div>
+
+                          {planChangeMessage && (
+                            <div className="mt-3 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
+                              <i className="ri-checkbox-circle-line text-base text-green-500" />
+                              {planChangeMessage}
+                            </div>
+                          )}
+                          {planChangeError && (
+                            <div className="mt-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                              <i className="ri-error-warning-line text-base text-red-500" />
+                              {planChangeError}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
                       {(() => {
                         const cs = billing.contactSettings;
                         const hasAny = Boolean(cs?.contactName || cs?.contactPhone || cs?.contactEmail);

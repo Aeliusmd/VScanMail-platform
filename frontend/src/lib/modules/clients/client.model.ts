@@ -42,6 +42,7 @@ export type Client = {
   two_fa_secret: string | null;
   added_by: string | null;
   notes: string | null;
+  suspended_reason: "admin" | "payment_overdue" | null;
   created_at: string;
   updated_at: string;
 };
@@ -66,6 +67,7 @@ function rowToClient(row: typeof clients.$inferSelect): Client {
     two_fa_secret: row.twoFaSecret ?? null,
     added_by: row.addedBy ?? null,
     notes: row.notes ?? null,
+    suspended_reason: row.suspendedReason ?? null,
     created_at: new Date(row.createdAt as any).toISOString(),
     updated_at: new Date(row.updatedAt as any).toISOString(),
   };
@@ -153,6 +155,8 @@ export const clientModel = {
     if (data.twoFaEnabled !== undefined) patch.twoFaEnabled = Boolean(data.twoFaEnabled);
 
     if (data.notes !== undefined) patch.notes = data.notes || null;
+    if (data.suspended_reason !== undefined) patch.suspendedReason = data.suspended_reason || null;
+    if (data.suspendedReason !== undefined) patch.suspendedReason = data.suspendedReason || null;
     if (data.client_type !== undefined) patch.clientType = data.client_type;
     if (data.clientType !== undefined) patch.clientType = data.clientType;
 

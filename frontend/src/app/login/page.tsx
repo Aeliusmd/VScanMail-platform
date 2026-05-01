@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authApi } from "../../lib/api/auth";
+import { ApiError } from "../../lib/api-client";
 import styles from "./login.module.css";
 import { HiOutlineEnvelope, HiOutlineLockClosed, HiOutlineEye, HiOutlineEyeSlash } from "react-icons/hi2";
 
@@ -20,6 +21,7 @@ function LoginForm() {
   const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [paymentUpdateHref, setPaymentUpdateHref] = useState<string | null>(null);
   const [checkoutBanner, setCheckoutBanner] = useState<string | null>(null);
 
   const finalizeRegistrationCheckout = async () => {
@@ -67,6 +69,7 @@ function LoginForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setPaymentUpdateHref(null);
     setLoading(true);
 
     try {
@@ -91,6 +94,18 @@ function LoginForm() {
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Invalid credentials. Please try again.";
+      if (
+        err instanceof ApiError &&
+        err.status === 402 &&
+        err.details?.code === "payment_overdue"
+      ) {
+        const clientId = typeof err.details?.clientId === "string" ? err.details.clientId : null;
+        setPaymentUpdateHref(
+          clientId
+            ? `/customer/${clientId}/account?tab=billing`
+            : "/customer/account?tab=billing"
+        );
+      }
       setError(message);
     } finally {
       setLoading(false);
@@ -133,7 +148,15 @@ function LoginForm() {
               )}
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm mb-4">
-                  {error}
+                  <p>{error}</p>
+                  {paymentUpdateHref && (
+                    <Link
+                      href={paymentUpdateHref}
+                      className="mt-3 inline-flex items-center justify-center rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700"
+                    >
+                      Update Payment Method
+                    </Link>
+                  )}
                 </div>
               )}
               <div className={styles.fieldGroup}>

@@ -8,9 +8,12 @@ export type Subscription = {
   stripe_customer_id: string | null;
   stripe_subscription_id: string;
   plan_tier: string;
-  status: "active" | "past_due" | "canceled" | "trialing";
+  status: "active" | "past_due" | "canceled" | "trialing" | "paused" | "blocked";
   current_period_start: string;
   current_period_end: string;
+  grace_period_until: string | null;
+  payment_failed_at: string | null;
+  failed_payment_count: number;
 };
 
 function rowToSubscription(row: typeof subscriptions.$inferSelect): Subscription {
@@ -23,6 +26,13 @@ function rowToSubscription(row: typeof subscriptions.$inferSelect): Subscription
     status: row.status as any,
     current_period_start: (row.currentPeriodStart as Date).toISOString(),
     current_period_end: (row.currentPeriodEnd as Date).toISOString(),
+    grace_period_until: row.gracePeriodUntil
+      ? new Date(row.gracePeriodUntil as any).toISOString()
+      : null,
+    payment_failed_at: row.paymentFailedAt
+      ? new Date(row.paymentFailedAt as any).toISOString()
+      : null,
+    failed_payment_count: row.failedPaymentCount ?? 0,
   };
 }
 
@@ -55,6 +65,9 @@ export const subscriptionModel = {
     const currentPeriodStart =
       data.current_period_start || existing?.current_period_start;
     const currentPeriodEnd = data.current_period_end || existing?.current_period_end;
+    const gracePeriodUntil = data.grace_period_until ?? existing?.grace_period_until ?? null;
+    const paymentFailedAt = data.payment_failed_at ?? existing?.payment_failed_at ?? null;
+    const failedPaymentCount = data.failed_payment_count ?? existing?.failed_payment_count ?? 0;
 
     if (!clientId) throw new Error("client_id is required to upsert subscription");
     if (!stripeSubscriptionId) {
@@ -77,6 +90,9 @@ export const subscriptionModel = {
         status,
         currentPeriodStart: new Date(currentPeriodStart),
         currentPeriodEnd: new Date(currentPeriodEnd),
+        gracePeriodUntil: gracePeriodUntil ? new Date(gracePeriodUntil) : undefined,
+        paymentFailedAt: paymentFailedAt ? new Date(paymentFailedAt) : undefined,
+        failedPaymentCount,
         createdAt: now,
         updatedAt: now,
       })
@@ -93,6 +109,15 @@ export const subscriptionModel = {
           currentPeriodEnd: data.current_period_end
             ? new Date(data.current_period_end)
             : sql`${subscriptions.currentPeriodEnd}`,
+          gracePeriodUntil: data.grace_period_until
+            ? new Date(data.grace_period_until)
+            : sql`${subscriptions.gracePeriodUntil}`,
+          paymentFailedAt: data.payment_failed_at
+            ? new Date(data.payment_failed_at)
+            : sql`${subscriptions.paymentFailedAt}`,
+          failedPaymentCount: data.failed_payment_count !== undefined
+            ? data.failed_payment_count
+            : sql`${subscriptions.failedPaymentCount}`,
           updatedAt: now,
         },
       });
@@ -113,5 +138,36 @@ export const subscriptionModel = {
       .where(eq(subscriptions.clientId, clientId))
       .limit(1);
     return rows[0] ? rowToSubscription(rows[0]) : null;
+  },
+
+  async clearGracePeriod(stripeSubscriptionId: string) {
+    await db
+      .update(subscriptions)
+      .set({
+        status: "active",
+        gracePeriodUntil: null,
+        paymentFailedAt: null,
+        failedPaymentCount: 0,
+        updatedAt: new Date(),
+      })
+      .where(eq(subscriptions.stripeSubscriptionId, stripeSubscriptionId));
+  },
+
+  async startGracePeriod(
+    stripeSubscriptionId: string,
+    failedAt: Date,
+    existingFailCount: number
+  ) {
+    const gracePeriodUntil = new Date(failedAt.getTime() + 5 * 24 * 60 * 60 * 1000);
+    await db
+      .update(subscriptions)
+      .set({
+        status: "past_due",
+        paymentFailedAt: failedAt,
+        gracePeriodUntil,
+        failedPaymentCount: existingFailCount + 1,
+        updatedAt: new Date(),
+      })
+      .where(eq(subscriptions.stripeSubscriptionId, stripeSubscriptionId));
   },
 };

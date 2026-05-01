@@ -48,6 +48,14 @@ export const stripeService = {
       customer: sub?.stripe_customer_id || undefined,
       mode: "subscription",
       payment_method_types: ["card"],
+      payment_method_collection: "always",
+      payment_method_options: {
+        card: { request_three_d_secure: "automatic" },
+      },
+      allow_promotion_codes: false,
+      subscription_data: {
+        metadata: { clientId },
+      },
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: successUrl,
       cancel_url: cancelUrl,
@@ -90,6 +98,41 @@ export const stripeService = {
     return { url: session.url };
   },
 
+  async changePlan(
+    clientId: string,
+    newPlanId: string,
+    prorationBehavior: "always_invoice" | "none" = "always_invoice"
+  ) {
+    const { tier, priceId } = this.resolvePriceIdForPlan(newPlanId);
+    const sub = await subscriptionModel.findByClient(clientId);
+    if (!sub?.stripe_subscription_id) {
+      throw new Error("No active subscription found for this client.");
+    }
+
+    const stripeSub = await stripe.subscriptions.retrieve(sub.stripe_subscription_id);
+    const currentItemId = stripeSub.items.data[0]?.id;
+    if (!currentItemId) throw new Error("No subscription item found.");
+
+    const updated = await stripe.subscriptions.update(sub.stripe_subscription_id, {
+      items: [{ id: currentItemId, price: priceId }],
+      proration_behavior: prorationBehavior,
+      metadata: { clientId },
+    });
+
+    await subscriptionModel.upsert({
+      client_id: clientId,
+      stripe_subscription_id: updated.id,
+      stripe_customer_id:
+        typeof updated.customer === "string" ? updated.customer : updated.customer?.id ?? null,
+      plan_tier: tier,
+      status: updated.status as any,
+      current_period_start: new Date(updated.current_period_start * 1000).toISOString(),
+      current_period_end: new Date(updated.current_period_end * 1000).toISOString(),
+    });
+
+    return { planTier: tier, status: updated.status };
+  },
+
   async handleWebhookEvent(event: any) {
     switch (event.type) {
       case "checkout.session.completed": {
@@ -98,34 +141,44 @@ export const stripeService = {
         if (!clientId) break;
 
         if (session.mode === "subscription") {
-          await clientModel.update(clientId, { status: "active", client_type: "subscription" });
-          const sub = await stripe.subscriptions.retrieve(
+          const stripeSub = await stripe.subscriptions.retrieve(
             session.subscription as string
           );
-          const line = sub.items?.data?.[0];
+          const line = stripeSub.items?.data?.[0];
           const priceId = line?.price?.id;
           let planTier: "starter" | "professional" | "enterprise" = "starter";
 
           if (priceId) {
-            const resolved = (Object.entries(PRICE_BY_PLAN).find(
+            const resolved = Object.entries(PRICE_BY_PLAN).find(
               ([, value]) => value === priceId
-            )?.[0] || "starter") as "starter" | "professional" | "enterprise";
-            planTier = resolved;
+            )?.[0];
+            if (resolved === "professional" || resolved === "enterprise" || resolved === "starter") {
+              planTier = resolved;
+            }
           }
+
+          await clientModel.update(clientId, {
+            status: "active",
+            suspended_reason: null,
+            client_type: "subscription",
+          });
 
           await subscriptionModel.upsert({
             client_id: clientId,
             stripe_customer_id:
-              typeof sub.customer === "string" ? sub.customer : sub.customer?.id ?? null,
-            stripe_subscription_id: sub.id,
+              typeof stripeSub.customer === "string" ? stripeSub.customer : stripeSub.customer?.id ?? null,
+            stripe_subscription_id: stripeSub.id,
             plan_tier: planTier,
             status: "active",
             current_period_start: new Date(
-              sub.current_period_start * 1000
+              stripeSub.current_period_start * 1000
             ).toISOString(),
             current_period_end: new Date(
-              sub.current_period_end * 1000
+              stripeSub.current_period_end * 1000
             ).toISOString(),
+            failed_payment_count: 0,
+            grace_period_until: null,
+            payment_failed_at: null,
           });
         }
 
@@ -135,10 +188,44 @@ export const stripeService = {
         break;
       }
 
+      case "invoice.payment_succeeded": {
+        const invoice = event.data.object;
+        const stripeSubId = invoice.subscription as string | null;
+        if (!stripeSubId) break;
+
+        const sub = await subscriptionModel.findByStripeSubscriptionId(stripeSubId);
+        if (!sub) break;
+
+        await subscriptionModel.clearGracePeriod(stripeSubId);
+
+        if (sub.client_id) {
+          await clientModel.update(sub.client_id, {
+            status: "active",
+            suspended_reason: null,
+          });
+        }
+        break;
+      }
+
+      case "invoice.payment_failed": {
+        const invoice = event.data.object;
+        const stripeSubId = invoice.subscription as string | null;
+        if (!stripeSubId) break;
+
+        const sub = await subscriptionModel.findByStripeSubscriptionId(stripeSubId);
+        if (!sub) break;
+
+        const failedAt = new Date();
+        const existingFailCount = sub.failed_payment_count ?? 0;
+
+        await subscriptionModel.startGracePeriod(stripeSubId, failedAt, existingFailCount);
+        break;
+      }
+
       case "customer.subscription.updated": {
-        const sub = event.data.object;
-        const existing = await subscriptionModel.findByStripeSubscriptionId(sub.id);
-        const line = sub.items?.data?.[0];
+        const stripeSub = event.data.object;
+        const existing = await subscriptionModel.findByStripeSubscriptionId(stripeSub.id);
+        const line = stripeSub.items?.data?.[0];
         const priceId = line?.price?.id;
         const mappedTier = priceId
           ? (Object.entries(PRICE_BY_PLAN).find(([, value]) => value === priceId)?.[0] as
@@ -147,40 +234,62 @@ export const stripeService = {
               | "enterprise"
               | undefined)
           : undefined;
+        const clientId = existing?.client_id ?? stripeSub.metadata?.clientId;
+        if (!clientId) break;
+
+        const newStatus = stripeSub.status;
 
         await subscriptionModel.upsert({
-          client_id: existing?.client_id,
+          client_id: clientId,
           stripe_customer_id:
-            typeof sub.customer === "string" ? sub.customer : sub.customer?.id ?? null,
-          stripe_subscription_id: sub.id,
+            typeof stripeSub.customer === "string" ? stripeSub.customer : stripeSub.customer?.id ?? null,
+          stripe_subscription_id: stripeSub.id,
           plan_tier: mappedTier ?? existing?.plan_tier ?? "starter",
-          status: sub.status,
+          status: newStatus,
           current_period_start: new Date(
-            sub.current_period_start * 1000
+            stripeSub.current_period_start * 1000
           ).toISOString(),
           current_period_end: new Date(
-            sub.current_period_end * 1000
+            stripeSub.current_period_end * 1000
           ).toISOString(),
         });
 
-        // Auto-suspend on past_due
-        if (sub.status === "past_due") {
-          // Handle suspension logic
+        if (newStatus === "active") {
+          await subscriptionModel.clearGracePeriod(stripeSub.id);
+          await clientModel.update(clientId, {
+            status: "active",
+            suspended_reason: null,
+          });
         }
         break;
       }
 
       case "customer.subscription.deleted": {
-        const sub = event.data.object;
-        const clientId = sub.metadata?.clientId;
+        const stripeSub = event.data.object;
+        const sub = await subscriptionModel.findByStripeSubscriptionId(stripeSub.id);
+        const clientId = sub?.client_id ?? stripeSub.metadata?.clientId;
         if (clientId) {
-          await clientModel.update(clientId, { status: "suspended" });
+          await clientModel.update(clientId, {
+            status: "suspended",
+            suspended_reason: "payment_overdue",
+          });
         }
+
+        await subscriptionModel.upsert({
+          client_id: clientId,
+          stripe_subscription_id: stripeSub.id,
+          stripe_customer_id:
+            typeof stripeSub.customer === "string" ? stripeSub.customer : stripeSub.customer?.id ?? null,
+          status: "canceled",
+          plan_tier: sub?.plan_tier ?? "starter",
+          current_period_start: sub?.current_period_start ?? new Date().toISOString(),
+          current_period_end: new Date(stripeSub.current_period_end * 1000).toISOString(),
+        });
         break;
       }
 
       case "invoice.paid": {
-        // Invoice tracking handled here
+        // invoice.payment_succeeded handles grace-period clearing.
         break;
       }
     }

@@ -6,6 +6,7 @@ import { db } from "@/lib/modules/core/db/mysql";
 import { users, profiles, clients } from "@/lib/modules/core/db/schema";
 import { eq } from "drizzle-orm";
 import { signAccessToken } from "@/lib/modules/auth/jwt";
+import { subscriptionModel } from "@/lib/modules/billing/subscription.model";
 
 import { auditService } from "@/lib/modules/audit/audit.service";
 
@@ -51,7 +52,16 @@ export async function POST(req: NextRequest) {
       .limit(1);
 
     const role = profileRows[0]?.role || "client";
-    const clientId = profileRows[0]?.clientId;
+    let clientId = profileRows[0]?.clientId;
+
+    if (!clientId) {
+      const clientRows = await db
+        .select({ id: clients.id })
+        .from(clients)
+        .where(eq(clients.id, user.id))
+        .limit(1);
+      clientId = clientRows[0]?.id;
+    }
 
     if (clientId) {
       const clientRows = await db
@@ -68,6 +78,22 @@ export async function POST(req: NextRequest) {
           },
           { status: 403 }
         );
+      }
+
+      const sub = await subscriptionModel.findByClient(clientId).catch(() => null);
+      if (sub && sub.status === "past_due" && sub.grace_period_until) {
+        const gracePeriodExpired = new Date(sub.grace_period_until) < new Date();
+        if (gracePeriodExpired) {
+          return NextResponse.json(
+            {
+              error:
+                "Your subscription payment is overdue. Please update your payment method to restore access.",
+              code: "payment_overdue",
+              clientId,
+            },
+            { status: 402 }
+          );
+        }
       }
     }
 
@@ -95,6 +121,17 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error: any) {
+    const errorMsg = error?.message || "";
+    if (errorMsg.startsWith("PAYMENT_OVERDUE:")) {
+      return NextResponse.json(
+        {
+          error: errorMsg.replace("PAYMENT_OVERDUE: ", ""),
+          code: "payment_overdue",
+        },
+        { status: 402 }
+      );
+    }
+
     // Log failed login attempt with extra safety
     try {
       await auditService.log({
