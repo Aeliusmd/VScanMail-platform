@@ -750,7 +750,7 @@ NEXT_PUBLIC_APP_URL=http://localhost:3010
 6. Select a plan -> click Subscribe.
 7. You are redirected to Stripe hosted checkout.
 8. Use test card: `4242 4242 4242 4242`, any future expiry, any CVC, any ZIP.
-9. Complete checkout. You are redirected to `/dashboard?checkout=success`.
+9. Complete checkout. You are redirected back to the app billing tab (e.g. `/customer/{clientId}/account?tab=billing&checkout=success`).
 10. In the Stripe CLI terminal, confirm: `checkout.session.completed` event received and `200 OK` returned.
 11. Check DB: `subscriptions` table has a new row with `stripe_subscription_id` and `status = active`.
 
@@ -775,3 +775,12 @@ NEXT_PUBLIC_APP_URL=http://localhost:3010
 19. Call `POST /api/billing/topup` with `{ amount: 50 }`.
 20. Use test card `4242 4242 4242 4242`.
 21. Confirm `checkout.session.completed` with `type=topup` metadata is received.
+
+**Troubleshooting:**
+
+- If PowerShell says `stripe : The term 'stripe' is not recognized`:
+  - Install Stripe CLI and ensure it is on your PATH, then restart the terminal.
+  - Alternatively, run it via the full path to `stripe.exe`.
+- If Stripe redirects to a `404` after payment:
+  - Your `NEXT_PUBLIC_APP_URL` and/or the checkout `success_url` is pointing to a route that doesn’t exist (common mistake: `/dashboard?checkout=success`).
+  - For this app, success/cancel should return to `/customer/{clientId}/account?tab=billing&checkout=success|cancel`.

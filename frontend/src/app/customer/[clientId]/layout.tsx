@@ -3,8 +3,7 @@
 import type { ReactNode } from "react";
 import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import CustomerNav from "../components/CustomerNav";
-import { OrgContextProvider, useOrgContext } from "../components/OrgContext";
+import { useOrgContext } from "../components/OrgContext";
 
 function TenantGuard({ children }: { children: ReactNode }) {
   const params = useParams<{ clientId: string }>();
@@ -28,11 +27,6 @@ function TenantGuard({ children }: { children: ReactNode }) {
 }
 
 export default function CustomerClientIdLayout({ children }: { children: ReactNode }) {
-  return (
-    <OrgContextProvider>
-      <CustomerNav />
-      <TenantGuard>{children}</TenantGuard>
-    </OrgContextProvider>
-  );
+  return <TenantGuard>{children}</TenantGuard>;
 }
 

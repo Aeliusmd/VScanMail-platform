@@ -492,38 +492,38 @@ export default function ClickedDelivery({ request, onClose, onUpdated, readOnly 
                 onClick={() => run(() => deliveriesApi.adminApprove(request.id))}
                 className="px-3 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-60 hover:bg-blue-700 transition"
               >
-                Approve
-              </button>
-              <button
-                disabled={loading || !rejectReason.trim()}
-                onClick={() => run(() => deliveriesApi.adminReject(request.id, rejectReason))}
+            Approve
+          </button>
+          <button
+            disabled={loading || !rejectReason.trim()}
+            onClick={() => run(() => deliveriesApi.adminReject(request.id, rejectReason))}
                 className="px-3 py-2.5 rounded-lg bg-rose-600 text-white text-sm font-semibold disabled:opacity-60 hover:bg-rose-700 transition"
-              >
-                Reject
-              </button>
-              <button
-                disabled={loading || !trackingNumber.trim()}
-                onClick={() =>
-                  run(() =>
-                    deliveriesApi.adminMarkInTransit(request.id, {
-                      trackingNumber,
-                      submissionId: submissionId || undefined,
-                      submissionNumber: submissionNumber || undefined,
-                    })
-                  )
-                }
+          >
+            Reject
+          </button>
+          <button
+            disabled={loading || !trackingNumber.trim()}
+            onClick={() =>
+              run(() =>
+                deliveriesApi.adminMarkInTransit(request.id, {
+                  trackingNumber,
+                  submissionId: submissionId || undefined,
+                  submissionNumber: submissionNumber || undefined,
+                })
+              )
+            }
                 className="px-3 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-semibold disabled:opacity-60 hover:bg-indigo-700 transition"
-              >
-                Mark In Transit
-              </button>
-              <button
-                disabled={loading || !proofOfServiceUrl.trim()}
-                onClick={() => run(() => deliveriesApi.adminMarkDelivered(request.id, proofOfServiceUrl))}
+          >
+            Mark In Transit
+          </button>
+          <button
+            disabled={loading || !proofOfServiceUrl.trim()}
+            onClick={() => run(() => deliveriesApi.adminMarkDelivered(request.id, proofOfServiceUrl))}
                 className="px-3 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold disabled:opacity-60 hover:bg-emerald-700 transition"
-              >
-                Mark Delivered
-              </button>
-            </div>
+          >
+            Mark Delivered
+          </button>
+        </div>
             <div className="mt-3 text-[11px] text-slate-500">
               Actions will refresh the list and close this panel on success.
             </div>

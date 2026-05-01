@@ -3,7 +3,7 @@ import { loginSchema } from "@/lib/modules/auth/auth.schema";
 import { authService } from "@/lib/modules/auth/auth.service";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/modules/core/db/mysql";
-import { users, profiles } from "@/lib/modules/core/db/schema";
+import { users, profiles, clients } from "@/lib/modules/core/db/schema";
 import { eq } from "drizzle-orm";
 import { signAccessToken } from "@/lib/modules/auth/jwt";
 
@@ -27,7 +27,14 @@ export async function POST(req: NextRequest) {
 
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) throw new Error("Invalid email or password");
-    
+
+    if (!user.emailVerifiedAt) {
+      return NextResponse.json(
+        { error: "Please verify your email before signing in." },
+        { status: 403 }
+      );
+    }
+
     // 2. Verify 2FA if enabled
     if (totpCode) {
       const valid = await authService.verify2FA(user.id, totpCode);
@@ -45,6 +52,24 @@ export async function POST(req: NextRequest) {
 
     const role = profileRows[0]?.role || "client";
     const clientId = profileRows[0]?.clientId;
+
+    if (clientId) {
+      const clientRows = await db
+        .select({ status: clients.status })
+        .from(clients)
+        .where(eq(clients.id, clientId))
+        .limit(1);
+      const clientStatus = clientRows[0]?.status;
+      if (clientStatus === "pending") {
+        return NextResponse.json(
+          {
+            error:
+              "Your subscription payment is still processing. Please wait a moment, then try signing in again.",
+          },
+          { status: 403 }
+        );
+      }
+    }
 
     const access_token = await signAccessToken({ sub: user.id, email: user.email });
 

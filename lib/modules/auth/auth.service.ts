@@ -144,11 +144,20 @@ export const authService = {
 
     if (!verificationRows[0]) throw new Error("Invalid or expired OTP");
 
-    // Mark user verified in both users and clients table directly by email
-    await db.update(users).set({ emailVerifiedAt: new Date() }).where(eq(users.email, email));
-    await db.update(clients).set({ status: "active" }).where(eq(clients.email, email));
+    const clientRows = await db
+      .select({ id: clients.id, clientType: clients.clientType })
+      .from(clients)
+      .where(eq(clients.email, email))
+      .limit(1);
+    const clientRow = clientRows[0];
 
-    // Clean up
+    await db.update(users).set({ emailVerifiedAt: new Date() }).where(eq(users.email, email));
+
+    // Subscription orgs stay pending until Stripe checkout.session.completed activates them.
+    if (clientRow?.clientType !== "subscription") {
+      await db.update(clients).set({ status: "active" }).where(eq(clients.email, email));
+    }
+
     await db.delete(emailVerifications).where(eq(emailVerifications.email, email));
 
     if (userId) {
@@ -162,7 +171,7 @@ export const authService = {
       });
     }
 
-    return { verified: true };
+    return { verified: true, clientId: userId ?? clientRow?.id ?? null };
   },
 
   async setup2FA(userId: string, req?: Request) {

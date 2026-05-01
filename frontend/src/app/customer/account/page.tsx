@@ -168,7 +168,8 @@ export default function CustomerAccountPage() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState("");
+  const [toastMsg, setToastMsg] = useState("");
+  const [toastKind, setToastKind] = useState<"success" | "warning" | "error">("success");
   const [saving, setSaving] = useState(false);
 
   const [profile, setProfile] = useState(FALLBACK_ACCOUNT.profile);
@@ -317,7 +318,8 @@ export default function CustomerAccountPage() {
     if (!checkout) return;
 
     if (checkout === "success") {
-      showSuccess("Payment successful, subscription is being activated.");
+      setActiveTab("billing");
+      showToast("success", "Payment successful. We are activating your subscription...");
       void reloadBillingData().catch((e) => {
         console.error("Failed to refresh billing after checkout success:", e);
       });
@@ -325,14 +327,18 @@ export default function CustomerAccountPage() {
     }
 
     if (checkout === "cancel") {
-      showSuccess("Checkout was canceled. Your current plan remains unchanged.");
+      setActiveTab("billing");
+      showToast("warning", "Checkout was canceled. Your current plan remains unchanged.");
     }
   }, [searchParams, reloadBillingData]);
 
-  const showSuccess = (msg: string) => {
-    setSuccessMsg(msg);
-    setTimeout(() => setSuccessMsg(""), 3500);
+  const showToast = (kind: "success" | "warning" | "error", msg: string) => {
+    setToastKind(kind);
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(""), 4500);
   };
+
+  const showSuccess = (msg: string) => showToast("success", msg);
 
   const handleUpgradeConfirm = async () => {
     if (!selectedUpgradePlan || !billing) return;
@@ -350,7 +356,7 @@ export default function CustomerAccountPage() {
 
       window.location.href = result.url;
     } catch (error) {
-      showSuccess(error instanceof Error ? error.message : "Failed to start checkout.");
+      showToast("error", error instanceof Error ? error.message : "Failed to start checkout.");
     } finally {
       setUpgradeSubmitting(false);
     }
@@ -366,9 +372,9 @@ export default function CustomerAccountPage() {
         window.location.href = res.url;
         return;
       }
-      showSuccess("Could not open billing portal.");
+      showToast("error", "Could not open billing portal.");
     } catch (err) {
-      showSuccess(err instanceof Error ? err.message : "Could not open billing portal.");
+      showToast("error", err instanceof Error ? err.message : "Could not open billing portal.");
     } finally {
       setManagePortalLoading(false);
     }
@@ -381,9 +387,9 @@ export default function CustomerAccountPage() {
       setProfile(data.profile);
       if (data.avatarUrl !== undefined) setAvatarUrl(data.avatarUrl);
       setProfileDirty(false);
-      showSuccess("Profile updated successfully!");
+      showToast("success", "Profile updated successfully!");
     } catch (e) {
-      showSuccess(e instanceof Error ? e.message : "Failed to save profile");
+      showToast("error", e instanceof Error ? e.message : "Failed to save profile");
     } finally {
       setSaving(false);
     }
@@ -674,10 +680,36 @@ export default function CustomerAccountPage() {
 
 
 
-        {successMsg && (
-          <div className="mb-4 flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-xl">
-            <i className="ri-checkbox-circle-fill text-[#2F8F3A] text-xl"></i>
-            <span className="text-[#2F8F3A] font-medium text-sm">{successMsg}</span>
+        {toastMsg && (
+          <div
+            className={`mb-4 flex items-center gap-3 p-4 rounded-xl border ${
+              toastKind === "success"
+                ? "bg-green-50 border-green-200"
+                : toastKind === "warning"
+                  ? "bg-amber-50 border-amber-200"
+                  : "bg-red-50 border-red-200"
+            }`}
+          >
+            <i
+              className={`text-xl ${
+                toastKind === "success"
+                  ? "ri-checkbox-circle-fill text-[#2F8F3A]"
+                  : toastKind === "warning"
+                    ? "ri-information-fill text-amber-700"
+                    : "ri-close-circle-fill text-red-600"
+              }`}
+            />
+            <span
+              className={`font-medium text-sm ${
+                toastKind === "success"
+                  ? "text-[#2F8F3A]"
+                  : toastKind === "warning"
+                    ? "text-amber-900"
+                    : "text-red-700"
+              }`}
+            >
+              {toastMsg}
+            </span>
           </div>
         )}
 

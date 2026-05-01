@@ -1,7 +1,21 @@
 import { auditService } from "../audit/audit.service";
 import { db, sql } from "../core/db/mysql";
-import { clients } from "../core/db/schema";
-import { and, desc, eq } from "drizzle-orm";
+import {
+  auditLogs,
+  clientBankAccounts,
+  clientNotificationPreferences,
+  clients,
+  deliveryAddresses,
+  emailVerifications,
+  manualPayments,
+  passwordResets,
+  profiles,
+  subscriptions,
+  usageEvents,
+  users,
+} from "../core/db/schema";
+import { dropClientTable } from "../core/db/dynamic-table";
+import { and, desc, eq, inArray } from "drizzle-orm";
 
 export type Client = {
   id: string;
@@ -189,7 +203,33 @@ export const clientModel = {
 
   async delete(id: string, actorId?: string, req?: Request) {
     const before = await this.findById(id);
-    await db.delete(clients).where(eq(clients.id, id));
+    const profileRows = await db
+      .select({ userId: profiles.userId })
+      .from(profiles)
+      .where(eq(profiles.clientId, id));
+    const userIds = Array.from(new Set([id, ...profileRows.map((p) => p.userId)]));
+
+    await db.transaction(async (tx) => {
+      await tx.delete(emailVerifications).where(eq(emailVerifications.email, before.email));
+      if (userIds.length > 0) {
+        await tx.delete(passwordResets).where(inArray(passwordResets.userId, userIds));
+      }
+
+      await tx.delete(usageEvents).where(eq(usageEvents.clientId, id));
+      await tx.delete(clientNotificationPreferences).where(eq(clientNotificationPreferences.clientId, id));
+      await tx.delete(clientBankAccounts).where(eq(clientBankAccounts.clientId, id));
+      await tx.delete(deliveryAddresses).where(eq(deliveryAddresses.clientId, id));
+      await tx.delete(manualPayments).where(eq(manualPayments.clientId, id));
+      await tx.delete(subscriptions).where(eq(subscriptions.clientId, id));
+      await tx.delete(auditLogs).where(eq(auditLogs.clientId, id));
+      await tx.delete(profiles).where(eq(profiles.clientId, id));
+      if (userIds.length > 0) {
+        await tx.delete(users).where(inArray(users.id, userIds));
+      }
+      await tx.delete(clients).where(eq(clients.id, id));
+    });
+
+    await dropClientTable(before.table_name);
 
     if (actorId) {
       await auditService.log({

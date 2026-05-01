@@ -67,10 +67,48 @@ export const authApi = {
     ),
 
   verifyEmail: (email: string, otp: string) =>
-    apiClient<{ verified: boolean }>("/api/auth/verify-email", {
+    apiClient<{ verified: boolean; clientId: string | null }>("/api/auth/verify-email", {
       method: "POST",
       body: JSON.stringify({ email, otp }),
     }),
+
+  registrationStatus: (email: string) =>
+    apiClient<{ emailVerified: boolean; clientPending: boolean }>(
+      `/api/auth/registration-status?email=${encodeURIComponent(email)}`,
+      { method: "GET" }
+    ),
+
+  registrationPlans: () =>
+    apiClient<
+      Array<{
+        id: string;
+        name: string;
+        price: number;
+        max_companies: number;
+        max_scans: number;
+        storage: string;
+        ai_magic?: string | null;
+        cheque_handling?: string | null;
+        badge?: string | null;
+        badge_color?: string | null;
+        features: string[];
+      }>
+    >("/api/auth/registration-plans", { method: "GET", cache: "no-store" }),
+
+  registrationCheckout: (email: string, planId: string) =>
+    apiClient<{ url: string }>("/api/auth/registration-checkout", {
+      method: "POST",
+      body: JSON.stringify({ email, planId }),
+    }),
+
+  completeRegistrationCheckout: (sessionId: string) =>
+    apiClient<{ active: boolean; status?: string; paymentStatus?: string; error?: string }>(
+      "/api/auth/registration-checkout-complete",
+      {
+        method: "POST",
+        body: JSON.stringify({ sessionId }),
+      }
+    ),
 
   me: () => apiClient<MeResponse>("/api/auth/me", { method: "GET", cache: "no-store" }),
 };

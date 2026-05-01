@@ -82,6 +82,12 @@ export default function RegisterStep3() {
     setServerError(null);
 
     try {
+      const rawPlan = typeof window !== "undefined" ? localStorage.getItem("selectedPlanId") : null;
+      const planTier =
+        rawPlan === "starter" || rawPlan === "professional" || rawPlan === "enterprise"
+          ? rawPlan
+          : undefined;
+
       const payload = {
         companyName: step1.companyName,
         registrationNo: step1.registrationNumber,
@@ -100,9 +106,10 @@ export default function RegisterStep3() {
         contactJob: step2.jobTitle,
         contactEmail: step2.emailAddress,
         contactPhone: step2.phoneNumber,
-        
+
         password: formData.password,
-        planType: "subscription", // Default
+        planType: "subscription" as const,
+        ...(planTier ? { planTier } : {}),
       };
 
       const response = await fetch("/api/auth/register", {
@@ -117,14 +124,16 @@ export default function RegisterStep3() {
         throw new Error(result.error || "Registration failed");
       }
 
-      // Success
+      // Success — keep selectedPlanId until checkout completes (cleared on login?checkout=success).
       localStorage.removeItem("registerStep1");
       localStorage.removeItem("registerStep2");
-      localStorage.removeItem("selectedPlanId");
 
-      setSuccessMsg(`We sent a 6-digit verification code to ${step1.companyEmail}.`);
+      const planQs = planTier ? `&plan=${encodeURIComponent(planTier)}` : "";
+      setSuccessMsg(
+        `We sent a 6-digit code to ${step1.companyEmail}. Verify your email to continue to payment.`
+      );
       setTimeout(() => {
-        router.push(`/verify-email?email=${encodeURIComponent(step1.companyEmail)}`);
+        router.push(`/verify-email?email=${encodeURIComponent(step1.companyEmail)}${planQs}`);
       }, 900);
     } catch (err: any) {
       setServerError(err.message);

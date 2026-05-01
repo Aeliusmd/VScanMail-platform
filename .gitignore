@@ -17,6 +17,8 @@ frontend/public/uploads/*
 .claude/
 .cursor/
 .vscode/
+.agents/
+skills-lock.json
 
 # Local Data
 .data/

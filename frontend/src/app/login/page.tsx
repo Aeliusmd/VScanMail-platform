@@ -1,15 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { authApi } from "../../lib/api/auth";
 import styles from "./login.module.css";
 import { HiOutlineEnvelope, HiOutlineLockClosed, HiOutlineEye, HiOutlineEyeSlash } from "react-icons/hi2";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const checkoutSuccess = searchParams.get("checkout") === "success";
+  const checkoutSessionId = searchParams.get("session_id");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -17,6 +20,49 @@ export default function LoginPage() {
   const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [checkoutBanner, setCheckoutBanner] = useState<string | null>(null);
+
+  const finalizeRegistrationCheckout = async () => {
+    if (!checkoutSuccess || !checkoutSessionId) return false;
+
+    const result = await authApi.completeRegistrationCheckout(checkoutSessionId);
+    setCheckoutBanner(
+      result.active
+        ? "Payment successful. Your subscription is active — sign in with your company email and password."
+        : "Payment successful. Your subscription is still processing — please wait a moment before signing in."
+    );
+
+    return result.active;
+  };
+
+  useEffect(() => {
+    if (checkoutSuccess && typeof window !== "undefined") {
+      localStorage.removeItem("selectedPlanId");
+      setCheckoutBanner("Payment successful. Finalizing your subscription...");
+
+      if (checkoutSessionId) {
+        finalizeRegistrationCheckout()
+          .then((result) => {
+            if (!result) {
+              setCheckoutBanner(
+                "Payment successful. Your subscription is still processing — please wait a moment before signing in."
+              );
+            }
+          })
+          .catch((err: unknown) => {
+            const message =
+              err instanceof Error
+                ? err.message
+                : "Payment was successful, but subscription activation is still processing.";
+            setCheckoutBanner(message);
+          });
+      } else {
+        setCheckoutBanner(
+          "Payment successful. Your subscription is processing — please wait a moment before signing in."
+        );
+      }
+    }
+  }, [checkoutSessionId, checkoutSuccess]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,9 +70,10 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      await finalizeRegistrationCheckout();
       const response = await authApi.login(email, password);
       const token = response.session.access_token || response.session.accessToken;
-      
+
       if (token) {
         localStorage.setItem("vscanmail_token", token);
         // Set cookie for middleware (7 days)
@@ -42,9 +89,9 @@ export default function LoginPage() {
         // Customer (client)
         router.push("/customer");
       }
-    } catch (err: any) {
-      console.error("Login error:", err);
-      setError(err.message || "Invalid credentials. Please try again.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Invalid credentials. Please try again.";
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -79,6 +126,11 @@ export default function LoginPage() {
             </div>
 
             <form onSubmit={handleSubmit} className={styles.form}>
+              {checkoutBanner && (
+                <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-lg text-sm mb-4">
+                  {checkoutBanner}
+                </div>
+              )}
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm mb-4">
                   {error}
@@ -162,5 +214,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className={styles.page} aria-hidden />}>
+      <LoginForm />
+    </Suspense>
   );
 }

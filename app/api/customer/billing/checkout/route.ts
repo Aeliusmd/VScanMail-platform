@@ -19,6 +19,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing client context" }, { status: 400 });
     }
 
+    const appUrl = (process.env.CUSTOMER_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "")
+      .trim()
+      .replace(/\/$/, "");
+    if (!appUrl) {
+      return NextResponse.json({ error: "NEXT_PUBLIC_APP_URL is not configured." }, { status: 500 });
+    }
+
     let body: unknown;
     try {
       body = await req.json();
@@ -44,7 +51,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const result = await stripeService.createCheckoutSession(clientId, priceId);
+    const result = await stripeService.createCheckoutSession(clientId, priceId, {
+      successUrl: `${appUrl}/customer/${encodeURIComponent(clientId)}/account?tab=billing&checkout=success`,
+      cancelUrl: `${appUrl}/customer/${encodeURIComponent(clientId)}/account?tab=billing&checkout=cancel`,
+    });
 
     return NextResponse.json({ url: result.url });
   } catch (error: unknown) {
