@@ -2,8 +2,11 @@
 
 import { useState } from 'react';
 import { Icon } from '@iconify/react';
-import type { Mail } from '../../../../mocks/mails';
 import styles from './MailRow.module.css';
+
+type MailArchiveMeta = {
+  archiveBox?: string;
+};
 
 interface MailRowProps {
   mail: any;
@@ -82,9 +85,9 @@ export default function MailRow({ mail, selected, onSelect, onClick, showArchive
       <div className={styles.contentContainer}>
         <span className={styles.subjectText}>{mail.subject}</span>
         <span className={styles.previewText}>– {mail.preview}</span>
-        {showArchiveMeta && (mail as Mail & { archiveBox?: string }).archiveBox && (
+        {showArchiveMeta && (mail as MailArchiveMeta).archiveBox && (
           <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 whitespace-nowrap">
-            Box {(mail as Mail & { archiveBox?: string }).archiveBox}
+            Box {(mail as MailArchiveMeta).archiveBox}
           </span>
         )}
         {mail.hasAttachment && (

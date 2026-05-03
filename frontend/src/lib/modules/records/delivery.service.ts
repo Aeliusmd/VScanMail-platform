@@ -447,6 +447,47 @@ export const deliveryService = {
     return { ok: true };
   },
 
+  async adminCancel(params: {
+    recordId: string;
+    actorId: string;
+    actorRole: "admin" | "super_admin";
+    req?: Request;
+  }) {
+    const recordRow = await deliveryModel.findRecordRowById(params.recordId);
+    if (!recordRow) throw new Error("Record not found");
+
+    const currentStatus = (recordRow.delivery_status as DeliveryStatus | null) ?? null;
+    if (currentStatus === "cancelled" || currentStatus === "delivered") {
+      throw new Error(`Cannot cancel a delivery that is already ${currentStatus}`);
+    }
+
+    const clientId = String(recordRow._client_id);
+    const tableName = String(recordRow._table_name || (await getClientTableName(clientId)));
+    const now = new Date();
+
+    await db.execute(
+      sql.raw(
+        `UPDATE ${escapeIdent(tableName)}
+         SET delivery_status = 'cancelled',
+             delivery_decided_by = '${escapeSql(params.actorId)}',
+             delivery_decided_at = '${now.toISOString().slice(0, 19).replace("T", " ")}',
+             delivery_reject_reason = NULL
+         WHERE id = '${escapeSql(params.recordId)}'`
+      )
+    );
+
+    await auditService.log({
+      actor: params.actorId,
+      actor_role: params.actorRole as any,
+      action: "delivery.cancelled",
+      entity: params.recordId,
+      clientId,
+      req: params.req,
+    });
+
+    return { ok: true };
+  },
+
   async adminMarkDelivered(params: {
     recordId: string;
     actorId: string;

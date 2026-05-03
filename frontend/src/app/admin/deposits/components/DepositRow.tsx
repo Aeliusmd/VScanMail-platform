@@ -2,7 +2,22 @@
 
 import { useState } from 'react';
 import { Icon } from '@iconify/react';
-import type { Deposit } from '../../../../mocks/deposits';
+
+type Deposit = {
+  id: number;
+  starred: boolean;
+  flagged: boolean;
+  company: string;
+  companyColor: string;
+  companyInitial: string;
+  priority: 'Urgent' | 'Normal' | 'Low';
+  bankName: string;
+  bankCode: string;
+  requestedBy: string;
+  amount: number;
+  status: 'Pending' | 'Approved' | 'Rejected' | 'Review';
+  time: string;
+};
 
 interface DepositRowProps {
   deposit: Deposit;

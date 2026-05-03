@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState, useCallback } from 'react';
 import { Icon } from '@iconify/react';
-import { mailApi, type MailItem as ApiMailItem } from '@/lib/api/mail';
+import { mailApi, type MailItem as ApiMailItem, type MailStatus } from '@/lib/api/mail';
 import MailToolbar from './components/MailToolbar';
 import MailRow from './components/MailRow';
 import ClickedMail from './clickedmail/clickedmail';
@@ -50,7 +50,7 @@ function AllMailsPageContent() {
     if (!clientId) return;
     setLoading(true);
     try {
-      let status;
+      let status: MailStatus | undefined;
       if (activeTab === 'Processed') status = 'processed';
       if (activeTab === 'Delivered') status = 'delivered';
       if (activeTab === 'Pending Delivery') status = 'scanned';
@@ -151,6 +151,19 @@ function AllMailsPageContent() {
     );
   };
 
+  const handleBulkDelete = async () => {
+    if (!confirm(`Delete ${selectedIds.length} mail record(s)? This cannot be undone.`)) return;
+    try {
+      await Promise.all(
+        selectedIds.map((id) => fetch(`/api/records/mail/${id}`, { method: 'DELETE' }))
+      );
+      setSelectedIds([]);
+      fetchMails();
+    } catch (err) {
+      console.error('Bulk delete failed:', err);
+    }
+  };
+
   return (
     <div className={styles.pageContainer}>
       {/* Top search bar */}
@@ -240,6 +253,19 @@ function AllMailsPageContent() {
       {selectedIds.length > 0 && (
         <div className="px-4 py-2 border-b border-gray-100 bg-gray-50 flex items-center gap-2">
           <span className="text-xs text-slate-500">{selectedIds.length} selected</span>
+          <button
+            onClick={handleBulkDelete}
+            className="flex items-center gap-1.5 px-3 py-1 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg text-xs font-medium transition-colors"
+          >
+            <Icon icon="ri:delete-bin-line" className="text-sm" />
+            Delete
+          </button>
+          <button
+            onClick={() => setSelectedIds([])}
+            className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-medium transition-colors"
+          >
+            Clear
+          </button>
         </div>
       )}
 

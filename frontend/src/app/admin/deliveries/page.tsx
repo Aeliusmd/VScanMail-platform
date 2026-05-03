@@ -64,6 +64,8 @@ export default function AdminDeliveriesPage() {
   const [tab, setTab] = useState<TabType>("All");
   const [rows, setRows] = useState<DeliveryDto[]>([]);
   const [opened, setOpened] = useState<DeliveryDto | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkCancelling, setBulkCancelling] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -103,6 +105,51 @@ export default function AdminDeliveriesPage() {
     const delivered = rows.filter((r) => r.status === "delivered").length;
     return { total, pending, active, delivered };
   }, [rows]);
+
+  const allVisibleSelected =
+    filtered.length > 0 && filtered.every((r) => selectedIds.has(r.id));
+
+  const toggleCheck = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAllCheck = () => {
+    if (allVisibleSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map((r) => r.id)));
+    }
+  };
+
+  const handleBulkCancel = async () => {
+    const cancellable = Array.from(selectedIds).filter((id) => {
+      const r = rows.find((x) => x.id === id);
+      return r && r.status !== "cancelled" && r.status !== "delivered";
+    });
+    if (!cancellable.length) {
+      alert("None of the selected deliveries can be cancelled (already delivered or cancelled).");
+      return;
+    }
+    if (!confirm(`Cancel ${cancellable.length} delivery request(s)? This cannot be undone.`)) return;
+    setBulkCancelling(true);
+    try {
+      await Promise.all(
+        cancellable.map((id) =>
+          fetch(`/api/admin/deliveries/${id}/cancel`, { method: "POST" })
+        )
+      );
+      setSelectedIds(new Set());
+      await load();
+    } catch (err) {
+      console.error("Bulk cancel failed:", err);
+    } finally {
+      setBulkCancelling(false);
+    }
+  };
 
   const tabs: TabType[] = ["All", "Pending", "Approved", "In Transit", "Delivered", "Rejected", "Cancelled"];
 
@@ -200,7 +247,34 @@ export default function AdminDeliveriesPage() {
         ) : (
           <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-3">
-              <div className="text-sm font-semibold text-slate-900">Queue</div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={allVisibleSelected}
+                  onChange={toggleAllCheck}
+                  className="w-4 h-4 rounded border-slate-300 accent-[#0A3D8F] cursor-pointer"
+                />
+                <span className="text-sm font-semibold text-slate-900">Queue</span>
+                {selectedIds.size > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-500">{selectedIds.size} selected</span>
+                    <button
+                      onClick={handleBulkCancel}
+                      disabled={bulkCancelling}
+                      className="flex items-center gap-1 px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                    >
+                      <i className="ri-close-circle-line text-sm" />
+                      {bulkCancelling ? "Cancelling…" : "Cancel Selected"}
+                    </button>
+                    <button
+                      onClick={() => setSelectedIds(new Set())}
+                      className="text-xs text-slate-500 hover:text-slate-700 px-1.5 py-1 hover:bg-slate-100 rounded-lg"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                )}
+              </div>
               <div className="text-xs text-slate-500">{filtered.length} shown</div>
             </div>
             <div className="divide-y divide-slate-100">
@@ -225,11 +299,22 @@ export default function AdminDeliveriesPage() {
                   .join(" · ");
 
                 return (
-                  <button
+                  <div
                     key={r.id}
-                    onClick={() => setOpened(r)}
-                    className="group w-full text-left hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3D8F]/30"
+                    className="group flex items-start hover:bg-slate-50"
                   >
+                    <div className="flex items-center pl-4 pt-4 pb-4 flex-shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(r.id)}
+                        onChange={(e) => { e.stopPropagation(); toggleCheck(r.id); }}
+                        className="w-4 h-4 rounded border-slate-300 accent-[#0A3D8F] cursor-pointer"
+                      />
+                    </div>
+                    <button
+                      onClick={() => setOpened(r)}
+                      className="flex-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3D8F]/30"
+                    >
                     <div className="relative px-4 py-4">
                       <div className={`absolute left-0 top-0 h-full w-1 ${s.accentClass}`} />
                       <div className="flex items-start justify-between gap-4">
@@ -275,7 +360,8 @@ export default function AdminDeliveriesPage() {
                         </div>
                       </div>
                     </div>
-                  </button>
+                    </button>
+                  </div>
                 );
               })}
             </div>

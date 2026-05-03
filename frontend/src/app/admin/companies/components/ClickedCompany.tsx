@@ -1,7 +1,7 @@
 "use client";
 
 import { Icon } from '@iconify/react';
-import type { Company } from '../../../../mocks/companies';
+import type { Company } from '@/types/company';
 import { usePathname } from 'next/navigation';
 
 interface ClickedCompanyProps {

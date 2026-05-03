@@ -1,7 +1,16 @@
 "use client";
 
 import { useState } from 'react';
-import type { Deposit } from '../../../../mocks/deposits';
+
+type Deposit = {
+  id: number;
+  company: string;
+  amount: number;
+  bankName: string;
+  requestedBy: string;
+  status: 'Pending' | 'Approved' | 'Rejected' | 'Review';
+  time: string;
+};
 
 interface ClickedDepositProps {
   deposit: Deposit;

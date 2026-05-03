@@ -30,14 +30,19 @@ type JsonHeaders = Record<string, string>;
 
 export async function apiClient<T>(
   endpoint: string,
-  options: RequestInit & { headers?: JsonHeaders } = {}
+  options: RequestInit = {}
 ): Promise<T> {
   const token = getToken();
 
   const headers: JsonHeaders = {
     "Content-Type": "application/json",
-    ...(options.headers || {}),
   };
+
+  if (options.headers) {
+    new Headers(options.headers).forEach((value, key) => {
+      headers[key] = value;
+    });
+  }
 
   if (token) {
     headers.Authorization = `Bearer ${token}`;

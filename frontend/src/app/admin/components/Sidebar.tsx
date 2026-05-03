@@ -5,11 +5,11 @@ import Image from 'next/image';
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Icon } from '@iconify/react';
-import { companies } from '../../../mocks/companies';
-import { deliveries } from '../../../mocks/deliveries';
+import { apiClient } from '@/lib/api-client';
 import { mailApi } from '@/lib/api/mail';
 import { chequeApi, type Cheque as ApiCheque } from '@/lib/api/cheques';
 import { depositsApi } from '@/lib/api/deposits';
+import { deliveriesApi } from '@/lib/api/deliveries';
 
 const navItems = [
   { icon: 'ri:dashboard-line', label: 'Dashboard', slug: '' },
@@ -67,6 +67,21 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     approved: 0,
     rejected: 0,
     deposited: 0,
+  });
+
+  const [companyCounts, setCompanyCounts] = useState({
+    total: 0,
+    active: 0,
+    pending: 0,
+    inactive: 0,
+  });
+
+  const [deliveryCounts, setDeliveryCounts] = useState({
+    total: 0,
+    pending: 0,
+    inTransit: 0,
+    delivered: 0,
+    failed: 0,
   });
 
   const normalizeChequeStatus = (c: ApiCheque) => {
@@ -157,10 +172,47 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         });
     }
 
+    if (isCompaniesPage) {
+      apiClient<{ clients: Array<{ status?: string | null }> }>('/api/clients?limit=500')
+        .then((res) => {
+          if (!alive) return;
+          const items = res.clients || [];
+          setCompanyCounts({
+            total: items.length,
+            active: items.filter((c) => c.status === 'active').length,
+            pending: items.filter((c) => c.status === 'pending').length,
+            inactive: items.filter((c) => c.status === 'inactive').length,
+          });
+        })
+        .catch(() => {
+          if (!alive) return;
+          setCompanyCounts({ total: 0, active: 0, pending: 0, inactive: 0 });
+        });
+    }
+
+    if (isDeliveriesPage) {
+      deliveriesApi
+        .adminList()
+        .then((rows) => {
+          if (!alive) return;
+          setDeliveryCounts({
+            total: rows.length,
+            pending: rows.filter((r) => r.status === 'pending').length,
+            inTransit: rows.filter((r) => r.status === 'approved' || r.status === 'in_transit').length,
+            delivered: rows.filter((r) => r.status === 'delivered').length,
+            failed: rows.filter((r) => r.status === 'rejected' || r.status === 'cancelled').length,
+          });
+        })
+        .catch(() => {
+          if (!alive) return;
+          setDeliveryCounts({ total: 0, pending: 0, inTransit: 0, delivered: 0, failed: 0 });
+        });
+    }
+
     return () => {
       alive = false;
     };
-  }, [isMailsPage, isChequesPage, isDepositsPage, clientId]);
+  }, [isMailsPage, isChequesPage, isCompaniesPage, isDepositsPage, isDeliveriesPage, clientId]);
 
   const getTabValueForLabel = (pagePath: string, label: string): string | null => {
     // Mail page tabs: All | Processed | Delivered | Pending Delivery
@@ -300,7 +352,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     {
       icon: 'ri:building-line',
       label: 'All Organizations',
-      count: companies.length,
+      count: companyCounts.total,
       color: '#0F172A',
       bg: 'bg-[#F1F5F9]',
       fontWeight: 'font-semibold',
@@ -308,19 +360,19 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     {
       icon: 'ri:checkbox-circle-line',
       label: 'Active',
-      count: companies.filter((c) => c.status === 'Active').length,
+      count: companyCounts.active,
       color: '#2F8F3A',
     },
     {
       icon: 'ri:time-line',
       label: 'Pending',
-      count: companies.filter((c) => c.status === 'Pending').length,
+      count: companyCounts.pending,
       color: '#F59E0B',
     },
     {
       icon: 'ri:pause-circle-line',
       label: 'Inactive',
-      count: companies.filter((c) => c.status === 'Inactive').length,
+      count: companyCounts.inactive,
       color: '#64748B',
     },
   ];
@@ -364,7 +416,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     {
       icon: 'ri:inbox-archive-line',
       label: 'All Requests',
-      count: deliveries.length,
+      count: deliveryCounts.total,
       color: '#0F172A',
       bg: 'bg-[#F1F5F9]',
       fontWeight: 'font-semibold',
@@ -372,25 +424,25 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     {
       icon: 'ri:time-line',
       label: 'Pending',
-      count: deliveries.filter((d) => d.status === 'Pending').length,
+      count: deliveryCounts.pending,
       color: '#F59E0B',
     },
     {
       icon: 'ri:truck-line',
       label: 'In Transit',
-      count: deliveries.filter((d) => d.status === 'In Transit').length,
+      count: deliveryCounts.inTransit,
       color: '#0A3D8F',
     },
     {
       icon: 'ri:check-double-line',
       label: 'Delivered',
-      count: deliveries.filter((d) => d.status === 'Delivered').length,
+      count: deliveryCounts.delivered,
       color: '#2F8F3A',
     },
     {
       icon: 'ri:close-circle-line',
       label: 'Failed',
-      count: deliveries.filter((d) => d.status === 'Failed').length,
+      count: deliveryCounts.failed,
       color: '#EF4444',
     },
   ];
@@ -431,11 +483,11 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         return chequeCounts.total;
       }
       case '/companies': {
-        if (tab === 'All') return companies.length;
-        if (tab === 'Active') return companies.filter((c) => c.status === 'Active').length;
-        if (tab === 'Pending') return companies.filter((c) => c.status === 'Pending').length;
-        if (tab === 'Inactive') return companies.filter((c) => c.status === 'Inactive').length;
-        return companies.length;
+        if (tab === 'All') return companyCounts.total;
+        if (tab === 'Active') return companyCounts.active;
+        if (tab === 'Pending') return companyCounts.pending;
+        if (tab === 'Inactive') return companyCounts.inactive;
+        return companyCounts.total;
       }
       case '/deposits': {
         if (tab === 'All') return depositCounts.total;
@@ -446,12 +498,12 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         return depositCounts.total;
       }
       case '/deliveries': {
-        if (tab === 'All') return deliveries.length;
-        if (tab === 'Pending') return deliveries.filter((d) => d.status === 'Pending').length;
-        if (tab === 'In Transit') return deliveries.filter((d) => d.status === 'In Transit').length;
-        if (tab === 'Delivered') return deliveries.filter((d) => d.status === 'Delivered').length;
-        if (tab === 'Failed') return deliveries.filter((d) => d.status === 'Failed').length;
-        return deliveries.length;
+        if (tab === 'All') return deliveryCounts.total;
+        if (tab === 'Pending') return deliveryCounts.pending;
+        if (tab === 'In Transit') return deliveryCounts.inTransit;
+        if (tab === 'Delivered') return deliveryCounts.delivered;
+        if (tab === 'Failed') return deliveryCounts.failed;
+        return deliveryCounts.total;
       }
       default:
         return null;

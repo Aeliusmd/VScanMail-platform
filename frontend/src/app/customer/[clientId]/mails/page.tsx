@@ -394,6 +394,20 @@ export default function CustomerMailsPage() {
                 >
                   <i className="ri-mail-open-line text-slate-500 text-base"></i>
                 </button>
+                <button
+                  className="p-1.5 hover:bg-red-50 rounded-lg cursor-pointer"
+                  title="Delete selected"
+                  onClick={async () => {
+                    if (!confirm(`Remove ${checkedIds.size} mail item(s) from your view? This only affects your portal.`)) return;
+                    const ids = Array.from(checkedIds);
+                    await Promise.all(ids.map((id) => fetch(`/api/records/mail/${id}`, { method: "DELETE" })));
+                    setMails((prev) => prev.filter((m) => !checkedIds.has(m.id)));
+                    setCheckedIds(new Set());
+                    setAllChecked(false);
+                  }}
+                >
+                  <i className="ri-delete-bin-line text-red-500 text-base"></i>
+                </button>
                 <span className="text-xs text-slate-500 ml-1">{checkedIds.size} selected</span>
               </div>
             )}

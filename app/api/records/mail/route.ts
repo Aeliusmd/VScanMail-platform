@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth, withRole } from "@/lib/modules/auth/auth.middleware";
 import { mailItemModel } from "@/lib/modules/records/mail.model";
+import { customerHiddenModel } from "@/lib/modules/records/customer-hidden.model";
 import { mailQuerySchema } from "@/lib/modules/records/mail.schema";
 import { ZodError } from "zod";
 
@@ -20,7 +21,9 @@ export async function GET(req: NextRequest) {
       result = await mailItemModel.listAllGlobal(query);
     } else {
       const clientId = isAdmin ? params.clientId : user.clientId!;
-      result = await mailItemModel.listByClient(clientId, query);
+      // For customer requests, filter out records the client has soft-deleted.
+      const hiddenIds = isAdmin ? undefined : await customerHiddenModel.getHiddenIds(clientId);
+      result = await mailItemModel.listByClient(clientId, { ...query, hiddenIds });
     }
 
     return NextResponse.json(result);

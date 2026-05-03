@@ -479,8 +479,29 @@ export default function CustomerChequesPage() {
               </button>
             </div>
             {checkedIds.size > 0 && (
-              <div className="flex items-center space-x-1 ml-2">
-                <span className="text-xs text-slate-500 ml-1">{checkedIds.size} selected</span>
+              <div className="flex items-center gap-1 ml-2">
+                <span className="text-xs text-slate-500">{checkedIds.size} selected</span>
+                <button
+                  onClick={async () => {
+                    if (!confirm(`Remove ${checkedIds.size} cheque(s) from your view? This only affects your portal.`)) return;
+                    const ids = Array.from(checkedIds);
+                    await Promise.all(ids.map((id) => fetch(`/api/records/cheques/${id}`, { method: "DELETE" })));
+                    setCheques((prev) => prev.filter((c) => !checkedIds.has(c.id)));
+                    setCheckedIds(new Set());
+                    setAllChecked(false);
+                  }}
+                  className="p-1.5 hover:bg-red-50 rounded-lg cursor-pointer"
+                  title="Delete selected"
+                >
+                  <i className="ri-delete-bin-line text-red-500 text-base"></i>
+                </button>
+                <button
+                  onClick={() => { setCheckedIds(new Set()); setAllChecked(false); }}
+                  className="p-1.5 hover:bg-slate-100 rounded-lg cursor-pointer"
+                  title="Clear selection"
+                >
+                  <i className="ri-close-line text-slate-500 text-base"></i>
+                </button>
               </div>
             )}
             <button className="p-1.5 hover:bg-slate-100 rounded-lg cursor-pointer" title="Refresh">

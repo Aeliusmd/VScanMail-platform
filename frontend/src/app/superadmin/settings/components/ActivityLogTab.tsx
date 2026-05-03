@@ -50,7 +50,6 @@ function mapActionToLabel(action: string): string {
     'admin.deleted': 'Admin Deleted',
     'mail.created': 'Mail Item Ingested',
     'mail.updated': 'Mail Item Updated',
-    'record.created': 'Mail Item Ingested',
     'record.updated': 'Mail Item Updated',
     'cheque.validated': 'Cheque AI Validation',
     'cheque.decided': 'Cheque Decision Made',

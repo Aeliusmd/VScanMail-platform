@@ -1,5 +1,6 @@
 import { stripe } from "@/lib/modules/billing/stripe.config";
 import { clientModel } from "@/lib/modules/clients/client.model";
+import { invoiceModel } from "@/lib/modules/billing/invoice.model";
 import { subscriptionModel } from "@/lib/modules/billing/subscription.model";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL!;
@@ -189,20 +190,44 @@ export const stripeService = {
       }
 
       case "invoice.payment_succeeded": {
-        const invoice = event.data.object;
-        const stripeSubId = invoice.subscription as string | null;
+        const inv = event.data.object;
+        const stripeSubId = inv.subscription as string | null;
         if (!stripeSubId) break;
 
         const sub = await subscriptionModel.findByStripeSubscriptionId(stripeSubId);
-        if (!sub) break;
+        if (!sub?.client_id) break;
 
         await subscriptionModel.clearGracePeriod(stripeSubId);
+        await clientModel.update(sub.client_id, {
+          status: "active",
+          suspended_reason: null,
+        });
 
-        if (sub.client_id) {
-          await clientModel.update(sub.client_id, {
-            status: "active",
-            suspended_reason: null,
+        try {
+          await invoiceModel.createFromStripe({
+            clientId: sub.client_id,
+            stripeInvoiceId: inv.id,
+            stripeSubscriptionId: stripeSubId,
+            invoiceNumber: inv.number ?? null,
+            status: "paid",
+            amountDue: inv.amount_due ?? 0,
+            amountPaid: inv.amount_paid ?? 0,
+            currency: inv.currency ?? "usd",
+            planTier: sub.plan_tier ?? null,
+            description:
+              inv.description ??
+              `VScanMail ${sub.plan_tier ?? ""} - ${new Date().toLocaleDateString("en-US", {
+                month: "long",
+                year: "numeric",
+              })}`,
+            pdfUrl: inv.invoice_pdf ?? null,
+            hostedUrl: inv.hosted_invoice_url ?? null,
+            periodStart: inv.period_start ? new Date(inv.period_start * 1000) : null,
+            periodEnd: inv.period_end ? new Date(inv.period_end * 1000) : null,
+            paidAt: new Date(),
           });
+        } catch (invoiceErr) {
+          console.error("Failed to save invoice record:", invoiceErr);
         }
         break;
       }

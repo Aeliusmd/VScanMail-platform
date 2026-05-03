@@ -361,3 +361,50 @@ export const deliveryAddresses = mysqlTable(
     clientDefaultIdx: index("da_client_default_idx").on(t.clientId, t.isDefault),
   })
 );
+
+// Records that a client (customer) has chosen to hide from their own view.
+// Admins always see the underlying record; only the customer's portal hides it.
+export const customerHiddenRecords = mysqlTable(
+  "customer_hidden_records",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    clientId: varchar("client_id", { length: 36 }).notNull(),
+    recordId: varchar("record_id", { length: 36 }).notNull(),
+    hiddenAt: datetime("hidden_at", { mode: "date" }).notNull(),
+  },
+  (t) => ({
+    clientRecordUq: uniqueIndex("chr_client_record_uq").on(t.clientId, t.recordId),
+    clientIdx: index("chr_client_idx").on(t.clientId),
+  })
+);
+
+export const invoices = mysqlTable(
+  "invoices",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    clientId: varchar("client_id", { length: 36 }).notNull(),
+    stripeInvoiceId: varchar("stripe_invoice_id", { length: 255 }),
+    stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }),
+    invoiceNumber: varchar("invoice_number", { length: 64 }),
+    status: mysqlEnum("status", ["paid", "open", "void", "uncollectible", "draft"])
+      .notNull()
+      .default("draft"),
+    amountDue: decimal("amount_due", { precision: 12, scale: 2 }).notNull().default("0.00"),
+    amountPaid: decimal("amount_paid", { precision: 12, scale: 2 }).notNull().default("0.00"),
+    currency: varchar("currency", { length: 8 }).notNull().default("usd"),
+    planTier: mysqlEnum("plan_tier", ["starter", "professional", "enterprise"]),
+    description: varchar("description", { length: 500 }),
+    pdfUrl: varchar("pdf_url", { length: 1000 }),
+    hostedUrl: varchar("hosted_url", { length: 1000 }),
+    periodStart: datetime("period_start", { mode: "date" }),
+    periodEnd: datetime("period_end", { mode: "date" }),
+    paidAt: datetime("paid_at", { mode: "date" }),
+    createdAt: datetime("created_at", { mode: "date" }).notNull(),
+  },
+  (t) => ({
+    clientIdx: index("inv_client_idx").on(t.clientId),
+    stripeInvIdx: uniqueIndex("inv_stripe_uq").on(t.stripeInvoiceId),
+    statusIdx: index("inv_status_idx").on(t.status),
+    createdIdx: index("inv_created_idx").on(t.createdAt),
+  })
+);

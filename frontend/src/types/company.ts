@@ -16,7 +16,16 @@ export interface Company {
   joined: string;
   phone: string;
   address: string;
+  address_json?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+    country?: string;
+  };
+  avatar_url?: string | null;
   chequeValue: number;
   notes: string;
   lastActivity: string;
+  clientType?: 'manual' | 'subscription';
 }

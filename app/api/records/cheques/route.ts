@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth, withRole } from "@/lib/modules/auth/auth.middleware";
 import { chequeModel } from "@/lib/modules/records/cheque.model";
+import { customerHiddenModel } from "@/lib/modules/records/customer-hidden.model";
 
 export async function GET(req: NextRequest) {
   try {
@@ -56,5 +57,6 @@ async function chequesListForClient(
   const page = Number(searchParams.get("page") || "1") || 1;
   const limit = Number(searchParams.get("limit") || "100") || 100;
   const status = searchParams.get("status") || undefined;
-  return chequeModel.listByClient(clientId, page, limit, archived, status);
+  const hiddenIds = await customerHiddenModel.getHiddenIds(clientId);
+  return chequeModel.listByClient(clientId, page, limit, archived, status, hiddenIds);
 }

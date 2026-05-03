@@ -188,7 +188,8 @@ export const chequeModel = {
     page = 1,
     limit = 20,
     archived?: boolean,
-    status?: string
+    status?: string,
+    hiddenIds?: Set<string>
   ) {
     const from = (page - 1) * limit;
     const tableName = await getClientTableName(clientId);
@@ -200,10 +201,14 @@ export const chequeModel = {
           ? sql` AND created_at < ${cutoff}`
           : sql` AND created_at >= ${cutoff}`;
     const statusClause = status ? sql` AND cheque_status = ${status}` : sql``;
+    const hiddenClause =
+      hiddenIds && hiddenIds.size > 0
+        ? sql` AND id NOT IN (${sql.join(Array.from(hiddenIds).map((id) => sql`${id}`), sql`, `)})`
+        : sql``;
 
     const query = sql`
       SELECT * FROM ${sql.raw(`\`${tableName}\``)}
-      WHERE record_type = 'cheque'${archiveClause}${statusClause}
+      WHERE record_type = 'cheque'${archiveClause}${statusClause}${hiddenClause}
       ORDER BY created_at DESC
       LIMIT ${limit} OFFSET ${from}
     `;
@@ -212,7 +217,7 @@ export const chequeModel = {
     const countQuery = sql`
       SELECT COUNT(*) as count
       FROM ${sql.raw(`\`${tableName}\``)}
-      WHERE record_type = 'cheque'${archiveClause}${statusClause}
+      WHERE record_type = 'cheque'${archiveClause}${statusClause}${hiddenClause}
     `;
     const [countRows] = await db.execute(countQuery) as any;
 
@@ -269,6 +274,31 @@ export const chequeModel = {
     }
 
     return after;
+  },
+
+  async delete(id: string, actorId?: string, req?: Request) {
+    const row = await locateChequeById(id);
+    if (!row) throw new Error("Cheque not found");
+
+    const clientId = row._client_id;
+    const before = rowToCheque(row, clientId);
+    const tableName = await getClientTableName(clientId);
+
+    await db.execute(
+      sql`DELETE FROM ${sql.raw(`\`${tableName}\``)} WHERE id = ${id} AND record_type = 'cheque'`
+    );
+
+    if (actorId) {
+      await auditService.log({
+        actor: actorId,
+        actor_role: "admin",
+        action: "cheque.deleted",
+        entity: id,
+        clientId,
+        before,
+        req,
+      });
+    }
   },
 
   async assignToBatch(chequeIds: string[], batchId: string, actorId?: string, req?: Request) {

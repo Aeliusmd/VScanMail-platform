@@ -18,6 +18,8 @@ REST API over HTTPS. JSON request/response. **JWT token-based authentication.**
 |---|---|
 |
 | QA / Staging | `https://devqaapi.vsendocs.com/swagger/index.html` |
+| QA User frontend| `https://devqa.vsendocs.com/` |
+
 
 
 All endpoints are prefixed with `/api`. Full URL pattern: `{BASE_URL}/api/{endpoint}`.

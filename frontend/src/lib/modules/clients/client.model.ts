@@ -7,6 +7,7 @@ import {
   clients,
   deliveryAddresses,
   emailVerifications,
+  invoices,
   manualPayments,
   passwordResets,
   profiles,
@@ -224,6 +225,7 @@ export const clientModel = {
       await tx.delete(clientBankAccounts).where(eq(clientBankAccounts.clientId, id));
       await tx.delete(deliveryAddresses).where(eq(deliveryAddresses.clientId, id));
       await tx.delete(manualPayments).where(eq(manualPayments.clientId, id));
+      await tx.delete(invoices).where(eq(invoices.clientId, id));
       await tx.delete(subscriptions).where(eq(subscriptions.clientId, id));
       await tx.delete(auditLogs).where(eq(auditLogs.clientId, id));
       await tx.delete(profiles).where(eq(profiles.clientId, id));

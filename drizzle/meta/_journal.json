@@ -78,6 +78,13 @@
       "when": 1777629672730,
       "tag": "0010_subscription_grace_period",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1777641833270,
+      "tag": "0011_invoices",
+      "breakpoints": true
     }
   ]
 }

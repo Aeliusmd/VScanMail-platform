@@ -206,9 +206,9 @@ export const mailItemModel = {
 
   async listByClient(
     clientId: string,
-    opts: { page?: number; limit?: number; type?: string; status?: string; archived?: boolean } = {}
+    opts: { page?: number; limit?: number; type?: string; status?: string; archived?: boolean; hiddenIds?: Set<string> } = {}
   ) {
-    const { page = 1, limit = 20, type, status, archived } = opts;
+    const { page = 1, limit = 20, type, status, archived, hiddenIds } = opts;
     const from = (page - 1) * limit;
     const tableName = await getClientTableName(clientId);
 
@@ -220,6 +220,10 @@ export const mailItemModel = {
       conditions.push(
         archived ? sql`scanned_at < ${cutoff}` : sql`scanned_at >= ${cutoff}`
       );
+    }
+    if (hiddenIds && hiddenIds.size > 0) {
+      const idList = Array.from(hiddenIds).map((id) => sql`${id}`);
+      conditions.push(sql`id NOT IN (${sql.join(idList, sql`, `)})`);
     }
 
     const whereClause = conditions.length > 0 
@@ -393,6 +397,29 @@ export const mailItemModel = {
     }
 
     return after;
+  },
+
+  async delete(id: string, actorId?: string, req?: Request) {
+    const row = await locateRecordById(id);
+    if (!row) throw new Error("Mail item not found");
+
+    const clientId = row._client_id;
+    const before = rowToMailItem(row, clientId);
+    const tableName = await getClientTableName(clientId);
+
+    await db.execute(sql`DELETE FROM ${sql.raw(`\`${tableName}\``)} WHERE id = ${id}`);
+
+    if (actorId) {
+      await auditService.log({
+        actor: actorId,
+        actor_role: "admin",
+        action: "record.deleted",
+        entity: id,
+        clientId,
+        before,
+        req,
+      });
+    }
   },
 
   async getDestructionDue(beforeDate: string) {

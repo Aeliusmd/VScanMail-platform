@@ -2,7 +2,21 @@
 
 import { Icon } from '@iconify/react';
 import { useMemo } from 'react';
-import type { DeliveryRequest } from '../../../../mocks/deliveries';
+
+type DeliveryRequest = {
+  id: string;
+  starred: boolean;
+  read: boolean;
+  company: string;
+  tag?: string;
+  tagColor?: string;
+  mailSubject: string;
+  addressShort: string;
+  courier: string;
+  status: 'Pending' | 'In Transit' | 'Delivered' | 'Failed';
+  requestedBy: string;
+  timeShort: string;
+};
 
 interface DeliveryRowProps {
   request: DeliveryRequest;

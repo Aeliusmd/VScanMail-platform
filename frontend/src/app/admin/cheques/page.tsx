@@ -202,6 +202,20 @@ function AllChequesPageContent() {
     );
   };
 
+  const handleBulkDelete = async () => {
+    if (!confirm(`Delete ${selectedIds.length} cheque record(s)? This cannot be undone.`)) return;
+    try {
+      await Promise.all(
+        selectedIds.map((id) => fetch(`/api/records/cheques/${id}`, { method: 'DELETE' }))
+      );
+      setSelectedIds([]);
+      const res = await chequeApi.list({ archived: false, clientId, limit: 200 });
+      setChequeItems(res.cheques.map((c) => toUiCheque(c)));
+    } catch (err) {
+      console.error('Bulk delete failed:', err);
+    }
+  };
+
   return (
     <div className={styles.pageContainer}>
       <div className={styles.topBar}>
@@ -293,6 +307,19 @@ function AllChequesPageContent() {
       {selectedIds.length > 0 && (
         <div className="px-4 py-2 border-b border-gray-100 bg-gray-50 flex items-center gap-2">
           <span className="text-xs text-slate-500">{selectedIds.length} selected</span>
+          <button
+            onClick={handleBulkDelete}
+            className="flex items-center gap-1.5 px-3 py-1 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg text-xs font-medium transition-colors"
+          >
+            <Icon icon="ri:delete-bin-line" className="text-sm" />
+            Delete
+          </button>
+          <button
+            onClick={() => setSelectedIds([])}
+            className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-medium transition-colors"
+          >
+            Clear
+          </button>
         </div>
       )}
 

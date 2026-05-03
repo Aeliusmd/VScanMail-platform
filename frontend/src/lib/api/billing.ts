@@ -13,9 +13,18 @@ export interface UsageSummary {
 export interface Invoice {
   id: string;
   stripe_invoice_id: string | null;
-  amount: number;
+  invoice_number: string | null;
+  status: "paid" | "open" | "void" | "uncollectible" | "draft";
+  amount_due: number;
+  amount_paid: number;
+  currency: string;
+  plan_tier: string | null;
+  description: string | null;
   pdf_url: string | null;
-  status: string;
+  hosted_url: string | null;
+  period_start: string | null;
+  period_end: string | null;
+  paid_at: string | null;
   created_at: string;
 }
 

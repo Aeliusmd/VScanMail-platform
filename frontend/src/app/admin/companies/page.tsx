@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
-import { companies, type Company } from '../../../mocks/companies';
+import type { Company } from '@/types/company';
 import CompanyToolbar from './components/CompanyToolbar';
 import CompanyRow from './components/CompanyRow';
 import ClickedCompany from './components/ClickedCompany';
@@ -183,6 +183,31 @@ function CompaniesPageContent() {
 
   const handleSelect = (id: string) => {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const allVisibleSelected = paginated.length > 0 && paginated.every((c) => selectedIds.includes(c.id));
+
+  const toggleSelectAll = () => {
+    if (allVisibleSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !paginated.some((c) => c.id === id)));
+    } else {
+      const pageIds = paginated.map((c) => c.id);
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...pageIds])));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!canManageOrganizations) return;
+    if (!confirm(`Delete ${selectedIds.length} organization(s)? This cannot be undone.`)) return;
+    try {
+      await Promise.all(
+        selectedIds.map((id) => apiClient(`/api/clients/${id}`, { method: 'DELETE' }))
+      );
+      setSelectedIds([]);
+      await fetchCompanies();
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete selected organizations');
+    }
   };
 
   const handleEdit = (company: Company) => {
@@ -371,7 +396,30 @@ function CompaniesPageContent() {
         perPage={PER_PAGE}
         onPrev={() => setPage((p) => Math.max(1, p - 1))}
         onNext={() => setPage((p) => Math.min(Math.ceil(filtered.length / PER_PAGE), p + 1))}
+        allChecked={allVisibleSelected}
+        onToggleAll={toggleSelectAll}
       />
+
+      {selectedIds.length > 0 && (
+        <div className="px-4 py-2 border-b border-gray-100 bg-gray-50 flex items-center gap-2">
+          <span className="text-xs text-slate-500">{selectedIds.length} selected</span>
+          {canManageOrganizations && (
+            <button
+              onClick={handleBulkDelete}
+              className="flex items-center gap-1.5 px-3 py-1 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg text-xs font-medium transition-colors"
+            >
+              <Icon icon="ri:delete-bin-line" className="text-sm" />
+              Delete
+            </button>
+          )}
+          <button
+            onClick={() => setSelectedIds([])}
+            className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-medium transition-colors"
+          >
+            Clear
+          </button>
+        </div>
+      )}
 
       <div className={styles.tabsContainer}>
         {TABS.map((tab) => (

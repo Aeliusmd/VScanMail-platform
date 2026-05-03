@@ -13,7 +13,7 @@ import {
   type CustomerBillingResponse,
 } from "@/lib/customerBilling";
 import { useOrgContext } from "../components/OrgContext";
-import { billingApi, type BillingStatus, type UsageSummary } from "@/lib/api/billing";
+import { billingApi, type BillingStatus, type Invoice, type UsageSummary } from "@/lib/api/billing";
 import { bankAccountsApi, type BankAccountListItem } from "@/lib/api/bankAccounts";
 import { deliveryAddressesApi, type DeliveryAddress } from "@/lib/api/delivery-addresses";
 import { apiClient, apiUpload } from "@/lib/api-client";
@@ -154,6 +154,30 @@ function formatBillingDate(value?: string | null): string {
   }).format(new Date(value));
 }
 
+function formatInvoiceDate(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+}
+
+function formatInvoiceAmount(amount: number, currency: string): string {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: currency.toUpperCase() }).format(amount);
+}
+
+function invoiceStatusBadge(status: string): { label: string; cls: string } {
+  switch (status) {
+    case "paid":
+      return { label: "Paid", cls: "bg-green-50 text-green-700 border border-green-200" };
+    case "open":
+      return { label: "Open", cls: "bg-blue-50 text-blue-700 border border-blue-200" };
+    case "void":
+      return { label: "Void", cls: "bg-gray-100 text-gray-500 border border-gray-200" };
+    case "uncollectible":
+      return { label: "Uncollectible", cls: "bg-red-50 text-red-700 border border-red-200" };
+    default:
+      return { label: "Draft", cls: "bg-amber-50 text-amber-700 border border-amber-200" };
+  }
+}
+
 function planActionLabel(currentPlan: PlanTier | null | undefined, targetPlan: PlanTier): string {
   if (!currentPlan) return `Switch to ${targetPlan[0].toUpperCase()}${targetPlan.slice(1)}`;
   if (currentPlan === targetPlan) return "Current Plan";
@@ -168,7 +192,7 @@ function toUpgradePlans(plans: ApiBillingPlan[]): UpgradePlanCard[] {
     professional: "ri-rocket-line",
     enterprise: "ri-building-2-line",
   };
-  return plans.filter((p) => isPlanTier(p.id)).map((p) => {
+  return plans.filter((p): p is ApiBillingPlan & { id: PlanTier } => isPlanTier(p.id)).map((p) => {
     const isCustom = Number(p.price) <= 0;
     return {
       id: p.id,
@@ -232,6 +256,9 @@ export default function CustomerAccountPage() {
 
   const [billing, setBilling] = useState<CustomerBillingResponse>(() => structuredClone(FALLBACK_BILLING));
   const [usage, setUsage] = useState<UsageSummary | null>(null);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [invoicesLoading, setInvoicesLoading] = useState(false);
+  const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
 
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [selectedUpgradePlan, setSelectedUpgradePlan] = useState<string | null>(null);
@@ -360,6 +387,18 @@ export default function CustomerAccountPage() {
     return () => clearTimeout(t);
   }, [planChangeMessage]);
 
+  const loadInvoices = useCallback(async () => {
+    setInvoicesLoading(true);
+    try {
+      const res = await billingApi.getInvoices();
+      setInvoices(res?.invoices ?? []);
+    } catch {
+      setInvoices([]);
+    } finally {
+      setInvoicesLoading(false);
+    }
+  }, []);
+
   const reloadBillingData = useCallback(async () => {
     const b = await fetchCustomerBilling();
     setBilling((prev) => ({
@@ -382,6 +421,11 @@ export default function CustomerAccountPage() {
 
     await loadBillingStatus();
   }, [loadBillingStatus]);
+
+  useEffect(() => {
+    if (activeTab !== "billing") return;
+    void loadInvoices();
+  }, [activeTab, loadInvoices]);
 
   useEffect(() => {
     const checkout = searchParams.get("checkout");
@@ -409,6 +453,26 @@ export default function CustomerAccountPage() {
   };
 
   const showSuccess = (msg: string) => showToast("success", msg);
+
+  const handleDownloadInvoice = async (invoiceId: string, pdfUrl: string | null) => {
+    if (!pdfUrl) {
+      showToast("error", "PDF not available for this invoice.");
+      return;
+    }
+
+    setDownloadingInvoiceId(invoiceId);
+    try {
+      const link = document.createElement("a");
+      link.href = `/api/billing/invoices/${invoiceId}/download`;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } finally {
+      setTimeout(() => setDownloadingInvoiceId(null), 1500);
+    }
+  };
 
   const handleUpgradeConfirm = async () => {
     if (!selectedUpgradePlan || !billing) return;
@@ -510,13 +574,13 @@ export default function CustomerAccountPage() {
     label: input.label.trim(),
     recipientName: input.recipientName.trim(),
     line1: input.line1.trim(),
-    line2: input.line2.trim() || undefined,
+    line2: input.line2.trim() || null,
     city: input.city.trim(),
     state: input.state.trim().toUpperCase(),
     zip: input.zip.trim(),
     country: (input.country.trim() || "US").toUpperCase(),
-    phone: input.phone.trim() || undefined,
-    email: input.email.trim() || undefined,
+    phone: input.phone.trim() || null,
+    email: input.email.trim() || null,
     isDefault: input.isDefault,
   });
 
@@ -1881,6 +1945,134 @@ export default function CustomerAccountPage() {
                               <i className="ri-error-warning-line text-base text-red-500" />
                               {planChangeError}
                             </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Invoice History */}
+                      <div className="mb-5 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                        <div className="flex items-center justify-between border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white px-5 py-4">
+                          <div>
+                            <h3 className="text-base font-bold text-gray-900">Invoice History</h3>
+                            <p className="mt-0.5 text-sm text-gray-400">Download PDF invoices for your records</p>
+                          </div>
+                          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0A3D8F]/8">
+                            <i className="ri-file-text-line text-base text-[#0A3D8F]" />
+                          </div>
+                        </div>
+
+                        <div className="p-5">
+                          {invoicesLoading ? (
+                            <div className="space-y-3">
+                              {[1, 2, 3].map((n) => (
+                                <div key={n} className="flex animate-pulse items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+                                  <div className="flex items-center gap-3">
+                                    <div className="h-9 w-9 rounded-lg bg-gray-200" />
+                                    <div className="space-y-1.5">
+                                      <div className="h-3.5 w-32 rounded bg-gray-200" />
+                                      <div className="h-3 w-20 rounded bg-gray-200" />
+                                    </div>
+                                  </div>
+                                  <div className="h-8 w-24 rounded-lg bg-gray-200" />
+                                </div>
+                              ))}
+                            </div>
+                          ) : invoices.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-10 text-center">
+                              <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100">
+                                <i className="ri-file-list-3-line text-2xl text-gray-400" />
+                              </div>
+                              <p className="text-sm font-medium text-gray-600">No invoices yet</p>
+                              <p className="mt-1 text-xs text-gray-400">
+                                Invoices will appear here after your first successful payment.
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="space-y-2.5">
+                              {invoices.map((inv) => {
+                                const badge = invoiceStatusBadge(inv.status);
+                                const isDownloading = downloadingInvoiceId === inv.id;
+                                const hasPdf = Boolean(inv.pdf_url);
+
+                                return (
+                                  <div
+                                    key={inv.id}
+                                    className="group flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 transition-colors hover:border-[#0A3D8F]/20 hover:bg-blue-50/30"
+                                  >
+                                    <div className="flex min-w-0 items-center gap-3">
+                                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm">
+                                        <i className="ri-receipt-line text-base text-[#0A3D8F]" />
+                                      </div>
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-2">
+                                          <p className="truncate text-sm font-semibold text-gray-900">
+                                            {inv.description ?? (inv.plan_tier
+                                              ? `VScanMail ${inv.plan_tier.charAt(0).toUpperCase() + inv.plan_tier.slice(1)}`
+                                              : "Invoice")}
+                                          </p>
+                                          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.cls}`}>
+                                            {badge.label}
+                                          </span>
+                                        </div>
+                                        <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-400">
+                                          {inv.invoice_number && (
+                                            <span className="font-mono">{inv.invoice_number}</span>
+                                          )}
+                                          {inv.invoice_number && <span>·</span>}
+                                          <span>{formatInvoiceDate(inv.paid_at ?? inv.created_at)}</span>
+                                          {inv.period_start && inv.period_end && (
+                                            <>
+                                              <span>·</span>
+                                              <span>
+                                                {formatInvoiceDate(inv.period_start)} – {formatInvoiceDate(inv.period_end)}
+                                              </span>
+                                            </>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <div className="ml-3 flex shrink-0 items-center gap-3">
+                                      <span className="text-sm font-bold text-gray-900">
+                                        {formatInvoiceAmount(inv.amount_paid > 0 ? inv.amount_paid : inv.amount_due, inv.currency)}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => void handleDownloadInvoice(inv.id, inv.pdf_url)}
+                                        disabled={!hasPdf || isDownloading}
+                                        title={hasPdf ? "Download PDF invoice" : "PDF not available"}
+                                        className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
+                                          hasPdf
+                                            ? "border-[#0A3D8F]/20 bg-white text-[#0A3D8F] hover:border-[#0A3D8F] hover:bg-[#0A3D8F] hover:text-white"
+                                            : "border-gray-200 bg-white text-gray-400"
+                                        }`}
+                                      >
+                                        {isDownloading ? (
+                                          <>
+                                            <svg className="h-3 w-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                            </svg>
+                                            Opening...
+                                          </>
+                                        ) : (
+                                          <>
+                                            <i className="ri-download-2-line text-sm" />
+                                            PDF
+                                          </>
+                                        )}
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {invoices.length > 0 && (
+                            <p className="mt-4 text-center text-xs text-gray-400">
+                              Showing last {invoices.length} invoice{invoices.length !== 1 ? "s" : ""} · PDFs are hosted securely by Stripe
+                            </p>
                           )}
                         </div>
                       </div>

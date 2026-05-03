@@ -268,6 +268,22 @@ function DepositsPageContent() {
     }
   };
 
+  const handleBulkDeleteDeposits = async () => {
+    if (!confirm(`Delete ${checkedIds.size} deposit record(s)? This cannot be undone.`)) return;
+    const toDelete = requests.filter((r) => checkedIds.has(r.id));
+    try {
+      await Promise.all(
+        toDelete.map((r) => fetch(`/api/records/cheques/${r.chequeId}`, { method: 'DELETE' }))
+      );
+      setCheckedIds(new Set());
+      setAllChecked(false);
+      const list = await depositsApi.adminList();
+      setRequests(list.map(mapDepositToRequest));
+    } catch (err) {
+      console.error('Bulk delete failed:', err);
+    }
+  };
+
   const openRequest = (request: DepositRequest) => {
     setRequests((prev) =>
       prev.map((r) => (r.id === request.id ? { ...r, read: true } : r))
@@ -627,10 +643,11 @@ function DepositsPageContent() {
               </button>
               <button
                 type="button"
-                className="p-1.5 hover:bg-slate-100 rounded-lg cursor-pointer"
-                title="Delete"
+                onClick={handleBulkDeleteDeposits}
+                className="p-1.5 hover:bg-red-50 rounded-lg cursor-pointer"
+                title="Delete selected"
               >
-                <Icon icon="ri:delete-bin-line" className="text-slate-500 text-base" />
+                <Icon icon="ri:delete-bin-line" className="text-red-500 text-base" />
               </button>
               <button
                 type="button"

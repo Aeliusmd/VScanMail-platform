@@ -121,7 +121,8 @@ export default function ProfileTab() {
 
       const res = await apiUpload<{ url?: string }>("/api/profile/avatar", formData);
       if (res?.url) {
-        setProfile((p) => ({ ...p, avatarUrl: res.url }));
+        const avatarUrl = res.url;
+        setProfile((p) => ({ ...p, avatarUrl }));
         window.dispatchEvent(new Event('profileUpdated'));
       } else {
         setError("Failed to upload avatar");
