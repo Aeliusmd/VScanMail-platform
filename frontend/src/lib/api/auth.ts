@@ -102,7 +102,14 @@ export const authApi = {
     }),
 
   completeRegistrationCheckout: (sessionId: string) =>
-    apiClient<{ active: boolean; status?: string; paymentStatus?: string; error?: string }>(
+    apiClient<{
+      active: boolean;
+      status?: string;
+      paymentStatus?: string;
+      error?: string;
+      access_token?: string;
+      user?: { id: string; email: string; role: string; clientId: string };
+    }>(
       "/api/auth/registration-checkout-complete",
       {
         method: "POST",

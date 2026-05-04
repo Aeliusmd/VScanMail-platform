@@ -5,6 +5,7 @@ import {
   clientBankAccounts,
   clientNotificationPreferences,
   clients,
+  customerHiddenRecords,
   deliveryAddresses,
   emailVerifications,
   invoices,
@@ -227,12 +228,16 @@ export const clientModel = {
       await tx.delete(manualPayments).where(eq(manualPayments.clientId, id));
       await tx.delete(invoices).where(eq(invoices.clientId, id));
       await tx.delete(subscriptions).where(eq(subscriptions.clientId, id));
+      await tx.delete(customerHiddenRecords).where(eq(customerHiddenRecords.clientId, id));
       await tx.delete(auditLogs).where(eq(auditLogs.clientId, id));
       await tx.delete(profiles).where(eq(profiles.clientId, id));
       if (userIds.length > 0) {
         await tx.delete(users).where(inArray(users.id, userIds));
       }
+      // Belt-and-suspenders: delete by email in case ID-based deletion missed any record.
+      await tx.delete(users).where(eq(users.email, before.email));
       await tx.delete(clients).where(eq(clients.id, id));
+      await tx.delete(clients).where(eq(clients.email, before.email));
     });
 
     await dropClientTable(before.table_name);

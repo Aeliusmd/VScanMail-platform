@@ -13,6 +13,10 @@ export async function middleware(req: NextRequest) {
     "/api/auth/register",
     "/api/auth/login",
     "/api/auth/verify-email",
+    "/api/auth/registration-plans",
+    "/api/auth/registration-status",
+    "/api/auth/registration-checkout",
+    "/api/auth/registration-checkout-complete",
     "/api/stripe/webhook",
     "/api/quickbooks/callback",
   ];

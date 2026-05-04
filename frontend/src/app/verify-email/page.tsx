@@ -42,9 +42,18 @@ function toRegistrationPlan(plan: Awaited<ReturnType<typeof authApi.registration
 
 function VerifyEmailInner() {
   const searchParams = useSearchParams();
-  const email = searchParams.get("email") || "";
-  const planFromUrl = searchParams.get("plan");
-  const checkout = searchParams.get("checkout");
+  // useSearchParams() can be empty on the server/static shell but populated on the
+  // client first paint, which hydrates with different text than SSR. Gate URL reads
+  // until after mount so server and first client render match.
+  const [paramsReady, setParamsReady] = useState(false);
+  useEffect(() => {
+    setParamsReady(true);
+  }, []);
+
+  const emailFromUrl = searchParams.get("email") || "";
+  const email = paramsReady ? emailFromUrl : "";
+  const planFromUrl = paramsReady ? searchParams.get("plan") : null;
+  const checkout = paramsReady ? searchParams.get("checkout") : null;
 
   const [otp, setOtp] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +66,14 @@ function VerifyEmailInner() {
   const [plansLoading, setPlansLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [cancelHint, setCancelHint] = useState<string | null>(null);
+
+  // Clear any stale session so no API call on this page accidentally triggers a 401 redirect.
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("vscanmail_token");
+      document.cookie = "sb-access-token=; path=/; max-age=0; samesite=lax";
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

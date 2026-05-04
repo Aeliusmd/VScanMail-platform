@@ -23,11 +23,32 @@ function LoginForm() {
   const [error, setError] = useState("");
   const [paymentUpdateHref, setPaymentUpdateHref] = useState<string | null>(null);
   const [checkoutBanner, setCheckoutBanner] = useState<string | null>(null);
+  // True while we're activating the account after Stripe redirect — hides the login form.
+  const [activating, setActivating] = useState(checkoutSuccess && !!checkoutSessionId);
+
+  const autoLoginWithToken = (token: string, role: string) => {
+    localStorage.setItem("vscanmail_token", token);
+    localStorage.removeItem("selectedPlanId");
+    document.cookie = `sb-access-token=${token}; path=/; max-age=${7 * 24 * 60 * 60}; samesite=lax`;
+    if (role === "super_admin") {
+      router.push("/superadmin/dashboard");
+    } else if (role === "admin") {
+      router.push("/admin");
+    } else {
+      router.push("/customer");
+    }
+  };
 
   const finalizeRegistrationCheckout = async () => {
     if (!checkoutSuccess || !checkoutSessionId) return false;
 
     const result = await authApi.completeRegistrationCheckout(checkoutSessionId);
+
+    if (result.active && result.access_token && result.user) {
+      autoLoginWithToken(result.access_token, result.user.role);
+      return true;
+    }
+
     setCheckoutBanner(
       result.active
         ? "Payment successful. Your subscription is active — sign in with your company email and password."
@@ -38,32 +59,33 @@ function LoginForm() {
   };
 
   useEffect(() => {
-    if (checkoutSuccess && typeof window !== "undefined") {
-      localStorage.removeItem("selectedPlanId");
-      setCheckoutBanner("Payment successful. Finalizing your subscription...");
+    if (!checkoutSuccess || typeof window === "undefined") return;
 
-      if (checkoutSessionId) {
-        finalizeRegistrationCheckout()
-          .then((result) => {
-            if (!result) {
-              setCheckoutBanner(
-                "Payment successful. Your subscription is still processing — please wait a moment before signing in."
-              );
-            }
-          })
-          .catch((err: unknown) => {
-            const message =
-              err instanceof Error
-                ? err.message
-                : "Payment was successful, but subscription activation is still processing.";
-            setCheckoutBanner(message);
-          });
-      } else {
-        setCheckoutBanner(
-          "Payment successful. Your subscription is processing — please wait a moment before signing in."
-        );
-      }
+    localStorage.removeItem("selectedPlanId");
+
+    if (!checkoutSessionId) {
+      setActivating(false);
+      setCheckoutBanner("Payment successful. Your subscription is processing — please sign in to continue.");
+      return;
     }
+
+    finalizeRegistrationCheckout()
+      .then((result) => {
+        // If auto-login redirected, this branch never runs.
+        setActivating(false);
+        if (!result) {
+          setCheckoutBanner("Payment successful. Your subscription is still processing — please sign in to continue.");
+        }
+      })
+      .catch((err: unknown) => {
+        setActivating(false);
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Payment was successful, but subscription activation is still processing.";
+        setCheckoutBanner(message);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checkoutSessionId, checkoutSuccess]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -111,6 +133,20 @@ function LoginForm() {
       setLoading(false);
     }
   };
+
+  // Show a full-screen loading state while activating the account post-payment.
+  // This prevents the login form from flashing before the auto-login redirect fires.
+  if (activating) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[#0A3D8F] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-700 font-semibold text-base">Activating your account…</p>
+          <p className="text-slate-500 text-sm mt-1">Please wait while we set up your subscription.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.page}>
