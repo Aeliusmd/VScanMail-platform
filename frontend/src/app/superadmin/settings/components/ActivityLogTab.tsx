@@ -3,15 +3,14 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { Icon } from "@iconify/react";
 
-
 interface ActivityEntry {
   no: number;
+  rawAction: string;
   activity: string;
   category: string;
   user: string;
   date: string;
   time: string;
-  // Metadata for details popup
   ipAddress?: string;
   userAgent?: string;
   beforeState?: any;
@@ -19,69 +18,88 @@ interface ActivityEntry {
   entityType?: string;
 }
 
+interface ActionDisplay {
+  icon: string;
+  text: string;
+  iconBg: string;
+  iconColor: string;
+}
+
+function getActionDisplay(action: string): ActionDisplay {
+  const map: Record<string, ActionDisplay> = {
+    'auth.login':             { icon: 'ri-login-circle-line',       text: 'Signed in',               iconBg: 'bg-blue-100',    iconColor: 'text-[#0A3D8F]'    },
+    'auth.login_failed':      { icon: 'ri-error-warning-line',      text: 'Login attempt failed',    iconBg: 'bg-red-100',     iconColor: 'text-red-500'      },
+    'auth.email_verified':    { icon: 'ri-mail-check-line',         text: 'Email verified',          iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600'  },
+    'auth.2fa_enabled':       { icon: 'ri-shield-check-line',       text: '2FA turned on',           iconBg: 'bg-blue-100',    iconColor: 'text-[#0A3D8F]'    },
+    'auth.2fa_setup_started': { icon: 'ri-shield-line',             text: '2FA setup started',       iconBg: 'bg-blue-50',     iconColor: 'text-blue-400'     },
+    'client.registered':      { icon: 'ri-user-add-line',           text: 'New client joined',       iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600'  },
+    'client.created':         { icon: 'ri-user-line',               text: 'Client manually added',   iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600'  },
+    'client.updated':         { icon: 'ri-user-settings-line',      text: 'Client profile updated',  iconBg: 'bg-amber-100',   iconColor: 'text-amber-600'    },
+    'client.deleted':         { icon: 'ri-user-unfollow-line',      text: 'Client account removed',  iconBg: 'bg-red-100',     iconColor: 'text-red-500'      },
+    'admin.created':          { icon: 'ri-admin-line',              text: 'Admin account created',   iconBg: 'bg-violet-100',  iconColor: 'text-violet-600'   },
+    'admin.updated':          { icon: 'ri-settings-3-line',         text: 'Admin account updated',   iconBg: 'bg-amber-100',   iconColor: 'text-amber-600'    },
+    'admin.deleted':          { icon: 'ri-delete-bin-line',         text: 'Admin account removed',   iconBg: 'bg-red-100',     iconColor: 'text-red-500'      },
+    'mail.created':           { icon: 'ri-mail-add-line',           text: 'Mail item scanned in',    iconBg: 'bg-amber-100',   iconColor: 'text-amber-600'    },
+    'mail.updated':           { icon: 'ri-mail-edit-line',          text: 'Mail item updated',       iconBg: 'bg-amber-100',   iconColor: 'text-amber-600'    },
+    'record.created':         { icon: 'ri-file-add-line',           text: 'Document scanned',        iconBg: 'bg-amber-100',   iconColor: 'text-amber-600'    },
+    'record.updated':         { icon: 'ri-file-edit-line',          text: 'Document updated',        iconBg: 'bg-amber-100',   iconColor: 'text-amber-600'    },
+    'record.finalized':       { icon: 'ri-file-check-line',         text: 'Document finalized',      iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600'  },
+    'cheque.validated':       { icon: 'ri-bank-card-line',          text: 'Cheque AI scan done',     iconBg: 'bg-teal-100',    iconColor: 'text-teal-600'     },
+    'cheque.decided':         { icon: 'ri-checkbox-line',           text: 'Cheque decision made',    iconBg: 'bg-teal-100',    iconColor: 'text-teal-600'     },
+    'cheque.batch_deposited': { icon: 'ri-secure-payment-line',     text: 'Cheque batch deposited',  iconBg: 'bg-teal-100',    iconColor: 'text-teal-600'     },
+    'billing.manual_payment': { icon: 'ri-money-dollar-circle-line',text: 'Payment recorded',        iconBg: 'bg-orange-100',  iconColor: 'text-orange-600'   },
+    'deposit.requested':      { icon: 'ri-inbox-archive-line',      text: 'Deposit requested',       iconBg: 'bg-teal-100',    iconColor: 'text-teal-600'     },
+    'deposit.cancelled':      { icon: 'ri-close-circle-line',       text: 'Deposit cancelled',       iconBg: 'bg-slate-100',   iconColor: 'text-slate-500'    },
+    'deposit.approved':       { icon: 'ri-check-double-line',       text: 'Deposit approved',        iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600'  },
+    'deposit.rejected':       { icon: 'ri-thumb-down-line',         text: 'Deposit rejected',        iconBg: 'bg-red-100',     iconColor: 'text-red-500'      },
+    'deposit.mark_deposited': { icon: 'ri-bank-line',               text: 'Marked as deposited',     iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600'  },
+    'deposit.slip_uploaded':  { icon: 'ri-upload-cloud-line',       text: 'Deposit slip uploaded',   iconBg: 'bg-teal-100',    iconColor: 'text-teal-600'     },
+    'delivery.requested':     { icon: 'ri-truck-line',              text: 'Delivery requested',      iconBg: 'bg-violet-100',  iconColor: 'text-violet-600'   },
+    'delivery.cancelled':     { icon: 'ri-close-circle-line',       text: 'Delivery cancelled',      iconBg: 'bg-slate-100',   iconColor: 'text-slate-500'    },
+    'delivery.approved':      { icon: 'ri-thumb-up-line',           text: 'Delivery approved',       iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600'  },
+    'delivery.rejected':      { icon: 'ri-thumb-down-line',         text: 'Delivery rejected',       iconBg: 'bg-red-100',     iconColor: 'text-red-500'      },
+    'delivery.in_transit':    { icon: 'ri-navigation-line',         text: 'Out for delivery',        iconBg: 'bg-violet-100',  iconColor: 'text-violet-600'   },
+    'delivery.delivered':     { icon: 'ri-checkbox-circle-fill',    text: 'Delivery completed',      iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600'  },
+  };
+  return map[action] ?? {
+    icon: 'ri-history-line',
+    text: action.replace(/[._]/g, ' '),
+    iconBg: 'bg-slate-100',
+    iconColor: 'text-slate-500',
+  };
+}
 
 function mapEntityType(type: string): string {
   const t = type.toLowerCase();
   if (t.includes('auth') || t.includes('user')) return 'Auth';
   if (t.includes('company') || t.includes('client')) return 'Client';
   if (t === 'record' || t.includes('scan') || t.includes('mail')) return 'Records';
-  if (t === 'delivery') return 'Delivery';
-  if (t === 'deposit') return 'Cheque';
-  if (t.includes('delivery')) return 'Delivery';
-  if (t.includes('deposit') || t.includes('cheque')) return 'Cheque';
+  if (t === 'delivery' || t.includes('delivery')) return 'Delivery';
+  if (t === 'deposit' || t.includes('deposit') || t.includes('cheque')) return 'Cheque';
   if (t.includes('admin') || t.includes('profile')) return 'System';
   if (t.includes('billing') || t.includes('subscription')) return 'Billing';
   return 'Other';
 }
 
-function mapActionToLabel(action: string): string {
-  const mapping: Record<string, string> = {
-    'auth.login': 'Logged In',
-    'auth.login_failed': 'Login Failed',
-    'auth.email_verified': 'Email Verified',
-    'auth.2fa_enabled': '2FA Enabled',
-    'auth.2fa_setup_started': '2FA Setup Started',
-    'client.registered': 'New Client Registered',
-    'client.created': 'Client Created (Manual)',
-    'client.updated': 'Client Profile Updated',
-    'client.deleted': 'Client Account Deleted',
-    'admin.created': 'Admin Created',
-    'admin.updated': 'Admin Updated',
-    'admin.deleted': 'Admin Deleted',
-    'mail.created': 'Mail Item Ingested',
-    'mail.updated': 'Mail Item Updated',
-    'record.updated': 'Mail Item Updated',
-    'cheque.validated': 'Cheque AI Validation',
-    'cheque.decided': 'Cheque Decision Made',
-    'cheque.batch_deposited': 'Cheque Batch Deposited',
-    'billing.manual_payment': 'Manual Payment Recorded',
-    'deposit.requested': 'Deposit Requested',
-    'deposit.cancelled': 'Deposit Cancelled',
-    'deposit.approved': 'Deposit Approved',
-    'deposit.rejected': 'Deposit Rejected',
-    'deposit.mark_deposited': 'Cheque Marked Deposited',
-    'deposit.slip_uploaded': 'Deposit Slip Uploaded',
-    'delivery.requested': 'Delivery Requested',
-    'delivery.cancelled': 'Delivery Cancelled',
-    'delivery.approved': 'Delivery Approved',
-    'delivery.rejected': 'Delivery Rejected',
-    'delivery.in_transit': 'Delivery In Transit',
-    'delivery.delivered': 'Delivery Completed',
-    'record.created': 'Document Scanned',
-    'record.finalized': 'Document Finalized',
-  };
-  return mapping[action] || action;
-}
-
-
 const categoryColors: Record<string, string> = {
-  Auth: 'bg-[#0A3D8F]/10 text-[#0A3D8F]',
-  Client: 'bg-emerald-100 text-emerald-700',
-  Records: 'bg-amber-100 text-amber-700',
-  Delivery: 'bg-violet-100 text-violet-700',
-  Cheque: 'bg-teal-100 text-teal-700',
-  System: 'bg-red-100 text-red-600',
-  Billing: 'bg-orange-100 text-orange-600',
+  Auth:     'bg-[#0A3D8F]/10 text-[#0A3D8F]',
+  Client:   'bg-emerald-100 text-emerald-700',
+  Records:  'bg-amber-100   text-amber-700',
+  Delivery: 'bg-violet-100  text-violet-700',
+  Cheque:   'bg-teal-100    text-teal-700',
+  System:   'bg-red-100     text-red-600',
+  Billing:  'bg-orange-100  text-orange-600',
+};
+
+const categoryBorderColors: Record<string, string> = {
+  Auth:     'border-l-[#0A3D8F]',
+  Client:   'border-l-emerald-400',
+  Records:  'border-l-amber-400',
+  Delivery: 'border-l-violet-400',
+  Cheque:   'border-l-teal-400',
+  System:   'border-l-red-400',
+  Billing:  'border-l-orange-400',
+  Other:    'border-l-slate-200',
 };
 
 const categories = ['All', 'Auth', 'Client', 'Records', 'Delivery', 'Cheque', 'System', 'Billing'];
@@ -94,29 +112,27 @@ export default function ActivityLogTab() {
   const [dateFilter, setDateFilter] = useState('');
   const [selectedLog, setSelectedLog] = useState<ActivityEntry | null>(null);
 
-
   const fetchLogs = useCallback(async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("vscanmail_token");
       const res = await fetch("/api/audit-logs", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Failed to load logs");
       const data = await res.json();
 
       const mapped: ActivityEntry[] = data.logs.map((l: any, i: number) => {
         const dt = new Date(l.createdAt);
-        const actorDisplayName = 
-          l.actorRole === 'client' 
-            ? (l.companyName || l.actorName || l.actorId.slice(0, 8)) 
+        const actorDisplayName =
+          l.actorRole === 'client'
+            ? (l.companyName || l.actorName || l.actorId.slice(0, 8))
             : (l.actorName || l.actorId.slice(0, 8));
 
         return {
           no: i + 1,
-          activity: mapActionToLabel(l.action),
+          rawAction: l.action,
+          activity: getActionDisplay(l.action).text,
           category: mapEntityType(l.entityType),
           user: actorDisplayName,
           date: dt.toISOString().split('T')[0],
@@ -137,19 +153,21 @@ export default function ActivityLogTab() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchLogs();
-  }, [fetchLogs]);
+  useEffect(() => { fetchLogs(); }, [fetchLogs]);
 
   const filtered = useMemo(() => {
+    const q = search.toLowerCase();
     return allLogs.filter(log => {
-      const matchSearch = search === '' || log.activity.toLowerCase().includes(search.toLowerCase()) || log.user.toLowerCase().includes(search.toLowerCase());
+      const matchSearch =
+        q === '' ||
+        log.activity.toLowerCase().includes(q) ||
+        log.user.toLowerCase().includes(q) ||
+        log.rawAction.toLowerCase().includes(q);
       const matchCategory = categoryFilter === 'All' || log.category === categoryFilter;
       const matchDate = dateFilter === '' || log.date === dateFilter;
       return matchSearch && matchCategory && matchDate;
     });
   }, [allLogs, search, categoryFilter, dateFilter]);
-
 
   return (
     <div className="space-y-5">
@@ -167,29 +185,27 @@ export default function ActivityLogTab() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search activity or user..."
-            className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#0A3D8F] transition-colors"
+            className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#0A3D8F] transition-colors"
           />
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center gap-2">
           <i className="ri-filter-3-line text-slate-400 text-sm"></i>
           <select
             title="Filter by category"
             value={categoryFilter}
             onChange={e => setCategoryFilter(e.target.value)}
-            className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#0A3D8F] bg-white cursor-pointer"
+            className="px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] bg-white cursor-pointer"
           >
-            {categories.map(c => (
-              <option key={c}>{c}</option>
-            ))}
+            {categories.map(c => <option key={c}>{c}</option>)}
           </select>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center gap-2">
           <i className="ri-calendar-line text-slate-400 text-sm"></i>
           <input
             type="date"
             value={dateFilter}
             onChange={e => setDateFilter(e.target.value)}
-            className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#0A3D8F] bg-white cursor-pointer"
+            className="px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] bg-white cursor-pointer"
           />
         </div>
         {(search || categoryFilter !== 'All' || dateFilter) && (
@@ -201,7 +217,7 @@ export default function ActivityLogTab() {
           </button>
         )}
         <div className="ml-auto text-xs text-slate-400 font-medium">
-          {filtered.length} records
+          {filtered.length} record{filtered.length !== 1 ? 's' : ''}
         </div>
       </div>
 
@@ -211,18 +227,17 @@ export default function ActivityLogTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider w-14">No.</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Activity</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider w-28">Category</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider w-36">User</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider w-28">Date</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider w-24">Time</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider w-12">#</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Activity</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider w-28">Category</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider w-36">User</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider w-40">When</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-20 text-center">
+                  <td colSpan={5} className="px-4 py-20 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <div className="w-8 h-8 border-4 border-[#0A3D8F] border-t-transparent rounded-full animate-spin" />
                       <p className="text-sm text-slate-500 font-medium">Loading activity records...</p>
@@ -231,98 +246,122 @@ export default function ActivityLogTab() {
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-sm text-slate-400">
-                    <i className="ri-file-search-line text-2xl block mb-2"></i>
+                  <td colSpan={5} className="px-4 py-14 text-center text-sm text-slate-400">
+                    <i className="ri-file-search-line text-3xl block mb-2 opacity-50"></i>
                     No activity records match your filters.
                   </td>
                 </tr>
               ) : (
-                filtered.map((log, idx) => (
-                  <tr key={log.no} className={`hover:bg-slate-50 transition-colors ${idx % 2 === 0 ? '' : 'bg-slate-50/40'}`}>
-                    <td className="px-4 py-3 text-slate-400 font-medium text-xs">{String(log.no).padStart(2, '0')}</td>
-                    <td className="px-4 py-3">
-                      <button 
-                        onClick={() => setSelectedLog(log)}
-                        className="text-slate-800 font-medium hover:text-[#0A3D8F] hover:underline cursor-pointer text-left transition-colors"
-                      >
-                        {log.activity}
-                      </button>
-                    </td>
+                filtered.map(log => {
+                  const display = getActionDisplay(log.rawAction);
+                  const borderClass = categoryBorderColors[log.category] ?? 'border-l-slate-200';
+                  return (
+                    <tr
+                      key={log.no}
+                      className={`group border-l-[3px] ${borderClass} hover:bg-slate-50/80 transition-colors`}
+                    >
+                      <td className="px-4 py-3.5 text-xs text-slate-300 font-mono font-medium">
+                        {String(log.no).padStart(2, '0')}
+                      </td>
 
-                    <td className="px-4 py-3">
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${categoryColors[log.category] || 'bg-slate-100 text-slate-600'}`}>
-                        {log.category}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-slate-600 text-xs">{log.user}</td>
-                    <td className="px-4 py-3 text-slate-600 text-xs">{log.date}</td>
-                    <td className="px-4 py-3 text-slate-500 text-xs font-mono">{log.time}</td>
-                  </tr>
-                ))
+                      <td className="px-4 py-3.5">
+                        <button
+                          onClick={() => setSelectedLog(log)}
+                          className="flex items-center gap-2.5 text-left w-full hover:opacity-80 transition-opacity cursor-pointer"
+                        >
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${display.iconBg}`}>
+                            <i className={`${display.icon} text-sm ${display.iconColor}`}></i>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-slate-800 leading-tight text-sm group-hover:text-[#0A3D8F] transition-colors">
+                              {display.text}
+                            </p>
+                            <p className="text-[10px] text-slate-400 font-mono mt-0.5">{log.rawAction}</p>
+                          </div>
+                        </button>
+                      </td>
+
+                      <td className="px-4 py-3.5">
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${categoryColors[log.category] ?? 'bg-slate-100 text-slate-600'}`}>
+                          {log.category}
+                        </span>
+                      </td>
+
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0">
+                            <i className="ri-user-line text-[10px] text-slate-500"></i>
+                          </div>
+                          <span className="text-xs text-slate-700 font-medium truncate max-w-[100px]">{log.user}</span>
+                        </div>
+                      </td>
+
+                      <td className="px-4 py-3.5">
+                        <p className="text-xs text-slate-600 font-medium">{log.date}</p>
+                        <p className="text-[10px] text-slate-400 font-mono mt-0.5">{log.time}</p>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
-
           </table>
         </div>
       </div>
-      
-      {/* Details Popup */}
+
       {selectedLog && (
-        <LogDetailsPopup 
-          log={selectedLog} 
-          onClose={() => setSelectedLog(null)} 
-        />
+        <LogDetailsPopup log={selectedLog} onClose={() => setSelectedLog(null)} />
       )}
     </div>
   );
 }
 
 function LogDetailsPopup({ log, onClose }: { log: ActivityEntry; onClose: () => void }) {
-  // Simple JSON comparison logic
+  const display = getActionDisplay(log.rawAction);
+
   const renderChanges = () => {
-    if (!log.beforeState && !log.afterState) return <p className="text-slate-400 italic">No state changes recorded.</p>;
+    if (!log.beforeState && !log.afterState)
+      return <p className="text-slate-400 italic text-sm">No state changes recorded.</p>;
 
     const before = log.beforeState || {};
     const after = log.afterState || {};
     const allKeys = Array.from(new Set([...Object.keys(before), ...Object.keys(after)]));
 
+    const renderValue = (val: any) => {
+      if (val === null) return <span className="italic opacity-60">null</span>;
+      if (typeof val === 'object') {
+        return (
+          <pre className="mt-1.5 whitespace-pre-wrap font-mono text-[10px] bg-white/50 p-2 rounded border border-current/20 overflow-x-auto max-h-48 overflow-y-auto w-full">
+            {JSON.stringify(val, null, 2)}
+          </pre>
+        );
+      }
+      return String(val);
+    };
+
+    const changedKeys = allKeys.filter(k => JSON.stringify(before[k] ?? null) !== JSON.stringify(after[k] ?? null));
+
+    if (changedKeys.length === 0)
+      return <p className="text-slate-400 italic text-sm">No field-level changes detected.</p>;
+
     return (
       <div className="space-y-3">
-        {allKeys.map(key => {
-          const bValObj = before[key] === undefined ? null : before[key];
-          const aValObj = after[key] === undefined ? null : after[key];
-          
-          if (JSON.stringify(bValObj) === JSON.stringify(aValObj)) return null;
-
-          const renderValue = (val: any) => {
-            if (val === null) return "null";
-            if (typeof val === 'object') {
-              return (
-                <pre className="mt-1.5 whitespace-pre-wrap font-mono text-[10px] bg-white/50 p-2 rounded border border-current/20 overflow-x-auto max-h-48 overflow-y-auto w-full no-scrollbar">
-                  {JSON.stringify(val, null, 2)}
-                </pre>
-              );
-            }
-            return String(val);
-          };
-
-          return (
-            <div key={key} className="border-b border-slate-100 pb-3 mt-1">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">{key}</p>
-              <div className="flex flex-col sm:flex-row sm:items-start gap-2">
-                <div className="flex-1 bg-red-50/50 text-red-600 px-2 py-1.5 rounded line-through opacity-70 text-xs w-full overflow-hidden break-words">
-                  {renderValue(bValObj)}
-                </div>
-                <div className="flex items-center justify-center py-2 sm:py-0">
-                  <Icon icon="ri:arrow-right-line" className="text-slate-300 transform sm:rotate-0 rotate-90" />
-                </div>
-                <div className="flex-1 bg-emerald-50/50 text-emerald-700 font-medium px-2 py-1.5 rounded text-xs w-full overflow-hidden break-words">
-                  {renderValue(aValObj)}
-                </div>
+        {changedKeys.map(key => (
+          <div key={key} className="border-b border-slate-100 pb-3">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">{key}</p>
+            <div className="flex flex-col sm:flex-row sm:items-start gap-2">
+              <div className="flex-1 bg-red-50 text-red-600 px-2.5 py-1.5 rounded-lg line-through opacity-70 text-xs break-words overflow-hidden">
+                {renderValue(before[key] ?? null)}
+              </div>
+              <div className="flex items-center justify-center">
+                <Icon icon="ri:arrow-right-line" className="text-slate-300 rotate-90 sm:rotate-0 text-base" />
+              </div>
+              <div className="flex-1 bg-emerald-50 text-emerald-700 font-medium px-2.5 py-1.5 rounded-lg text-xs break-words overflow-hidden">
+                {renderValue(after[key] ?? null)}
               </div>
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
     );
   };
@@ -341,53 +380,54 @@ function LogDetailsPopup({ log, onClose }: { log: ActivityEntry; onClose: () => 
               <p className="text-xs text-slate-500 mt-0.5">Full audit trail for this action</p>
             </div>
           </div>
-          <button 
-            onClick={onClose}
-            className="p-2 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
-          >
+          <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer">
             <Icon icon="ri:close-line" className="text-slate-500 text-xl" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[70vh] space-y-6">
-          {/* Main Action */}
-          <div className="bg-[#0A3D8F] text-white p-4 rounded-xl shadow-lg shadow-[#0A3D8F]/10">
-            <p className="text-xs opacity-70 font-semibold uppercase tracking-wider mb-1">Action Performed</p>
-            <p className="text-lg font-bold">{log.activity}</p>
+        <div className="p-6 overflow-y-auto max-h-[70vh] space-y-5">
+          {/* Action banner */}
+          <div className={`flex items-center gap-3 p-4 rounded-xl ${display.iconBg}`}>
+            <div className="w-10 h-10 bg-white/70 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm">
+              <i className={`${display.icon} text-xl ${display.iconColor}`}></i>
+            </div>
+            <div>
+              <p className={`text-base font-bold ${display.iconColor}`}>{display.text}</p>
+              <p className="text-[11px] font-mono text-slate-500 mt-0.5">{log.rawAction}</p>
+            </div>
           </div>
 
-          {/* Metadata Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-              <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">User</p>
-              <p className="text-xs font-semibold text-slate-800 truncate">{log.user}</p>
-            </div>
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-              <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Category</p>
-              <p className="text-xs font-semibold text-slate-800">{log.category}</p>
-            </div>
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-              <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">IP Address</p>
-              <p className="text-xs font-semibold text-slate-800 font-mono tracking-tighter">
-                {log.ipAddress || 'Unknown'}
-              </p>
-            </div>
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-              <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Date/Time</p>
-              <p className="text-xs font-semibold text-slate-800 truncate">{log.date} {log.time}</p>
-            </div>
+          {/* Metadata grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { label: 'User',      value: log.user,                   icon: 'ri-user-line'    },
+              { label: 'Category',  value: log.category,               icon: 'ri-tag-line'     },
+              { label: 'IP Address',value: log.ipAddress || 'Unknown', icon: 'ri-global-line'  },
+              { label: 'Date/Time', value: `${log.date} ${log.time}`,  icon: 'ri-time-line'    },
+            ].map(item => (
+              <div key={item.label} className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <div className="flex items-center gap-1 mb-1">
+                  <i className={`${item.icon} text-slate-400 text-[10px]`}></i>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{item.label}</p>
+                </div>
+                <p className="text-xs font-semibold text-slate-800 truncate">{item.value}</p>
+              </div>
+            ))}
           </div>
 
           {/* User Agent */}
-          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-            <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">User Agent</p>
-            <p className="text-xs text-slate-600 italic leading-relaxed break-all">
-              {log.userAgent || 'No device information available.'}
-            </p>
-          </div>
+          {log.userAgent && (
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+              <div className="flex items-center gap-1 mb-1">
+                <i className="ri-computer-line text-slate-400 text-[10px]"></i>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">User Agent</p>
+              </div>
+              <p className="text-xs text-slate-600 italic leading-relaxed break-all">{log.userAgent}</p>
+            </div>
+          )}
 
-          {/* State Changes */}
+          {/* State changes */}
           <div>
             <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2 mb-3">
               <Icon icon="ri:code-line" className="text-[#0A3D8F]" />
@@ -401,7 +441,7 @@ function LogDetailsPopup({ log, onClose }: { log: ActivityEntry; onClose: () => 
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/30 flex justify-end">
-          <button 
+          <button
             onClick={onClose}
             className="px-6 py-2 bg-slate-900 text-white text-sm font-bold rounded-xl hover:bg-slate-700 transition-colors cursor-pointer active:scale-95 duration-150"
           >

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   FALLBACK_ACCOUNT,
@@ -207,7 +207,7 @@ function toUpgradePlans(plans: ApiBillingPlan[]): UpgradePlanCard[] {
   });
 }
 
-export default function CustomerAccountPage() {
+function CustomerAccountPageContent() {
   const org = useOrgContext();
   const searchParams = useSearchParams();
   const companyId = org.clientId ?? "demo";
@@ -2240,5 +2240,19 @@ export default function CustomerAccountPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function CustomerAccountPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[40vh] items-center justify-center text-slate-500 text-sm">
+          Loading account…
+        </div>
+      }
+    >
+      <CustomerAccountPageContent />
+    </Suspense>
   );
 }

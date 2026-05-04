@@ -62,6 +62,11 @@ const nextConfig: NextConfig = {
         destination: "/superadmin/dashboard",
         permanent: true,
       },
+      {
+        source: "/super-admin",
+        destination: "/superadmin/dashboard",
+        permanent: true,
+      },
     ];
   },
   async rewrites() {

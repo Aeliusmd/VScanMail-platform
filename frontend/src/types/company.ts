@@ -9,8 +9,8 @@ export interface Company {
   industryBadge: string;
   contact: string;
   email: string;
-  mails: number;
-  cheques: number;
+  deliveries: number;
+  deposits: number;
   status: 'Active' | 'Pending' | 'Inactive';
   time: string;
   joined: string;
@@ -24,7 +24,7 @@ export interface Company {
     country?: string;
   };
   avatar_url?: string | null;
-  chequeValue: number;
+  depositAmount: number;
   notes: string;
   lastActivity: string;
   clientType?: 'manual' | 'subscription';

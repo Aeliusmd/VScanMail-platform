@@ -62,7 +62,11 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  if (pathname.startsWith("/admin") || pathname.startsWith("/super-admin")) {
+  if (
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/super-admin") ||
+    pathname.startsWith("/superadmin")
+  ) {
     if (role === "client") {
       return NextResponse.redirect(new URL("/customer/dashboard", request.url));
     }

@@ -29,23 +29,24 @@ function statusMeta(status: DeliveryDto["status"]): {
   label: TabType;
   pillClass: string;
   accentClass: string;
+  borderClass: string;
 } {
   const label = toTab(status);
   switch (status) {
     case "pending":
-      return { label, pillClass: "bg-amber-50 text-amber-700 ring-1 ring-amber-200", accentClass: "bg-amber-500" };
+      return { label, pillClass: "bg-amber-50 text-amber-700 ring-1 ring-amber-200", accentClass: "bg-amber-500", borderClass: "border-l-amber-400" };
     case "approved":
-      return { label, pillClass: "bg-blue-50 text-blue-700 ring-1 ring-blue-200", accentClass: "bg-blue-600" };
+      return { label, pillClass: "bg-blue-50 text-blue-700 ring-1 ring-blue-200", accentClass: "bg-blue-600", borderClass: "border-l-blue-500" };
     case "in_transit":
-      return { label, pillClass: "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200", accentClass: "bg-indigo-600" };
+      return { label, pillClass: "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200", accentClass: "bg-indigo-600", borderClass: "border-l-indigo-500" };
     case "delivered":
-      return { label, pillClass: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200", accentClass: "bg-emerald-600" };
+      return { label, pillClass: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200", accentClass: "bg-emerald-600", borderClass: "border-l-emerald-500" };
     case "rejected":
-      return { label, pillClass: "bg-rose-50 text-rose-700 ring-1 ring-rose-200", accentClass: "bg-rose-600" };
+      return { label, pillClass: "bg-rose-50 text-rose-700 ring-1 ring-rose-200", accentClass: "bg-rose-600", borderClass: "border-l-rose-500" };
     case "cancelled":
-      return { label, pillClass: "bg-slate-100 text-slate-700 ring-1 ring-slate-200", accentClass: "bg-slate-500" };
+      return { label, pillClass: "bg-slate-100 text-slate-700 ring-1 ring-slate-200", accentClass: "bg-slate-500", borderClass: "border-l-slate-300" };
     default:
-      return { label, pillClass: "bg-slate-100 text-slate-700 ring-1 ring-slate-200", accentClass: "bg-slate-400" };
+      return { label, pillClass: "bg-slate-100 text-slate-700 ring-1 ring-slate-200", accentClass: "bg-slate-400", borderClass: "border-l-slate-200" };
   }
 }
 
@@ -207,10 +208,21 @@ export default function CustomerDeliveryRequestsPage() {
           </div>
         ) : (
           <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+            {/* Queue header */}
             <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-3">
-              <div className="text-sm font-semibold text-slate-900">Queue</div>
-              <div className="text-xs text-slate-500">{filtered.length} shown</div>
+              <span className="text-sm font-semibold text-slate-900">Queue</span>
+              <span className="text-xs text-slate-500">{filtered.length} shown</span>
             </div>
+
+            {/* Column sub-header */}
+            <div className="hidden md:flex items-center border-b border-slate-100 bg-slate-50/70 px-4 py-2 gap-3">
+              <div className="w-3 flex-shrink-0" />
+              <div className="flex-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Recipient / Details</div>
+              <div className="w-44 text-[10px] font-semibold uppercase tracking-wider text-slate-400 hidden lg:block">Address</div>
+              <div className="w-28 text-[10px] font-semibold uppercase tracking-wider text-slate-400 text-right">Tracking</div>
+            </div>
+
+            {/* Rows */}
             <div className="divide-y divide-slate-100">
               {filtered.map((r) => {
                 const s = statusMeta(r.status);
@@ -226,70 +238,75 @@ export default function CustomerDeliveryRequestsPage() {
                   .filter(Boolean)
                   .join(", ");
 
-                const secondary = [
-                  r.irn ? `IRN ${r.irn}` : null,
-                  r.requestedAt ? `Requested ${new Date(r.requestedAt).toLocaleString()}` : null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ");
-
                 return (
-                  <button
+                  <div
                     key={r.id}
-                    type="button"
-                    onClick={() => {}}
-                    className={`group w-full text-left hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3D8F]/30 ${
-                      highlighted ? "ring-2 ring-[#0A3D8F]/15" : ""
+                    className={`group flex items-stretch border-l-[3px] ${s.borderClass} hover:bg-slate-50/80 transition-colors ${
+                      highlighted ? "bg-[#0A3D8F]/5" : ""
                     }`}
                   >
-                    <div className="relative px-4 py-4">
-                      <div className={`absolute left-0 top-0 h-full w-1 ${s.accentClass}`} />
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${s.pillClass}`}>
-                              {s.label}
-                            </span>
-                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${src.className}`}>
-                              {src.label}
-                            </span>
-                            <span className="text-[11px] font-mono text-slate-400 truncate">{r.id}</span>
+                    {/* Clickable row */}
+                    <div className="flex-1 flex items-center gap-3 px-4 py-3.5 min-w-0">
+                      {/* Left: badges + recipient + address */}
+                      <div className="flex-1 min-w-0">
+                        {/* Status + source + ID */}
+                        <div className="flex items-center gap-1.5 flex-wrap mb-2">
+                          <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ${s.pillClass}`}>
+                            {s.label}
+                          </span>
+                          <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ${src.className}`}>
+                            {src.label}
+                          </span>
+                          <span className="text-[10px] font-mono text-slate-300 truncate max-w-[160px] hidden sm:block">
+                            {r.id}
+                          </span>
+                        </div>
+
+                        {/* Recipient avatar + name + meta */}
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-[#0A3D8F] to-[#083170] text-white flex items-center justify-center text-[11px] font-bold flex-shrink-0">
+                            {(r.addressName || "?").slice(0, 1).toUpperCase()}
                           </div>
-
-                          <div className="mt-2 flex items-center gap-2 min-w-0">
-                            <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-[#0A3D8F] to-[#083170] text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
-                              {(r.addressName || "?").slice(0, 1).toUpperCase()}
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold text-slate-900 truncate">
+                              {r.addressName || "Recipient"}
                             </div>
-                            <div className="min-w-0">
-                              <div className="text-sm font-semibold text-slate-900 truncate">
-                                {r.addressName || "Recipient"}
-                              </div>
-                              <div className="text-xs text-slate-500 truncate">{secondary || "—"}</div>
+                            <div className="text-[11px] text-slate-500 truncate">
+                              {r.irn ? `IRN ${r.irn}` : ""}
+                              {r.irn && r.requestedAt ? " · " : ""}
+                              {r.requestedAt ? new Date(r.requestedAt).toLocaleString() : ""}
                             </div>
                           </div>
+                        </div>
 
-                          {addressLine ? (
-                            <div className="mt-2 text-xs text-slate-500 truncate">
-                              <span className="text-slate-400">To:</span>{" "}
-                              {r.addressName ? `${r.addressName} · ` : ""}
-                              {addressLine}
-                            </div>
-                          ) : null}
+                        {/* Address — mobile */}
+                        {addressLine && (
+                          <div className="mt-1.5 flex items-center gap-1 text-[11px] text-slate-500 truncate lg:hidden">
+                            <i className="ri-map-pin-line text-slate-400 flex-shrink-0 text-xs" />
+                            <span className="truncate">{addressLine}</span>
+                          </div>
+                        )}
 
-                          <div className="mt-3 flex flex-wrap items-center gap-3">
+                        {/* Inline info: reject reason, proof link, cancel */}
+                        {(r.rejectReason || r.proofOfServiceUrl || r.status === "pending") && (
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            {r.rejectReason && (
+                              <span className="inline-flex items-center gap-1 text-[11px] text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
+                                <i className="ri-error-warning-line text-xs" />
+                                {r.rejectReason}
+                              </span>
+                            )}
                             {r.proofOfServiceUrl && (
                               <a
                                 href={r.proofOfServiceUrl}
                                 target="_blank"
                                 rel="noreferrer"
                                 onClick={(e) => e.stopPropagation()}
-                                className="text-xs text-[#0A3D8F] font-semibold hover:underline"
+                                className="inline-flex items-center gap-1 text-[11px] text-[#0A3D8F] font-semibold hover:underline"
                               >
+                                <i className="ri-file-text-line text-xs" />
                                 View Proof of Service
                               </a>
-                            )}
-                            {r.rejectReason && (
-                              <span className="text-xs text-rose-700">Reason: {r.rejectReason}</span>
                             )}
                             {r.status === "pending" && (
                               <button
@@ -298,27 +315,35 @@ export default function CustomerDeliveryRequestsPage() {
                                   e.stopPropagation();
                                   void onCancel(r);
                                 }}
-                                className="px-3 py-1.5 rounded-lg border border-rose-300 text-rose-700 text-xs font-semibold hover:bg-rose-50"
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-rose-200 text-rose-700 text-[11px] font-semibold hover:bg-rose-50 transition-colors"
                               >
+                                <i className="ri-close-line text-xs" />
                                 Cancel
                               </button>
                             )}
                           </div>
-                        </div>
+                        )}
+                      </div>
 
-                        <div className="flex-shrink-0 text-right">
-                          <div className="text-[11px] text-slate-500">Tracking</div>
-                          <div className="mt-1 text-xs font-semibold text-slate-900 max-w-[180px] truncate">
-                            {r.trackingNumber || "Not set"}
-                          </div>
-                          <div className="mt-2 inline-flex items-center gap-1 text-[11px] text-slate-500">
-                            <i className="ri-arrow-right-s-line text-slate-400" />
-                            <span className="group-hover:text-[#0A3D8F] transition-colors">Open</span>
+                      {/* Address column (desktop) */}
+                      {addressLine && (
+                        <div className="hidden lg:block w-44 flex-shrink-0 min-w-0">
+                          <div className="text-xs font-medium text-slate-700 truncate">{addressLine.split(",")[0]}</div>
+                          <div className="text-[11px] text-slate-400 truncate mt-0.5">
+                            {addressLine.split(",").slice(1).join(",").trim()}
                           </div>
                         </div>
+                      )}
+
+                      {/* Tracking */}
+                      <div className="flex-shrink-0 flex flex-col items-end gap-0.5 w-28">
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Tracking</span>
+                        <span className={`text-xs font-semibold truncate ${r.trackingNumber ? "text-slate-800" : "text-slate-400"}`}>
+                          {r.trackingNumber || "Not set"}
+                        </span>
                       </div>
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>

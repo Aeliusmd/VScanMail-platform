@@ -11,8 +11,12 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useSuperAdminToolbarOptional } from '../../superadmin/components/SuperAdminToolbarContext';
 import { apiClient } from '@/lib/api-client';
+import { deliveriesApi } from '@/lib/api/deliveries';
+import { depositsApi } from '@/lib/api/deposits';
 import { useAdminProfile } from '../components/useAdminProfile';
 import NotificationBell from '../components/NotificationBell';
+
+type CompanyMetrics = { deliveries: number; deposits: number; depositAmount: number };
 
 type TabType = 'All' | 'Active' | 'Pending' | 'Inactive';
 
@@ -105,7 +109,7 @@ function CompaniesPageContent() {
     }
   }, [tabFromUrl, activeTab]);
 
-  const mapClientToCompany = (c: any): Company => {
+  const mapClientToCompany = (c: any, metrics?: CompanyMetrics): Company => {
     const name = c.company_name;
     const initial = name.charAt(0).toUpperCase();
     
@@ -132,17 +136,17 @@ function CompaniesPageContent() {
       avatar_url: c.avatar_url ?? null,
       industry: c.industry || 'Other',
       industryBadge: industryColors[c.industry] || 'bg-slate-100 text-slate-700',
-      contact: c.email.split('@')[0], // Fallback if no contact person
+      contact: c.contact_person || c.email.split('@')[0], // Fallback if no contact person
       email: c.email,
-      mails: 0, 
-      cheques: 0,
+      deliveries: metrics?.deliveries ?? 0,
+      deposits: metrics?.deposits ?? 0,
       status: (c.status.charAt(0).toUpperCase() + c.status.slice(1)) as any,
       time: new Date(c.created_at).toLocaleDateString(),
       joined: new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       phone: c.phone || 'N/A',
       address: addressStr,
       address_json: addr,
-      chequeValue: 0,
+      depositAmount: metrics?.depositAmount ?? 0,
       notes: c.notes || 'No notes added.',
       lastActivity: 'Just now',
       clientType: c.client_type as any,
@@ -152,8 +156,26 @@ function CompaniesPageContent() {
   const fetchCompanies = async () => {
     try {
       setLoading(true);
-      const data = await apiClient<{ clients: any[] }>('/api/clients?limit=100');
-      const mapped = data.clients.map(mapClientToCompany);
+      const [data, deliveriesRes, depositsRes] = await Promise.all([
+        apiClient<{ clients: any[] }>('/api/clients?limit=100'),
+        deliveriesApi.adminList().catch(() => []),
+        depositsApi.adminList().catch(() => []),
+      ]);
+
+      const metricsByClient = new Map<string, CompanyMetrics>();
+      for (const d of deliveriesRes) {
+        const m = metricsByClient.get(d.clientId) ?? { deliveries: 0, deposits: 0, depositAmount: 0 };
+        m.deliveries += 1;
+        metricsByClient.set(d.clientId, m);
+      }
+      for (const d of depositsRes) {
+        const m = metricsByClient.get(d.clientId) ?? { deliveries: 0, deposits: 0, depositAmount: 0 };
+        m.deposits += 1;
+        m.depositAmount += Number(d.amountFigures || 0);
+        metricsByClient.set(d.clientId, m);
+      }
+
+      const mapped = data.clients.map((c) => mapClientToCompany(c, metricsByClient.get(c.id)));
       setCompanyList(mapped);
       setError(null);
     } catch (err: any) {
@@ -475,7 +497,16 @@ function CompaniesPageContent() {
         </div>
       </div>
 
-      {openedCompany && <ClickedCompany company={openedCompany} onClose={() => setOpenedCompany(null)} />}
+      {openedCompany && (
+        <ClickedCompany
+          company={openedCompany}
+          onClose={() => setOpenedCompany(null)}
+          onEdit={canManageOrganizations ? () => { handleEdit(openedCompany); setOpenedCompany(null); } : undefined}
+          onDelete={canManageOrganizations ? () => { handleDelete(openedCompany.id); setOpenedCompany(null); } : undefined}
+          onViewDeliveries={() => router.push('/superadmin/deliveries')}
+          onViewDeposits={() => router.push('/superadmin/deposits')}
+        />
+      )}
 
       {/* Add Company Modal */}
       {showAddModal && (

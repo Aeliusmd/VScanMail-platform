@@ -7,16 +7,17 @@ import { usePathname } from 'next/navigation';
 interface ClickedCompanyProps {
   company: Company;
   onClose: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  onViewDeliveries?: () => void;
+  onViewDeposits?: () => void;
 }
 
-export default function ClickedCompany({ company, onClose }: ClickedCompanyProps) {
+export default function ClickedCompany({ company, onClose, onEdit, onDelete, onViewDeliveries, onViewDeposits }: ClickedCompanyProps) {
   const pathname = usePathname();
   const canManageOrganizations = pathname.startsWith('/superadmin');
-  const chequeValue = new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-  }).format(company.chequeValue);
+  const planType = company.clientType === 'subscription' ? 'Subscription' : 'Manual';
+  const isSubscription = company.clientType === 'subscription';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-3" onClick={onClose}>
@@ -30,7 +31,7 @@ export default function ClickedCompany({ company, onClose }: ClickedCompanyProps
               </div>
               <div>
                 <h2 className="text-lg sm:text-2xl font-semibold leading-6 text-[#0F172A]">{company.name}</h2>
-                <p className="text-xs text-[#64748B] mt-1">CMP-{String(company.id).padStart(3, '0')} • Joined {company.joined}</p>
+                <p className="text-xs text-[#64748B] mt-1">CMP-{company.id} • Joined {company.joined}</p>
               </div>
             </div>
             <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-[#64748B] hover:text-[#334155] hover:bg-slate-100 rounded-full transition">
@@ -40,18 +41,24 @@ export default function ClickedCompany({ company, onClose }: ClickedCompanyProps
         </div>
 
         <div className="p-3 sm:p-5">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-            <div className="bg-[#EEF2F7] rounded-xl p-4 border border-[#E2E8F0] text-center">
-              <p className="text-2xl sm:text-3xl font-bold text-[#0A3D8F] leading-none">{company.mails}</p>
-              <p className="text-xs text-[#64748B] mt-1">Total Mails</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+            <div className={`rounded-xl p-4 border flex items-center gap-3 ${isSubscription ? 'bg-[#EEF4FF] border-[#C7D7F7]' : 'bg-[#FFF8E7] border-[#F0E0B8]'}`}>
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isSubscription ? 'bg-[#0A3D8F] text-white' : 'bg-[#B45309] text-white'}`}>
+                <Icon icon={isSubscription ? 'ri:vip-crown-line' : 'ri:user-add-line'} className="text-lg" />
+              </div>
+              <div>
+                <p className="text-xs text-[#64748B]">Plan Type</p>
+                <p className={`text-base font-semibold leading-5 ${isSubscription ? 'text-[#0A3D8F]' : 'text-[#B45309]'}`}>{planType}</p>
+              </div>
             </div>
-            <div className="bg-[#EDF7F0] rounded-xl p-4 border border-[#E2E8F0] text-center">
-              <p className="text-2xl sm:text-3xl font-bold text-[#2F8F3A] leading-none">{company.cheques}</p>
-              <p className="text-xs text-[#64748B] mt-1">Total Cheques</p>
-            </div>
-            <div className="bg-[#FFF8E7] rounded-xl p-4 border border-[#E2E8F0] text-center">
-              <p className="text-xl sm:text-2xl font-bold text-[#B45309] leading-none">{chequeValue}</p>
-              <p className="text-xs text-[#64748B] mt-1">Cheque Value</p>
+            <div className="bg-[#EDF7F0] rounded-xl p-4 border border-[#CDE7D2] flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-[#2F8F3A] text-white flex items-center justify-center">
+                <Icon icon="ri:building-line" className="text-lg" />
+              </div>
+              <div>
+                <p className="text-xs text-[#64748B]">Industry</p>
+                <span className={`inline-flex mt-0.5 text-sm px-2 py-0.5 rounded-md font-semibold ${company.industryBadge}`}>{company.industry}</span>
+              </div>
             </div>
           </div>
 
@@ -66,7 +73,6 @@ export default function ClickedCompany({ company, onClose }: ClickedCompanyProps
               <p className="text-base font-semibold text-[#1E293B] leading-5">{company.phone}</p>
               <div className="mt-2 flex items-center gap-2">
                 <span className="inline-flex text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold">{company.status}</span>
-                <span className="inline-flex text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-semibold">{company.industry}</span>
               </div>
             </div>
           </div>
@@ -89,29 +95,34 @@ export default function ClickedCompany({ company, onClose }: ClickedCompanyProps
             <span>Last activity: {company.lastActivity}</span>
           </div>
 
-          <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2">
-            <button className="w-full sm:flex-1 h-11 rounded-lg bg-[#0A3D8F] hover:bg-[#083170] text-white text-sm font-semibold flex items-center justify-center gap-2 transition">
-              <Icon icon="ri:mail-line" className="text-sm" />
-              View Mails
-            </button>
-            <button className="w-full sm:w-auto sm:flex-none sm:px-4 h-11 rounded-lg bg-[#2F8F3A] hover:bg-[#267531] text-white text-sm font-semibold flex items-center justify-center gap-2 transition">
-              <Icon icon="ri:bank-card-line" className="text-sm" />
-              View Cheques
-            </button>
-            {canManageOrganizations && (
-              <>
-                <button className="w-full sm:w-auto sm:flex-none sm:px-4 h-11 rounded-lg border border-[#CBD5E1] hover:bg-[#F8FAFC] text-[#475569] text-sm font-semibold flex items-center justify-center gap-2 transition">
-                  <Icon icon="ri:edit-line" className="text-sm" />
-                  Edit
-                </button>
-                <button className="w-full sm:flex-1 h-11 rounded-lg border border-[#CBD5E1] hover:bg-[#F8FAFC] text-[#475569] text-sm font-semibold flex items-center justify-center gap-2 transition">
-                  Delete
-                </button>
-              </>
-            )}
-            <button onClick={onClose} className="w-full sm:w-20 h-11 rounded-lg bg-[#E2E8F0] hover:bg-[#CBD5E1] text-[#475569] text-sm font-semibold transition">
-              Close
-            </button>
+          <div className="flex flex-col gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button onClick={onViewDeliveries} className="h-11 rounded-lg bg-[#0A3D8F] hover:bg-[#083170] text-white text-sm font-semibold flex items-center justify-center gap-2 transition whitespace-nowrap">
+                <Icon icon="ri:truck-line" className="text-base" />
+                View Deliveries
+              </button>
+              <button onClick={onViewDeposits} className="h-11 rounded-lg bg-[#2F8F3A] hover:bg-[#267531] text-white text-sm font-semibold flex items-center justify-center gap-2 transition whitespace-nowrap">
+                <Icon icon="ri:exchange-dollar-line" className="text-base" />
+                View Deposits
+              </button>
+            </div>
+            <div className="flex flex-col sm:flex-row items-stretch gap-2">
+              {canManageOrganizations && (
+                <>
+                  <button onClick={onEdit} className="w-full sm:flex-1 h-11 rounded-lg border border-[#CBD5E1] hover:bg-[#F8FAFC] text-[#475569] text-sm font-semibold flex items-center justify-center gap-2 transition whitespace-nowrap">
+                    <Icon icon="ri:edit-line" className="text-sm" />
+                    Edit
+                  </button>
+                  <button onClick={onDelete} className="w-full sm:flex-1 h-11 rounded-lg border border-[#FCA5A5] hover:bg-red-50 text-[#B91C1C] text-sm font-semibold flex items-center justify-center gap-2 transition whitespace-nowrap">
+                    <Icon icon="ri:delete-bin-line" className="text-sm" />
+                    Delete
+                  </button>
+                </>
+              )}
+              <button onClick={onClose} className="w-full sm:flex-1 h-11 rounded-lg bg-[#E2E8F0] hover:bg-[#CBD5E1] text-[#475569] text-sm font-semibold transition whitespace-nowrap">
+                Close
+              </button>
+            </div>
           </div>
         </div>
         </div>

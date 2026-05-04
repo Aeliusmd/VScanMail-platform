@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const navItems = [
-  { label: "Dashboard", icon: "ri-dashboard-3-line", href: "/super-admin" },
+  { label: "Dashboard", icon: "ri-dashboard-3-line", href: "/superadmin/dashboard" },
   { label: "Organizations", icon: "ri-building-4-line", href: "/superadmin/companies" },
   { label: "Deposit Requests", icon: "ri-exchange-dollar-line", href: "/superadmin/deposits" },
   { label: "Delivery Requests", icon: "ri-truck-line", href: "/superadmin/deliveries" },
@@ -12,8 +12,8 @@ const navItems = [
 ] as const;
 
 function isNavActive(pathname: string, href: string) {
-  if (href === "/super-admin") {
-    return pathname === "/super-admin" || pathname === "/superadmin/dashboard";
+  if (href === "/superadmin/dashboard") {
+    return pathname === "/superadmin/dashboard";
   }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
@@ -43,7 +43,7 @@ export default function SuperAdminSidebar({ collapsed, onToggle }: Props) {
           className={`flex w-full min-w-0 items-center justify-between ${collapsed ? "gap-0" : "gap-2"}`}
         >
           {!collapsed ? (
-            <Link href="/super-admin" className="flex items-center gap-3 min-w-0 flex-1">
+            <Link href="/superadmin/dashboard" className="flex items-center gap-3 min-w-0 flex-1">
               <div className="w-8 h-8 bg-[#0A3D8F] rounded-lg flex items-center justify-center flex-shrink-0">
                 <i className="ri-shield-star-line text-white text-base" aria-hidden />
               </div>
@@ -54,7 +54,7 @@ export default function SuperAdminSidebar({ collapsed, onToggle }: Props) {
             </Link>
           ) : (
             <Link
-              href="/super-admin"
+              href="/superadmin/dashboard"
               className="h-8 w-8 shrink-0 flex items-center justify-center rounded-lg bg-[#0A3D8F]"
               title="Super Admin"
             >

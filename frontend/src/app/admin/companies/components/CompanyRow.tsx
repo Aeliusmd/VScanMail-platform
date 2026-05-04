@@ -87,10 +87,10 @@ export default function CompanyRow({ company, selected, onSelect, onEdit, onDele
 
       <div className={styles.metrics}>
         <span className={styles.metric}>
-          <Icon icon="ri:mail-line" className="text-[11px]" /> {company.mails}
+          <Icon icon="ri:truck-line" className="text-[11px]" /> {company.deliveries}
         </span>
         <span className={styles.metric}>
-          <Icon icon="ri:bank-card-line" className="text-[11px]" /> {company.cheques}
+          <Icon icon="ri:exchange-dollar-line" className="text-[11px]" /> {company.deposits}
         </span>
       </div>
 

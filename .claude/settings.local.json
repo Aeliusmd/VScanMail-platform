@@ -7,7 +7,15 @@
       "Bash(npx *)",
       "Bash(xargs grep *)",
       "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\(JSON.stringify\\(Object.keys\\(p.scripts\\), null, 2\\)\\)\")",
-      "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\(p.dependencies.dotenv, p.devDependencies?.dotenv\\)\")"
+      "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\(p.dependencies.dotenv, p.devDependencies?.dotenv\\)\")",
+      "Bash(Get-ChildItem -Path \"E:\\\\04-Dev Visal\\\\VScanmail\" -Depth 1 -Directory)",
+      "Bash(Select-Object -ExpandProperty Name)",
+      "Bash(Get-ChildItem -Path \"E:\\\\04-Dev Visal\\\\VScanmail\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)",
+      "Bash(Select-Object -Property Name)",
+      "Bash(Get-ChildItem -Path \"E:\\\\04-Dev Visal\\\\VScanmail\\\\frontend\\\\src\" -Directory)",
+      "Bash(Select-Object Name)"
     ]
   }
 }
