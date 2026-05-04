@@ -18,7 +18,11 @@
       "Bash(Select-Object Name)",
       "Bash(Get-ChildItem -Path \"E:\\\\04-Dev Visal\\\\VScanmail\" -Force)",
       "Bash(Select-Object -Property Name, PSIsContainer)",
-      "Bash(Format-Table -AutoSize)"
+      "Bash(Format-Table -AutoSize)",
+      "Bash(Get-ChildItem -Path \"E:\\\\04-Dev Visal\\\\VScanmail\" -Recurse -Filter \"*.ts\" -ErrorAction SilentlyContinue)",
+      "Bash(dir /s \"E:\\\\04-Dev Visal\\\\VScanmail\\\\app\\\\api\")",
+      "Bash(findstr /i \"billing invoice\")",
+      "Bash(grep -E \"\\\\.\\(ts|sql\\)$\")"
     ]
   }
 }

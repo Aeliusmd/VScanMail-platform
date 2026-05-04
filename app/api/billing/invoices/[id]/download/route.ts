@@ -27,7 +27,21 @@ export async function GET(
       return NextResponse.json({ error: "PDF not available for this invoice." }, { status: 404 });
     }
 
-    return NextResponse.redirect(invoice.pdf_url, 302);
+    const pdfRes = await fetch(invoice.pdf_url);
+    if (!pdfRes.ok) {
+      return NextResponse.json({ error: "Failed to fetch PDF from Stripe." }, { status: 502 });
+    }
+    const pdfBuffer = await pdfRes.arrayBuffer();
+    const filename = invoice.invoice_number
+      ? `invoice-${invoice.invoice_number}.pdf`
+      : `invoice-${id}.pdf`;
+
+    return new NextResponse(pdfBuffer, {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+      },
+    });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Download failed.";
     return NextResponse.json({ error: message }, { status: 500 });

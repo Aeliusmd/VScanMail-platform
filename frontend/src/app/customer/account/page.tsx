@@ -462,13 +462,22 @@ function CustomerAccountPageContent() {
 
     setDownloadingInvoiceId(invoiceId);
     try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("vscanmail_token") : null;
+      const res = await fetch(`/api/billing/invoices/${invoiceId}/download`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error("Download failed");
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.href = `/api/billing/invoices/${invoiceId}/download`;
-      link.target = "_blank";
-      link.rel = "noopener noreferrer";
+      link.href = blobUrl;
+      link.download = `invoice-${invoiceId}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      showToast("error", "Could not download invoice. Please try again.");
     } finally {
       setTimeout(() => setDownloadingInvoiceId(null), 1500);
     }
