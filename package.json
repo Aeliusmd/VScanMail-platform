@@ -11,6 +11,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "db:repair": "npx tsx scripts/repair_missing_tables.ts",
+    "db:normalize-collation": "npx tsx scripts/normalize-org-table-collation.ts",
     "stripe:listen": "stripe listen --forward-to localhost:3010/api/billing/stripe/webhook"
   },
   "dependencies": {

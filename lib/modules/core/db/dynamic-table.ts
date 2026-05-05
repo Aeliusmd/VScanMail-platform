@@ -3,6 +3,9 @@ import { db } from "./mysql";
 import { clients } from "./schema";
 import { eq } from "drizzle-orm";
 
+const ORG_TABLE_CHARSET = "utf8mb4";
+const ORG_TABLE_COLLATION = "utf8mb4_unicode_ci";
+
 export async function createClientTable(tableName: string) {
   await db.execute(sql.raw(`
     CREATE TABLE \`${tableName}\` (
@@ -103,7 +106,7 @@ export async function createClientTable(tableName: string) {
       KEY \`delivery_status_idx\`      (\`delivery_status\`),
       KEY \`delivery_requested_at_idx\` (\`delivery_requested_at\`),
       KEY \`created_at_idx\`           (\`created_at\`)
-    )
+    ) CHARACTER SET ${ORG_TABLE_CHARSET} COLLATE ${ORG_TABLE_COLLATION}
   `));
 }
 
@@ -145,6 +148,8 @@ export async function ensureClientTableDeliveryColumns(tableName: string): Promi
     { name: "delivery_vsendocs_submission_number", sql: "`delivery_vsendocs_submission_number` VARCHAR(64) NULL" },
     { name: "delivery_tracking_number", sql: "`delivery_tracking_number` VARCHAR(128) NULL" },
     { name: "delivery_proof_of_service_url", sql: "`delivery_proof_of_service_url` TEXT NULL" },
+    // Core column added after initial schema — ensures SELECT * UNION ALL column counts match across all org tables.
+    { name: "ai_summary", sql: "`ai_summary` TEXT NULL" },
   ];
 
   // First, try the MySQL 8.0+ fast-path (ADD COLUMN IF NOT EXISTS).
@@ -203,6 +208,8 @@ export async function ensureClientTableDepositColumns(tableName: string): Promis
     { name: "deposit_slip_uploaded_by", sql: "`deposit_slip_uploaded_by` VARCHAR(36) NULL" },
     // Use LONGTEXT instead of JSON for widest MySQL/MariaDB compatibility.
     { name: "deposit_slip_ai_result", sql: "`deposit_slip_ai_result` LONGTEXT NULL" },
+    // Core column added after initial schema — ensure it exists on older tables.
+    { name: "ai_summary", sql: "`ai_summary` TEXT NULL" },
   ];
 
   const tryEnforceTypes = async () => {

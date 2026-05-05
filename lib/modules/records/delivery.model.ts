@@ -48,18 +48,59 @@ export type DeliveryRow = {
   proofOfServiceUrl: string | null;
 };
 
+// Explicit column list keeps UNION ALL stable regardless of per-table schema drift.
+// Only columns that mapRow actually reads are included.
+const COLUMN_LIST = [
+  "id",
+  "irn",
+  "record_type",
+  "cheque_amount_figures",
+  "cheque_status",
+  "delivery_requested_at",
+  "delivery_requested_by",
+  "delivery_status",
+  "delivery_preferred_date",
+  "delivery_notes",
+  "delivery_address_id",
+  "delivery_address_name",
+  "delivery_address_line1",
+  "delivery_address_line2",
+  "delivery_address_city",
+  "delivery_address_state",
+  "delivery_address_zip",
+  "delivery_address_country",
+  "delivery_address_phone",
+  "delivery_address_email",
+  "delivery_decided_by",
+  "delivery_decided_at",
+  "delivery_reject_reason",
+  "delivery_in_transit_at",
+  "delivery_marked_delivered_by",
+  "delivery_marked_delivered_at",
+  "delivery_vsendocs_submission_id",
+  "delivery_vsendocs_submission_number",
+  "delivery_tracking_number",
+  "delivery_proof_of_service_url",
+].join(", ");
+
 async function locateRecordById(id: string) {
   const allClients = await db.select({ id: clients.id, tableName: clients.tableName }).from(clients);
   if (!allClients.length) return null;
 
-  const queries = allClients.map(
-    (c) =>
-      sql`SELECT *, ${c.id} AS _client_id, ${c.tableName} AS _table_name
-          FROM ${sql.raw(`\`${c.tableName}\``)}
-          WHERE id = ${id} AND record_type IN ('cheque','letter','package','legal')`
-  );
-  const unionQuery = sql.join(queries, sql` UNION ALL `);
-  const [rows] = (await db.execute(unionQuery)) as any;
+  await Promise.all(allClients.map((c) => ensureClientTableDeliveryColumns(c.tableName)));
+
+  // IDs are UUIDs — only hex chars and dashes, safe to inline.
+  const safeId = id.replace(/[^a-zA-Z0-9\-]/g, "");
+  const unionSql = allClients
+    .map(
+      (c) =>
+        `SELECT ${COLUMN_LIST}, '${c.id}' AS clientId
+         FROM \`${c.tableName}\`
+         WHERE id = '${safeId}' AND record_type IN ('cheque','letter','package','legal')`
+    )
+    .join(" UNION ALL ");
+
+  const [rows] = (await db.execute(sql.raw(unionSql))) as any;
   return rows[0] || null;
 }
 
@@ -122,9 +163,11 @@ export const deliveryModel = {
     if (!clientRow?.tableName) return { deliveries: [] as DeliveryRow[] };
     const tableName = clientRow.tableName;
 
+    await ensureClientTableDeliveryColumns(tableName);
+
     const [rows] = (await db.execute(
       sql.raw(
-        `SELECT *
+        `SELECT ${COLUMN_LIST}, '${clientId}' AS clientId
          FROM \`${tableName}\`
          WHERE record_type IN ('cheque','letter','package','legal')
            AND delivery_requested_at IS NOT NULL
@@ -133,7 +176,7 @@ export const deliveryModel = {
       )
     )) as any;
 
-    return { deliveries: (rows as any[]).map((r) => mapRow({ ...r, clientId })) };
+    return { deliveries: (rows as any[]).map((r) => mapRow(r)) };
   },
 
   async listAllForAdmin(opts?: { limit?: number }) {
@@ -147,12 +190,11 @@ export const deliveryModel = {
     const allClients = allClientsRaw.filter((c) => existingTableNames.has(c.tableName));
     if (!allClients.length) return { deliveries: [] as DeliveryRow[] };
 
-    // Ensure all tables share the same delivery_* columns before UNION ALL (MySQL requires identical column sets).
     await Promise.all(allClients.map((c) => ensureClientTableDeliveryColumns(c.tableName)));
 
     const unionParts = allClients.map(
       (c) =>
-        `SELECT *, '${c.id}' AS clientId
+        `SELECT ${COLUMN_LIST}, '${c.id}' AS clientId
          FROM \`${c.tableName}\`
          WHERE record_type IN ('cheque','letter','package','legal')
            AND delivery_requested_at IS NOT NULL`
