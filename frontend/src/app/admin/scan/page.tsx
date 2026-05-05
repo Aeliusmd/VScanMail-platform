@@ -95,7 +95,20 @@ function isStepCompleted(stepIndex: number, phase: ScanPhase): boolean {
   return false;
 }
 
-const PROCESSING_MSGS = ['Uploading encrypted scans…', 'GPT-4o Vision Analysis…', 'Security & Tamper Audit…', 'Identifying Organization…', '6-Point Cheque Validation…'];
+const PROCESSING_MSGS_LETTER = [
+  'Uploading encrypted scans…',
+  'GPT-4o Vision Analysis…',
+  'Security & Tamper Audit…',
+  'Identifying Organization…',
+  'Extracting summary & routing signals…',
+];
+const PROCESSING_MSGS_CHEQUE = [
+  'Uploading encrypted scans…',
+  'GPT-4o Vision Analysis…',
+  'Security & Tamper Audit…',
+  'Identifying Organization…',
+  '6-Point Cheque Validation…',
+];
 
 export default function AdminScanPage() {
   const [phase, setPhase] = useState<ScanPhase>('step1_ready');
@@ -278,9 +291,12 @@ export default function AdminScanPage() {
   const currentStepIndex = getStepIndex(phase);
   const currentStepConfig = STEPS_CONFIG[Math.min(currentStepIndex, 2)];
 
+  const isProcessing = phase === 'processing';
+
   const activeScanMsgs = useMemo(() => {
-    return phase === 'processing' ? PROCESSING_MSGS : currentStepConfig.scanningMessages;
-  }, [phase, currentStepConfig.scanningMessages]);
+    if (!isProcessing) return currentStepConfig.scanningMessages;
+    return manualDocType === 'cheque' ? PROCESSING_MSGS_CHEQUE : PROCESSING_MSGS_LETTER;
+  }, [isProcessing, manualDocType, currentStepConfig.scanningMessages]);
 
   const selectedClient = useMemo(() => {
     return clients.find(c => c.id === confirmedClientId);
@@ -410,9 +426,6 @@ export default function AdminScanPage() {
                     <i className="ri-scan-2-line text-lg"></i>
                     {currentStepConfig.scanLabel}
                   </button>
-                  <button onClick={() => fileInputRef.current?.click()} className="w-full py-3 border border-dashed border-[#0A3D8F]/50 text-[#0A3D8F] text-xs font-bold rounded-xl hover:bg-[#0A3D8F]/5">
-                    <i className="ri-upload-2-line mr-1"></i> Manual Upload (Hardware Free)
-                  </button>
                   {phase === 'step3_ready' && (
                     <button onClick={handleSkipContent} className="w-full py-2.5 text-slate-500 text-xs font-bold hover:bg-slate-100 rounded-xl">Skip Content Scan (Process Envelope Only)</button>
                   )}
@@ -423,14 +436,48 @@ export default function AdminScanPage() {
             {/* SCANNING PHASE */}
             {(phase === 'step1_scanning' || phase === 'step2_scanning' || phase === 'step3_scanning' || phase === 'processing') && (
               <div className="bg-white/85 backdrop-blur-sm rounded-2xl p-6 sm:p-10 border border-white/60 h-full flex flex-col items-center justify-center text-center">
-                <div className="w-24 h-24 bg-[#0A3D8F]/10 rounded-full flex items-center justify-center mb-8 relative">
-                   <i className={`${phase === 'processing' ? 'ri-cpu-line' : currentStepConfig.icon} text-[#0A3D8F] text-5xl`}></i>
-                   <div className="absolute inset-0 rounded-full border-4 border-[#0A3D8F]/20 border-t-[#0A3D8F] animate-spin"></div>
-                </div>
-                <h2 className="text-xl font-bold text-slate-900 mb-2">{phase === 'processing' ? 'AI Analysis in Progress…' : `Scanning ${currentStepConfig.label}…`}</h2>
-                <p className="text-sm text-[#0A3D8F] font-medium mb-6">{activeScanMsgs[scanMsgIndex]}</p>
+                {isProcessing && manualDocType === 'cheque' ? (
+                  <div className="mb-8 relative w-28 h-28 flex items-center justify-center" aria-hidden>
+                    <div className="absolute inset-0 rounded-full border-[3px] border-dashed border-emerald-600/30 border-t-emerald-600 border-r-emerald-500/60 animate-spin [animation-duration:2.5s]" />
+                    <span className="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="absolute bottom-2 right-3 w-2 h-2 rounded-full bg-[#0A3D8F] animate-pulse [animation-delay:200ms]" />
+                    <span className="absolute bottom-2 left-3 w-2 h-2 rounded-full bg-emerald-400 animate-pulse [animation-delay:400ms]" />
+                    <div className="relative z-10 w-[4.5rem] h-[4.5rem] rounded-xl bg-gradient-to-br from-emerald-50 to-white border border-emerald-200/90 flex items-center justify-center shadow-sm">
+                      <i className="ri-bank-card-line text-[#047857] text-4xl leading-none" />
+                    </div>
+                  </div>
+                ) : isProcessing && manualDocType === 'letter' ? (
+                  <div className="mb-8 relative w-28 h-28 rounded-2xl border-2 border-[#0A3D8F]/25 bg-gradient-to-b from-[#EFF6FF] to-white shadow-inner overflow-hidden flex items-center justify-center" aria-hidden>
+                    <i className="ri-file-text-line text-[#0A3D8F] text-5xl relative z-[1]" />
+                    <div className="pointer-events-none absolute left-3 right-3 h-[3px] rounded-full bg-[#0A3D8F]/75 shadow-[0_0_14px_rgba(10,61,143,0.35)] animate-vscanmail-letter-scanline" />
+                  </div>
+                ) : (
+                  <div className="w-24 h-24 bg-[#0A3D8F]/10 rounded-full flex items-center justify-center mb-8 relative">
+                    <i className={`${currentStepConfig.icon} text-[#0A3D8F] text-5xl`}></i>
+                    <div className="absolute inset-0 rounded-full border-4 border-[#0A3D8F]/20 border-t-[#0A3D8F] animate-spin"></div>
+                  </div>
+                )}
+                <h2 className="text-xl font-bold text-slate-900 mb-2">
+                  {isProcessing
+                    ? manualDocType === 'cheque'
+                      ? 'Validating Cheque Intelligence…'
+                      : 'Analyzing Letter Intelligence…'
+                    : `Scanning ${currentStepConfig.label}…`}
+                </h2>
+                <p
+                  className={`text-sm font-medium mb-6 ${isProcessing && manualDocType === 'cheque' ? 'text-emerald-800' : 'text-[#0A3D8F]'}`}
+                >
+                  {activeScanMsgs[scanMsgIndex]}
+                </p>
                 <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden max-w-sm">
-                   <div className="h-full bg-[#0A3D8F] transition-all duration-100" style={{ width: `${scanProgress}%` }}></div>
+                  <div
+                    className={`h-full transition-all duration-100 ${
+                      isProcessing && manualDocType === 'cheque'
+                        ? 'bg-gradient-to-r from-emerald-600 to-[#0A3D8F]'
+                        : 'bg-[#0A3D8F]'
+                    }`}
+                    style={{ width: `${scanProgress}%` }}
+                  />
                 </div>
               </div>
             )}

@@ -23,6 +23,24 @@
     to { transform: scale(1); opacity: 1; }
   }
 
+  /* Admin scan: letter processing — vertical scan beam */
+  @keyframes vscanmail-letter-scanline {
+    0% {
+      transform: translateY(-140%);
+      opacity: 0;
+    }
+    12% {
+      opacity: 1;
+    }
+    88% {
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(140%);
+      opacity: 0;
+    }
+  }
+
   /* Global Typography Fixes */
   body {
     @apply text-slate-900 antialiased; /* Ensure primary text is sharp and dark */
@@ -45,6 +63,10 @@
 
 .animate-scale-in {
   animation: scaleIn 0.2s ease-out forwards;
+}
+
+.animate-vscanmail-letter-scanline {
+  animation: vscanmail-letter-scanline 2.2s ease-in-out infinite;
 }
 
 :root {

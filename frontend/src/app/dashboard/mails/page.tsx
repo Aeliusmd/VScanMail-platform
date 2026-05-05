@@ -145,9 +145,6 @@ function AllMailsPageContent() {
                     ))
                   )}
                 </div>
-                <div className="px-4 py-2 text-center">
-                  <span className="text-xs text-[#1E40AF] cursor-pointer hover:underline">View all notifications</span>
-                </div>
               </div>
             )}
           </div>

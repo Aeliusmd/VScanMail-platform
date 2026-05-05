@@ -22,7 +22,9 @@
       "Bash(Get-ChildItem -Path \"E:\\\\04-Dev Visal\\\\VScanmail\" -Recurse -Filter \"*.ts\" -ErrorAction SilentlyContinue)",
       "Bash(dir /s \"E:\\\\04-Dev Visal\\\\VScanmail\\\\app\\\\api\")",
       "Bash(findstr /i \"billing invoice\")",
-      "Bash(grep -E \"\\\\.\\(ts|sql\\)$\")"
+      "Bash(grep -E \"\\\\.\\(ts|sql\\)$\")",
+      "Bash(findstr *)",
+      "Bash(not exist *)"
     ]
   }
 }

@@ -191,14 +191,6 @@ export default function CustomerNav() {
                       </div>
                     ))}
                   </div>
-                  <div className="px-4 py-2 border-t border-gray-200">
-                    <button
-                      type="button"
-                      className="text-sm text-[#0A3D8F] hover:text-[#083170] font-medium whitespace-nowrap"
-                    >
-                      View all notifications
-                    </button>
-                  </div>
                 </div>
               )}
             </div>

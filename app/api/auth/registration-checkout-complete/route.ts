@@ -64,11 +64,23 @@ export async function POST(req: NextRequest) {
       console.error("[checkout-complete] webhook handler error (org already activated):", webhookErr);
     }
 
-    // Fix 1: Issue a JWT so the frontend can auto-login without requiring credentials.
+    // Issue a JWT so the frontend can auto-login without requiring credentials.
+    // Look up the user via profiles table: org clientId → userId → user row.
+    const profileRows = await db
+      .select({ userId: profiles.userId, role: profiles.role })
+      .from(profiles)
+      .where(eq(profiles.clientId, clientId))
+      .limit(1);
+    const profileRow = profileRows[0];
+
+    if (!profileRow?.userId) {
+      return NextResponse.json({ active: true });
+    }
+
     const userRows = await db
       .select({ id: users.id, email: users.email })
       .from(users)
-      .where(eq(users.id, clientId))
+      .where(eq(users.id, profileRow.userId))
       .limit(1);
     const user = userRows[0];
 
@@ -76,12 +88,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ active: true });
     }
 
-    const profileRows = await db
-      .select({ role: profiles.role })
-      .from(profiles)
-      .where(eq(profiles.userId, user.id))
-      .limit(1);
-    const role = profileRows[0]?.role ?? "client";
+    const role = profileRow.role ?? "client";
 
     const access_token = await signAccessToken({ sub: user.id, email: user.email });
 
