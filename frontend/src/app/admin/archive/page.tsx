@@ -317,7 +317,7 @@ export default function AdminArchivedMailsPage() {
 
   return (
     <>
-      <div className="min-h-full flex flex-col min-w-0 bg-slate-50">
+      <div className="min-h-full flex flex-col min-w-0 bg-slate-50 overflow-x-hidden">
         {/* Header */}
         <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3">
           <div className="flex items-center justify-between gap-2 sm:gap-4">
@@ -608,7 +608,7 @@ export default function AdminArchivedMailsPage() {
             </div>
 
             {/* Mail List */}
-            <main className="flex-1 overflow-auto bg-white">
+            <main className="flex-1 overflow-y-auto overflow-x-hidden bg-white min-w-0">
               {loading ? (
                 <div className="flex flex-col items-center justify-center h-64 space-y-3">
                   <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
@@ -625,8 +625,9 @@ export default function AdminArchivedMailsPage() {
                   <p className="text-slate-400 text-sm">Try adjusting your search or filter</p>
                 </div>
               ) : (
-                <div className="min-w-[980px] divide-y divide-slate-100">
-                  {filteredMails.map(mail => (
+                <div className="overflow-x-auto">
+                  <div className="min-w-[980px] divide-y divide-slate-100">
+                    {filteredMails.map(mail => (
                     <div key={mail.id} className="flex items-center group px-4 py-3 hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setSelectedMail(mail)}>
                       <div className="flex items-center space-x-2 mr-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
                         <input type="checkbox" checked={mailCheckedIds.has(mail.id)} onChange={() => toggleMailCheck(mail.id)} className="w-4 h-4 rounded border-slate-300 accent-[#0A3D8F] cursor-pointer" />
@@ -663,7 +664,8 @@ export default function AdminArchivedMailsPage() {
                         <span className="text-xs text-slate-400">{mail.timeShort}</span>
                       </div>
                     </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               )}
             </main>
@@ -807,7 +809,7 @@ export default function AdminArchivedMailsPage() {
             </div>
 
             {/* Cheque List */}
-            <main className="flex-1 overflow-auto bg-white">
+            <main className="flex-1 overflow-y-auto overflow-x-hidden bg-white min-w-0">
               {loading ? (
                 <div className="flex flex-col items-center justify-center h-64 space-y-3">
                   <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
@@ -824,8 +826,9 @@ export default function AdminArchivedMailsPage() {
                   <p className="text-slate-400 text-sm">Try adjusting your search or filter</p>
                 </div>
               ) : (
-                <div className="min-w-[1080px] divide-y divide-slate-100">
-                  {filteredCheques.map(cheque => (
+                <div className="overflow-x-auto">
+                  <div className="min-w-[1080px] divide-y divide-slate-100">
+                    {filteredCheques.map(cheque => (
                     <div key={cheque.id} className="flex items-center group px-4 py-3 hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setSelectedCheque(cheque)}>
                       <div className="flex items-center space-x-2 mr-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
                         <input type="checkbox" checked={chequeCheckedIds.has(cheque.id)} onChange={() => toggleChequeCheck(cheque.id)} className="w-4 h-4 rounded border-slate-300 accent-[#0A3D8F] cursor-pointer" />
@@ -858,7 +861,8 @@ export default function AdminArchivedMailsPage() {
                         <span className="text-xs text-slate-400">{cheque.timeShort}</span>
                       </div>
                     </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               )}
             </main>

@@ -24,7 +24,9 @@
       "Bash(findstr /i \"billing invoice\")",
       "Bash(grep -E \"\\\\.\\(ts|sql\\)$\")",
       "Bash(findstr *)",
-      "Bash(not exist *)"
+      "Bash(not exist *)",
+      "WebFetch(domain:1drv.ms)",
+      "WebFetch(domain:onedrive.live.com)"
     ]
   }
 }

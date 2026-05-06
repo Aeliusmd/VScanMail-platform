@@ -621,12 +621,12 @@ export default function AdminScanPage() {
                     </div>
                  </div>
 
-                 <div className="flex items-center gap-4 pt-4 mt-auto">
-                    <button onClick={handleReset} className="px-6 py-4 border-2 border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-white transition-all">Scan New</button>
+                 <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 pt-4 mt-auto min-w-0">
+                    <button onClick={handleReset} className="w-full sm:w-auto px-6 py-4 border-2 border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-white transition-all">Scan New</button>
                     <button 
                        disabled={!confirmedClientId || sendingEmail}
                        onClick={handleFinalize} 
-                       className="flex-1 py-4 bg-[#0A3D8F] text-white font-bold rounded-xl hover:bg-[#083170] shadow-lg shadow-blue-200 disabled:opacity-50 flex items-center justify-center gap-2"
+                       className="w-full sm:flex-1 min-w-0 py-4 bg-[#0A3D8F] text-white font-bold rounded-xl hover:bg-[#083170] shadow-lg shadow-blue-200 disabled:opacity-50 flex items-center justify-center gap-2"
                     >
                        {sendingEmail ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <i className="ri-send-plane-fill"></i>}
                        Confirm & Forward

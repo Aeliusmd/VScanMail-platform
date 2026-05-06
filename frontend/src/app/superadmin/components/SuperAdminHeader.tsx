@@ -212,14 +212,6 @@ export default function SuperAdminHeader({
               </button>
             )}
 
-            {(pathname === "/superadmin/deposits" || pathname === "/superadmin/deliveries") && (
-              <Link href="/superadmin/scan" className={primaryBtnClass}>
-                <i className="ri-scan-2-line text-[15px] leading-none"></i>
-                <span className="hidden sm:inline">New Scan</span>
-                <span className="sm:hidden">Scan</span>
-              </Link>
-            )}
-
             {notificationsAndProfile}
           </div>
         </div>

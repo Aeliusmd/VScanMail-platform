@@ -56,7 +56,7 @@ export default function ChequeRow({ cheque, selected, onSelect, onOpen, showArch
   return (
     <div
       onClick={onOpen}
-      className={`flex items-center px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition cursor-pointer group ${selected ? 'bg-[#EFF6FF]' : ''}`}
+      className={`flex flex-wrap sm:flex-nowrap items-center px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition cursor-pointer group min-w-0 overflow-hidden ${selected ? 'bg-[#EFF6FF]' : ''}`}
     >
       {/* Checkbox + star + flag */}
       <div className="flex items-center gap-1.5 w-[78px] flex-shrink-0">
@@ -89,19 +89,19 @@ export default function ChequeRow({ cheque, selected, onSelect, onOpen, showArch
       </div>
 
       {/* Company Name */}
-      <div className="w-[180px] flex-shrink-0 mr-4">
+      <div className="w-full sm:w-[180px] min-w-0 sm:flex-shrink-0 mr-0 sm:mr-4 mt-2 sm:mt-0">
         <span className="text-sm font-semibold text-gray-700 truncate block">{cheque.company}</span>
       </div>
 
       {/* Status badge */}
-      <div className="w-[110px] flex-shrink-0 mr-2">
+      <div className="w-auto sm:w-[110px] flex-shrink-0 mr-2 mt-2 sm:mt-0">
         <span className={`text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${statusStyles[cheque.status]}`}>
           {cheque.status}
         </span>
       </div>
 
       {/* Bank + cheque number */}
-      <div className="w-[170px] flex-shrink-0 mr-2">
+      <div className="w-full sm:w-[170px] min-w-0 sm:flex-shrink-0 mr-0 sm:mr-2 mt-2 sm:mt-0">
         <span className="text-sm font-medium text-slate-700 truncate block">
           {cheque.bankName} - {cheque.chequeNumber}
         </span>
@@ -113,27 +113,27 @@ export default function ChequeRow({ cheque, selected, onSelect, onOpen, showArch
       </div>
 
       {/* Description */}
-      <div className="flex-1 min-w-0 mr-3 flex items-center">
+      <div className="w-full sm:flex-1 min-w-0 mr-0 sm:mr-3 mt-2 sm:mt-0 flex items-center">
         <span className="text-sm text-slate-400 truncate block">- {cheque.description}</span>
       </div>
 
       {/* Amount */}
-      <div className="w-[95px] flex-shrink-0 mr-4 text-right">
-        <span className="text-sm font-bold text-slate-700">{formattedAmount}</span>
+      <div className="w-auto sm:w-[95px] flex-shrink-0 mr-2 sm:mr-4 mt-2 sm:mt-0 text-right">
+        <span className="text-sm font-bold text-slate-700 whitespace-nowrap">{formattedAmount}</span>
       </div>
 
       {/* Bank icon */}
-      <div className="w-[28px] flex-shrink-0 mr-3 flex items-center justify-center text-slate-300">
+      <div className="w-[28px] flex-shrink-0 mr-2 sm:mr-3 mt-2 sm:mt-0 flex items-center justify-center text-slate-300">
         <Icon icon="ri:bank-line" className="text-sm" />
       </div>
 
       {/* Recipient */}
-      <div className="w-[130px] flex-shrink-0 mr-3">
+      <div className="w-auto sm:w-[130px] min-w-0 flex-shrink-0 mr-2 sm:mr-3 mt-2 sm:mt-0">
         <span className="text-xs text-slate-500 truncate block">{cheque.recipient}</span>
       </div>
 
       {/* Time */}
-      <div className="w-[70px] flex-shrink-0 text-right">
+      <div className="w-auto sm:w-[70px] flex-shrink-0 text-right mt-2 sm:mt-0">
         <span className="text-xs text-slate-500 whitespace-nowrap">{cheque.time}</span>
       </div>
 

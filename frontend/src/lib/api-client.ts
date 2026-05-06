@@ -69,7 +69,7 @@ export async function apiClient<T>(
       .json()
       .catch(() => ({} as any));
 
-    if (res.status === 401) {
+    if (res.status === 401 && endpoint !== "/api/auth/login") {
       window.localStorage.removeItem("vscanmail_token");
       document.cookie =
         "sb-access-token=; path=/; max-age=0; samesite=lax";

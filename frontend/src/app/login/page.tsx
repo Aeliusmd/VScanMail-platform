@@ -21,6 +21,7 @@ function LoginForm() {
   const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [lastErrorAtMs, setLastErrorAtMs] = useState<number | null>(null);
   const [paymentUpdateHref, setPaymentUpdateHref] = useState<string | null>(null);
   const [checkoutBanner, setCheckoutBanner] = useState<string | null>(null);
   // True while we're activating the account after Stripe redirect — hides the login form.
@@ -28,6 +29,7 @@ function LoginForm() {
 
   const autoLoginWithToken = (token: string, role: string) => {
     localStorage.setItem("vscanmail_token", token);
+    localStorage.setItem("vscanmail_last_activity", new Date().toISOString());
     localStorage.removeItem("selectedPlanId");
     document.cookie = `sb-access-token=${token}; path=/; max-age=${7 * 24 * 60 * 60}; samesite=lax`;
     if (role === "super_admin") {
@@ -90,17 +92,28 @@ function LoginForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-    setPaymentUpdateHref(null);
+    // Keep the last error visible a bit longer so users can read it,
+    // especially if they immediately retry the login.
+    const MIN_ERROR_VISIBLE_MS = 6000;
+    const canClearErrorNow =
+      !error || lastErrorAtMs === null || Date.now() - lastErrorAtMs >= MIN_ERROR_VISIBLE_MS;
+    if (canClearErrorNow) {
+      setError("");
+      setPaymentUpdateHref(null);
+      setLastErrorAtMs(null);
+    }
     setLoading(true);
 
     try {
-      await finalizeRegistrationCheckout();
+      if (checkoutSuccess && checkoutSessionId) {
+        await finalizeRegistrationCheckout();
+      }
       const response = await authApi.login(email, password);
       const token = response.session.access_token || response.session.accessToken;
 
       if (token) {
         localStorage.setItem("vscanmail_token", token);
+        localStorage.setItem("vscanmail_last_activity", new Date().toISOString());
         // Set cookie for middleware (7 days)
         document.cookie = `sb-access-token=${token}; path=/; max-age=${7 * 24 * 60 * 60}; samesite=lax`;
       }
@@ -129,6 +142,7 @@ function LoginForm() {
         );
       }
       setError(message);
+      setLastErrorAtMs(Date.now());
     } finally {
       setLoading(false);
     }
@@ -183,16 +197,25 @@ function LoginForm() {
                 </div>
               )}
               {error && (
-                <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm mb-4">
-                  <p>{error}</p>
-                  {paymentUpdateHref && (
-                    <Link
-                      href={paymentUpdateHref}
-                      className="mt-3 inline-flex items-center justify-center rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700"
-                    >
-                      Update Payment Method
-                    </Link>
-                  )}
+                <div key={error} className={styles.errorBanner}>
+                  <svg className={styles.errorIcon} viewBox="0 0 20 20" fill="currentColor">
+                    <path
+                      fillRule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm-.75-5.25a.75.75 0 001.5 0v-4a.75.75 0 00-1.5 0v4zm.75 2.5a.875.875 0 110-1.75.875.875 0 010 1.75z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <div>
+                    <p className={styles.errorText}>{error}</p>
+                    {paymentUpdateHref && (
+                      <Link
+                        href={paymentUpdateHref}
+                        className="mt-3 inline-flex items-center justify-center rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700"
+                      >
+                        Update Payment Method
+                      </Link>
+                    )}
+                  </div>
                 </div>
               )}
               <div className={styles.fieldGroup}>
@@ -253,7 +276,14 @@ function LoginForm() {
               </div>
 
               <button type="submit" className={styles.submitButton} disabled={loading}>
-                {loading ? "Signing in..." : "Sign In"}
+                {loading ? (
+                  <>
+                    <span className={styles.spinnerIcon} />
+                    Signing in…
+                  </>
+                ) : (
+                  "Sign In"
+                )}
               </button>
 
               <p className={styles.registerText}>

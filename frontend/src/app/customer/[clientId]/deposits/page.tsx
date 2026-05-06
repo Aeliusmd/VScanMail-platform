@@ -199,8 +199,8 @@ export default function CustomerDepositRequestsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-w-0 overflow-x-hidden">
         <div className="mb-6">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
@@ -269,8 +269,9 @@ export default function CustomerDepositRequestsPage() {
             <p className="text-gray-400 text-sm">Try adjusting your search or filter</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {filtered.map((req) => {
+          <div className="overflow-x-auto">
+            <div className="min-w-[980px] space-y-3">
+              {filtered.map((req) => {
               const cfg = statusConfig[req.status];
               return (
                 <div
@@ -281,7 +282,7 @@ export default function CustomerDepositRequestsPage() {
                     setSelectedRequest(req);
                   }}
                 >
-                  <div className="flex items-center p-5 gap-5">
+                  <div className="flex items-center p-5 gap-5 min-w-0">
                     <div className="w-20 h-14 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
                       {req.thumbnail ? (
                         <img src={req.thumbnail} alt="cheque" className="w-full h-full object-cover object-top" />
@@ -300,19 +301,19 @@ export default function CustomerDepositRequestsPage() {
                           {cfg.label}
                         </span>
                       </div>
-                      <p className="text-base font-bold text-gray-900 mt-0.5">{req.bankName}</p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-base font-bold text-gray-900 mt-0.5 truncate">{req.bankName}</p>
+                      <p className="text-xs text-gray-500 truncate">
                         Cheque No. <span className="font-medium text-gray-700">#{req.chequeNumber}</span> - Requested by {req.requestedBy}
                       </p>
                     </div>
 
-                    <div className="text-right flex-shrink-0">
+                    <div className="text-right flex-shrink-0 whitespace-nowrap">
                       <p className="text-xl font-bold text-gray-900">{req.amount}</p>
                       <p className="text-xs text-gray-400 mt-0.5">{req.timeShort}</p>
                     </div>
 
                     {req.depositDate && (
-                      <div className="flex-shrink-0 hidden md:block">
+                      <div className="flex-shrink-0 hidden md:block whitespace-nowrap">
                         <div className="flex items-center gap-1.5 text-xs text-teal-700 bg-teal-50 px-3 py-1.5 rounded-full border border-teal-200">
                           <i className="ri-calendar-check-line"></i>
                           <span className="font-medium">{req.depositDate}</span>
@@ -349,7 +350,8 @@ export default function CustomerDepositRequestsPage() {
                   )}
                 </div>
               );
-            })}
+              })}
+            </div>
           </div>
         )}
       </main>

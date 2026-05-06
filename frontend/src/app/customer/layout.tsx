@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import CustomerNav from "./components/CustomerNav";
 import { OrgContextProvider } from "./components/OrgContext";
+import SessionTimeoutProvider from "@/components/SessionTimeoutProvider";
 
 export default function CustomerLayout({
   children,
@@ -10,10 +11,12 @@ export default function CustomerLayout({
   children: ReactNode;
 }) {
   return (
-    <OrgContextProvider>
-      <CustomerNav />
-      {children}
-    </OrgContextProvider>
+    <SessionTimeoutProvider>
+      <OrgContextProvider>
+        <CustomerNav />
+        {children}
+      </OrgContextProvider>
+    </SessionTimeoutProvider>
   );
 }
 

@@ -536,7 +536,7 @@ function DepositsPageContent() {
     s === 'All' ? requests.length : requests.filter((r) => r.status === s).length;
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 bg-white">
+    <div className="flex flex-col flex-1 min-h-0 bg-white min-w-0 overflow-x-hidden">
       {!isSuperadminRoute && (
       <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 shrink-0">
         <div className="flex items-center justify-between gap-3">
@@ -555,13 +555,15 @@ function DepositsPageContent() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <Link
-              href={scanPath}
-              className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-[#0A3D8F] text-white text-sm font-semibold rounded-full hover:bg-[#083170] transition-colors whitespace-nowrap"
-            >
-              <Icon icon="ri:scan-2-line" className="text-sm" />
-              <span className="hidden sm:inline">New Scan</span>
-            </Link>
+            {!isSuperadminRoute && (
+              <Link
+                href={scanPath}
+                className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-[#0A3D8F] text-white text-sm font-semibold rounded-full hover:bg-[#083170] transition-colors whitespace-nowrap"
+              >
+                <Icon icon="ri:scan-2-line" className="text-sm" />
+                <span className="hidden sm:inline">New Scan</span>
+              </Link>
+            )}
 
               <>
                 <NotificationBell />
@@ -722,7 +724,7 @@ function DepositsPageContent() {
       </div>
 
       {/* List */}
-      <main className="flex-1 min-h-0 overflow-y-auto bg-white">
+      <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-white min-w-0">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 gap-3">
             <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
@@ -732,8 +734,9 @@ function DepositsPageContent() {
             <p className="text-slate-400 text-sm">Try adjusting your search or filter</p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100">
-            {filtered.map((request) => (
+          <div className="overflow-x-auto">
+            <div className="min-w-[980px] divide-y divide-slate-100">
+              {filtered.map((request) => (
               <div
                 key={request.id}
                 role="button"
@@ -741,7 +744,7 @@ function DepositsPageContent() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') openRequest(request);
                 }}
-                className={`flex items-center group px-3 sm:px-4 py-3 hover:bg-slate-50 transition-colors cursor-pointer ${
+                className={`flex items-center group px-3 sm:px-4 py-3 hover:bg-slate-50 transition-colors cursor-pointer min-w-0 ${
                   highlightedId === request.chequeId ? 'ring-2 ring-blue-400 animate-pulse' : ''
                 }`}
                 onClick={() => openRequest(request)}
@@ -780,7 +783,7 @@ function DepositsPageContent() {
                   />
                 </div>
 
-                <div className="w-36 sm:w-44 shrink-0 mr-3 sm:mr-4">
+                <div className="w-36 sm:w-44 shrink-0 mr-3 sm:mr-4 min-w-0">
                   <div className="flex items-center gap-2 min-w-0">
                     <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#0A3D8F] to-[#083170] flex items-center justify-center text-white text-xs font-bold shrink-0">
                       {request.company.charAt(0)}
@@ -815,7 +818,7 @@ function DepositsPageContent() {
                   </span>
                 </div>
 
-                <div className="flex items-center mr-3 sm:mr-4 shrink-0">
+                <div className="flex items-center mr-3 sm:mr-4 shrink-0 whitespace-nowrap">
                   <span
                     className={`text-sm font-bold ${
                       !request.read ? 'text-slate-900' : 'text-slate-600'
@@ -825,7 +828,7 @@ function DepositsPageContent() {
                   </span>
                 </div>
 
-                <div className="flex items-center mr-3 sm:mr-4 shrink-0">
+                <div className="flex items-center mr-3 sm:mr-4 shrink-0 whitespace-nowrap">
                   <span
                     className={`text-xs px-2 py-0.5 rounded-full font-semibold ${statusColors[request.status]}`}
                   >
@@ -833,11 +836,11 @@ function DepositsPageContent() {
                   </span>
                 </div>
 
-                <div className="w-24 sm:w-28 shrink-0 mr-3 sm:mr-4 hidden lg:block">
+                <div className="w-24 sm:w-28 shrink-0 mr-3 sm:mr-4 hidden lg:block min-w-0">
                   <span className="text-xs text-slate-500 truncate block">{request.requestedBy}</span>
                 </div>
 
-                <div className="shrink-0 text-right">
+                <div className="shrink-0 text-right whitespace-nowrap">
                   <span
                     className={`text-xs ${!request.read ? 'font-bold text-slate-900' : 'text-slate-500'}`}
                   >
@@ -845,7 +848,8 @@ function DepositsPageContent() {
                   </span>
                 </div>
               </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
       </main>
