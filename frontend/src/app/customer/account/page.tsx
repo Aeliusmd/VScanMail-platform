@@ -899,7 +899,7 @@ function CustomerAccountPageContent() {
 
         <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
           {/* Sidebar Tabs */}
-          <div className="w-full shrink-0 lg:w-56">
+          <div className="w-full shrink-0 lg:w-56 lg:sticky lg:top-20 lg:self-start">
             <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
               <input
                 ref={avatarFileInputRef}

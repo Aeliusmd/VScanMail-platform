@@ -638,35 +638,15 @@ function DepositsPageContent() {
             <div className="flex items-center gap-1 ml-1 sm:ml-2">
               <button
                 type="button"
-                className="p-1.5 hover:bg-slate-100 rounded-lg cursor-pointer"
-                title="Archive"
-              >
-                <Icon icon="ri:archive-line" className="text-slate-500 text-base" />
-              </button>
-              <button
-                type="button"
                 onClick={handleBulkDeleteDeposits}
                 className="p-1.5 hover:bg-red-50 rounded-lg cursor-pointer"
                 title="Delete selected"
               >
                 <Icon icon="ri:delete-bin-line" className="text-red-500 text-base" />
               </button>
-              <button
-                type="button"
-                className="p-1.5 hover:bg-slate-100 rounded-lg cursor-pointer"
-                title="Mark as read"
-              >
-                <Icon icon="ri:mail-open-line" className="text-slate-500 text-base" />
-              </button>
               <span className="text-xs text-slate-500 ml-1">{checkedIds.size} selected</span>
             </div>
           )}
-          <button type="button" className="p-1.5 hover:bg-slate-100 rounded-lg cursor-pointer" title="Refresh">
-            <Icon icon="ri:refresh-line" className="text-slate-500 text-base" />
-          </button>
-          <button type="button" className="p-1.5 hover:bg-slate-100 rounded-lg cursor-pointer" title="More options">
-            <Icon icon="ri:more-2-line" className="text-slate-500 text-base" />
-          </button>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs">

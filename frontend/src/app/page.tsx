@@ -1,10 +1,36 @@
-
-
 "use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import styles from "./page.module.css";
+
+type BillingPlan = {
+  id: string;
+  name: string;
+  price: number;
+  badge?: string | null;
+  features: string[];
+  max_scans: number;
+};
+
+type ContactForm = {
+  name: string;
+  email: string;
+  company: string;
+  message: string;
+};
+
+const PLAN_ICONS = [
+  { icon: "ri-seedling-line", iconBg: "bg-slate-100", iconColor: "text-slate-600" },
+  { icon: "ri-rocket-line", iconBg: "bg-white/20", iconColor: "text-white" },
+  { icon: "ri-building-2-line", iconBg: "bg-slate-100", iconColor: "text-slate-600" },
+];
+
+const PLAN_TAGLINES: Record<string, string> = {
+  starter: "Perfect for small businesses",
+  professional: "For growing companies",
+  enterprise: "For large organizations",
+};
 
 export default function Home() {
   return <LandingPage />;
@@ -13,6 +39,13 @@ export default function Home() {
 function LandingPage() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [plans, setPlans] = useState<BillingPlan[]>([]);
+  const [plansLoading, setPlansLoading] = useState(true);
+  const [contactOpen, setContactOpen] = useState(false);
+  const [contactForm, setContactForm] = useState<ContactForm>({ name: "", email: "", company: "", message: "" });
+  const [contactSending, setContactSending] = useState(false);
+  const [contactSent, setContactSent] = useState(false);
+  const [contactError, setContactError] = useState("");
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 40);
@@ -20,16 +53,53 @@ function LandingPage() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  useEffect(() => {
+    fetch("/api/auth/registration-plans")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) setPlans(data);
+      })
+      .catch(() => {})
+      .finally(() => setPlansLoading(false));
+  }, []);
+
+  const openContact = () => {
+    setContactSent(false);
+    setContactError("");
+    setContactForm({ name: "", email: "", company: "", message: "" });
+    setContactOpen(true);
+  };
+
+  const handleContactSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setContactSending(true);
+    setContactError("");
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(contactForm),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to send");
+      setContactSent(true);
+    } catch (err: any) {
+      setContactError(err.message || "Something went wrong. Please try again.");
+    } finally {
+      setContactSending(false);
+    }
+  };
+
+  const isEnterprisePlan = (plan: BillingPlan) =>
+    plan.price === 0 || plan.name.toLowerCase().includes("enterprise");
+
   return (
     <div className={`min-h-screen bg-white ${styles.landingRoot}`}>
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 transition-all duration-300 bg-[#FFFFFFF2]">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="flex h-14 items-center justify-between md:h-16">
-            <Link
-              href="/"
-              className="flex items-center md:h-full md:items-center md:py-2"
-            >
+            <Link href="/" className="flex items-center md:h-full md:items-center md:py-2">
               <img
                 src="/images/A-41.png"
                 alt="VScanMail"
@@ -40,29 +110,25 @@ function LandingPage() {
             <div className="hidden md:flex items-center space-x-8">
               <a
                 href="#features"
-                className={`text-sm font-medium transition-colors whitespace-nowrap ${scrolled ? "text-slate-600 hover:text-blue-600" : "text-slate-700 hover:text-blue-600"
-                  }`}
+                className={`text-sm font-medium transition-colors whitespace-nowrap ${scrolled ? "text-slate-600 hover:text-blue-600" : "text-slate-700 hover:text-blue-600"}`}
               >
                 Features
               </a>
               <a
                 href="#how-it-works"
-                className={`text-sm font-medium transition-colors whitespace-nowrap ${scrolled ? "text-slate-600 hover:text-blue-600" : "text-slate-700 hover:text-blue-600"
-                  }`}
+                className={`text-sm font-medium transition-colors whitespace-nowrap ${scrolled ? "text-slate-600 hover:text-blue-600" : "text-slate-700 hover:text-blue-600"}`}
               >
                 How It Works
               </a>
               <a
                 href="#pricing"
-                className={`text-sm font-medium transition-colors whitespace-nowrap ${scrolled ? "text-slate-600 hover:text-blue-600" : "text-slate-700 hover:text-blue-600"
-                  }`}
+                className={`text-sm font-medium transition-colors whitespace-nowrap ${scrolled ? "text-slate-600 hover:text-blue-600" : "text-slate-700 hover:text-blue-600"}`}
               >
                 Pricing
               </a>
               <Link
                 href="/login"
-                className={`text-sm font-medium transition-colors whitespace-nowrap ${scrolled ? "text-slate-600 hover:text-blue-600" : "text-slate-700 hover:text-blue-600"
-                  }`}
+                className={`text-sm font-medium transition-colors whitespace-nowrap ${scrolled ? "text-slate-600 hover:text-blue-600" : "text-slate-700 hover:text-blue-600"}`}
               >
                 Sign In
               </Link>
@@ -86,18 +152,10 @@ function LandingPage() {
         </div>
         {mobileMenuOpen && (
           <div className="md:hidden bg-white border-b border-slate-100 px-6 py-4 space-y-3">
-            <a href="#features" className="block text-sm font-medium text-slate-700">
-              Features
-            </a>
-            <a href="#how-it-works" className="block text-sm font-medium text-slate-700">
-              How It Works
-            </a>
-            <a href="#pricing" className="block text-sm font-medium text-slate-700">
-              Pricing
-            </a>
-            <Link href="/login" className="block text-sm font-medium text-slate-700">
-              Sign In
-            </Link>
+            <a href="#features" className="block text-sm font-medium text-slate-700" onClick={() => setMobileMenuOpen(false)}>Features</a>
+            <a href="#how-it-works" className="block text-sm font-medium text-slate-700" onClick={() => setMobileMenuOpen(false)}>How It Works</a>
+            <a href="#pricing" className="block text-sm font-medium text-slate-700" onClick={() => setMobileMenuOpen(false)}>Pricing</a>
+            <Link href="/login" className="block text-sm font-medium text-slate-700">Sign In</Link>
             <Link
               href="/register"
               className="block w-full text-center bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold"
@@ -133,10 +191,10 @@ function LandingPage() {
               </p>
               <div className="flex flex-wrap gap-4">
                 <Link
-                  href="/customer/select-plan"
+                  href="/register"
                   className="px-6 min-[390px]:px-7 min-[425px]:px-8 py-3.5 min-[425px]:py-4 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all whitespace-nowrap text-sm"
                 >
-                  Start Free Trial <i className="ri-arrow-right-line ml-1"></i>
+                  Get Started <i className="ri-arrow-right-line ml-1"></i>
                 </Link>
                 <a
                   href="#how-it-works"
@@ -181,9 +239,7 @@ function LandingPage() {
           </p>
           <div className="flex flex-wrap justify-center items-center gap-10 opacity-50">
             {["Acme Corp", "FinGroup", "TechNova", "StartFund", "MetroBank", "LegalEdge"].map((name) => (
-              <span key={name} className="text-slate-600 font-bold text-sm tracking-wide">
-                {name}
-              </span>
+              <span key={name} className="text-slate-600 font-bold text-sm tracking-wide">{name}</span>
             ))}
           </div>
         </div>
@@ -203,53 +259,14 @@ function LandingPage() {
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
-              {
-                icon: "ri-scan-2-line",
-                title: "AI-Powered Scanning",
-                desc: "Automatically identifies and processes mails and cheques with advanced OCR and AI recognition technology.",
-                color: "bg-blue-600",
-                bg: "from-blue-50 to-blue-100/40",
-              },
-              {
-                icon: "ri-mail-open-line",
-                title: "Smart Mail Summaries",
-                desc: "Get AI-generated summaries of your mail content delivered instantly to your email for quick review.",
-                color: "bg-red-600",
-                bg: "from-red-50 to-red-100/40",
-              },
-              {
-                icon: "ri-bank-card-line",
-                title: "Cheque Management",
-                desc: "View scanned cheques and choose to deposit directly to your bank account or request physical pickup.",
-                color: "bg-blue-700",
-                bg: "from-blue-50 to-slate-100/60",
-              },
-              {
-                icon: "ri-shield-check-line",
-                title: "Secure & Compliant",
-                desc: "Bank-level security with encrypted storage and full compliance with financial regulations.",
-                color: "bg-red-500",
-                bg: "from-red-50 to-rose-100/40",
-              },
-              {
-                icon: "ri-notification-3-line",
-                title: "Real-Time Notifications",
-                desc: "Receive instant email notifications when new mail or cheques arrive for your company.",
-                color: "bg-blue-500",
-                bg: "from-blue-50 to-sky-100/40",
-              },
-              {
-                icon: "ri-dashboard-line",
-                title: "Intuitive Dashboard",
-                desc: "Manage all your documents from a clean, user-friendly dashboard with powerful search and filters.",
-                color: "bg-red-700",
-                bg: "from-red-50 to-red-100/30",
-              },
+              { icon: "ri-scan-2-line", title: "AI-Powered Scanning", desc: "Automatically identifies and processes mails and cheques with advanced OCR and AI recognition technology.", color: "bg-blue-600", bg: "from-blue-50 to-blue-100/40" },
+              { icon: "ri-mail-open-line", title: "Smart Mail Summaries", desc: "Get AI-generated summaries of your mail content delivered instantly to your email for quick review.", color: "bg-red-600", bg: "from-red-50 to-red-100/40" },
+              { icon: "ri-bank-card-line", title: "Cheque Management", desc: "View scanned cheques and choose to deposit directly to your bank account or request physical pickup.", color: "bg-blue-700", bg: "from-blue-50 to-slate-100/60" },
+              { icon: "ri-shield-check-line", title: "Secure & Compliant", desc: "Bank-level security with encrypted storage and full compliance with financial regulations.", color: "bg-red-500", bg: "from-red-50 to-rose-100/40" },
+              { icon: "ri-notification-3-line", title: "Real-Time Notifications", desc: "Receive instant email notifications when new mail or cheques arrive for your company.", color: "bg-blue-500", bg: "from-blue-50 to-sky-100/40" },
+              { icon: "ri-dashboard-line", title: "Intuitive Dashboard", desc: "Manage all your documents from a clean, user-friendly dashboard with powerful search and filters.", color: "bg-red-700", bg: "from-red-50 to-red-100/30" },
             ].map((f) => (
-              <div
-                key={f.title}
-                className={`p-7 bg-gradient-to-br ${f.bg} rounded-2xl hover:-translate-y-1 transition-all duration-200 cursor-default`}
-              >
+              <div key={f.title} className={`p-7 bg-gradient-to-br ${f.bg} rounded-2xl hover:-translate-y-1 transition-all duration-200 cursor-default`}>
                 <div className={`w-12 h-12 ${f.color} rounded-xl flex items-center justify-center mb-5`}>
                   <i className={`${f.icon} text-xl text-white`}></i>
                 </div>
@@ -284,43 +301,12 @@ function LandingPage() {
             </div>
             <div className="space-y-6">
               {[
-                {
-                  num: "01",
-                  title: "Mail Arrives at Our Facility",
-                  desc: "Your physical mail and cheques are received at our secure processing center, sorted and prepped for scanning.",
-                  color: "text-blue-600",
-                  border: "border-blue-200",
-                  bg: "bg-blue-50",
-                },
-                {
-                  num: "02",
-                  title: "AI-Powered Scanning",
-                  desc: "Our system scans front, back and document content separately — identifying type, sender, and key data automatically.",
-                  color: "text-red-600",
-                  border: "border-red-200",
-                  bg: "bg-red-50",
-                },
-                {
-                  num: "03",
-                  title: "Instant Digital Delivery",
-                  desc: "Scanned documents with AI summaries are sent to your email and dashboard in minutes.",
-                  color: "text-blue-700",
-                  border: "border-blue-200",
-                  bg: "bg-blue-50",
-                },
-                {
-                  num: "04",
-                  title: "Take Action",
-                  desc: "Request delivery, deposit cheques to your bank, or archive everything — all from your dashboard.",
-                  color: "text-red-600",
-                  border: "border-red-200",
-                  bg: "bg-red-50",
-                },
+                { num: "01", title: "Mail Arrives at Our Facility", desc: "Your physical mail and cheques are received at our secure processing center, sorted and prepped for scanning.", color: "text-blue-600", border: "border-blue-200", bg: "bg-blue-50" },
+                { num: "02", title: "AI-Powered Scanning", desc: "Our system scans front, back and document content separately — identifying type, sender, and key data automatically.", color: "text-red-600", border: "border-red-200", bg: "bg-red-50" },
+                { num: "03", title: "Instant Digital Delivery", desc: "Scanned documents with AI summaries are sent to your email and dashboard in minutes.", color: "text-blue-700", border: "border-blue-200", bg: "bg-blue-50" },
+                { num: "04", title: "Take Action", desc: "Request delivery, deposit cheques to your bank, or archive everything — all from your dashboard.", color: "text-red-600", border: "border-red-200", bg: "bg-red-50" },
               ].map((step) => (
-                <div
-                  key={step.num}
-                  className={`flex items-start gap-5 p-5 ${step.bg} border ${step.border} rounded-2xl`}
-                >
+                <div key={step.num} className={`flex items-start gap-5 p-5 ${step.bg} border ${step.border} rounded-2xl`}>
                   <div className={`flex-shrink-0 text-2xl font-extrabold ${step.color} w-10`}>{step.num}</div>
                   <div>
                     <h3 className="text-sm font-bold text-slate-900 mb-1">{step.title}</h3>
@@ -351,12 +337,7 @@ function LandingPage() {
                 with a smart AI summary so you know what matters instantly.
               </p>
               <ul className="space-y-3">
-                {[
-                  "Full 3-part scan: front, back & inside content",
-                  "AI summary highlighting key action items",
-                  "Instant email + dashboard notification",
-                  "Archive, forward, or flag for follow-up",
-                ].map((item) => (
+                {["Full 3-part scan: front, back & inside content", "AI summary highlighting key action items", "Instant email + dashboard notification", "Archive, forward, or flag for follow-up"].map((item) => (
                   <li key={item} className="flex items-center gap-3 text-sm text-slate-700">
                     <div className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
                       <i className="ri-check-line text-blue-600 text-xs"></i>
@@ -399,12 +380,7 @@ function LandingPage() {
                 account, or schedule a physical pickup. Fast, easy, secure.
               </p>
               <ul className="space-y-3">
-                {[
-                  "High-res front & back cheque scanning",
-                  "One-click deposit to saved bank accounts",
-                  "Physical pickup scheduling",
-                  "Full audit trail and history",
-                ].map((item) => (
+                {["High-res front & back cheque scanning", "One-click deposit to saved bank accounts", "Physical pickup scheduling", "Full audit trail and history"].map((item) => (
                   <li key={item} className="flex items-center gap-3 text-sm text-slate-700">
                     <div className="w-5 h-5 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
                       <i className="ri-check-line text-red-600 text-xs"></i>
@@ -431,97 +407,175 @@ function LandingPage() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            <div className="p-8 bg-white border border-slate-200 rounded-3xl hover:-translate-y-1 transition-all duration-200">
-              <div className="mb-6">
-                <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center mb-4">
-                  <i className="ri-seedling-line text-slate-600 text-lg"></i>
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto items-start">
+            {plansLoading ? (
+              /* Skeleton cards while loading */
+              [0, 1, 2].map((i) => (
+                <div key={i} className={`p-8 bg-white border border-slate-200 rounded-3xl ${i === 1 ? "-translate-y-3" : ""}`}>
+                  <div className="animate-pulse space-y-4">
+                    <div className="w-10 h-10 bg-slate-200 rounded-xl"></div>
+                    <div className="h-5 bg-slate-200 rounded w-2/3"></div>
+                    <div className="h-3 bg-slate-100 rounded w-1/2"></div>
+                    <div className="h-10 bg-slate-200 rounded w-1/2 mt-4"></div>
+                    <div className="space-y-2 mt-4">
+                      {[0, 1, 2, 3].map((j) => <div key={j} className="h-3 bg-slate-100 rounded"></div>)}
+                    </div>
+                    <div className="h-11 bg-slate-200 rounded-xl mt-6"></div>
+                  </div>
                 </div>
-                <h3 className="text-lg font-bold text-slate-900">Starter</h3>
-                <p className="text-slate-400 text-xs mt-1">Perfect for small businesses</p>
-              </div>
-              <div className="text-4xl font-extrabold text-slate-900 mb-6">
-                $49<span className="text-base text-slate-400 font-normal">/mo</span>
-              </div>
-              <ul className="space-y-3 mb-8">
-                {["Up to 100 scans/month", "AI mail summaries", "Email notifications", "Basic support"].map((item) => (
-                  <li key={item} className="flex items-center gap-2.5 text-sm text-slate-600">
-                    <i className="ri-check-line text-blue-500"></i> {item}
-                  </li>
-                ))}
-              </ul>
-              <Link
-                href="/register"
-                className="block w-full py-3 text-center bg-slate-100 text-slate-800 font-semibold rounded-xl hover:bg-slate-200 transition-colors text-sm whitespace-nowrap"
-              >
-                Get Started
-              </Link>
-            </div>
+              ))
+            ) : plans.length > 0 ? (
+              plans.map((plan, idx) => {
+                const isPopular = !!plan.badge;
+                const isEnterprise = isEnterprisePlan(plan);
+                const meta = PLAN_ICONS[idx] ?? PLAN_ICONS[0];
+                const tagline = PLAN_TAGLINES[plan.id.toLowerCase()] ?? "";
 
-            <div className="p-8 bg-gradient-to-br from-blue-600 to-blue-800 rounded-3xl shadow-xl shadow-blue-200 relative -translate-y-3">
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-red-500 text-white text-xs font-bold rounded-full whitespace-nowrap">
-                Most Popular
-              </div>
-              <div className="mb-6">
-                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mb-4">
-                  <i className="ri-rocket-line text-white text-lg"></i>
-                </div>
-                <h3 className="text-lg font-bold text-white">Professional</h3>
-                <p className="text-white/70 text-xs mt-1">For growing companies</p>
-              </div>
-              <div className="text-4xl font-extrabold text-white mb-6">
-                $149<span className="text-base text-white/60 font-normal">/mo</span>
-              </div>
-              <ul className="space-y-3 mb-8">
-                {[
-                  "Up to 500 scans/month",
-                  "AI mail summaries",
-                  "Priority notifications",
-                  "Cheque deposit service",
-                  "Priority support",
-                ].map((item) => (
-                  <li key={item} className="flex items-center gap-2.5 text-sm text-white">
-                    <i className="ri-check-line text-red-300"></i> {item}
-                  </li>
-                ))}
-              </ul>
-              <Link
-                href="/register"
-                className="block w-full py-3 text-center bg-white text-blue-700 font-bold rounded-xl hover:bg-blue-50 transition-colors text-sm whitespace-nowrap"
-              >
-                Get Started
-              </Link>
-            </div>
+                if (isPopular) {
+                  return (
+                    <div key={plan.id} className="p-8 bg-gradient-to-br from-blue-600 to-blue-800 rounded-3xl shadow-xl shadow-blue-200 relative -translate-y-3">
+                      <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-red-500 text-white text-xs font-bold rounded-full whitespace-nowrap">
+                        {plan.badge}
+                      </div>
+                      <div className="mb-6">
+                        <div className={`w-10 h-10 ${meta.iconBg} rounded-xl flex items-center justify-center mb-4`}>
+                          <i className={`${meta.icon} ${meta.iconColor} text-lg`}></i>
+                        </div>
+                        <h3 className="text-lg font-bold text-white">{plan.name}</h3>
+                        {tagline && <p className="text-white/70 text-xs mt-1">{tagline}</p>}
+                      </div>
+                      <div className="text-4xl font-extrabold text-white mb-6">
+                        {isEnterprise ? "Custom" : <>${plan.price}<span className="text-base text-white/60 font-normal">/mo</span></>}
+                      </div>
+                      <ul className="space-y-3 mb-8">
+                        {(plan.features || []).map((item) => (
+                          <li key={item} className="flex items-center gap-2.5 text-sm text-white">
+                            <i className="ri-check-line text-red-300 shrink-0"></i> {item}
+                          </li>
+                        ))}
+                      </ul>
+                      {isEnterprise ? (
+                        <button
+                          type="button"
+                          onClick={openContact}
+                          className="block w-full py-3 text-center bg-white text-blue-700 font-bold rounded-xl hover:bg-blue-50 transition-colors text-sm whitespace-nowrap cursor-pointer"
+                        >
+                          Contact Sales
+                        </button>
+                      ) : (
+                        <Link
+                          href="/register"
+                          className="block w-full py-3 text-center bg-white text-blue-700 font-bold rounded-xl hover:bg-blue-50 transition-colors text-sm whitespace-nowrap"
+                        >
+                          Get Started
+                        </Link>
+                      )}
+                    </div>
+                  );
+                }
 
-            <div className="p-8 bg-white border border-slate-200 rounded-3xl hover:-translate-y-1 transition-all duration-200">
-              <div className="mb-6">
-                <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center mb-4">
-                  <i className="ri-building-2-line text-slate-600 text-lg"></i>
+                return (
+                  <div key={plan.id} className="p-8 bg-white border border-slate-200 rounded-3xl hover:-translate-y-1 transition-all duration-200">
+                    <div className="mb-6">
+                      <div className={`w-10 h-10 ${meta.iconBg} rounded-xl flex items-center justify-center mb-4`}>
+                        <i className={`${meta.icon} ${meta.iconColor} text-lg`}></i>
+                      </div>
+                      <h3 className="text-lg font-bold text-slate-900">{plan.name}</h3>
+                      {tagline && <p className="text-slate-400 text-xs mt-1">{tagline}</p>}
+                    </div>
+                    <div className="text-4xl font-extrabold text-slate-900 mb-6">
+                      {isEnterprise ? "Custom" : <>${plan.price}<span className="text-base text-slate-400 font-normal">/mo</span></>}
+                    </div>
+                    <ul className="space-y-3 mb-8">
+                      {(plan.features || []).map((item) => (
+                        <li key={item} className="flex items-center gap-2.5 text-sm text-slate-600">
+                          <i className="ri-check-line text-blue-500 shrink-0"></i> {item}
+                        </li>
+                      ))}
+                    </ul>
+                    {isEnterprise ? (
+                      <button
+                        type="button"
+                        onClick={openContact}
+                        className="block w-full py-3 text-center bg-slate-100 text-slate-800 font-semibold rounded-xl hover:bg-slate-200 transition-colors text-sm whitespace-nowrap cursor-pointer"
+                      >
+                        Contact Sales
+                      </button>
+                    ) : (
+                      <Link
+                        href="/register"
+                        className="block w-full py-3 text-center bg-slate-100 text-slate-800 font-semibold rounded-xl hover:bg-slate-200 transition-colors text-sm whitespace-nowrap"
+                      >
+                        Get Started
+                      </Link>
+                    )}
+                  </div>
+                );
+              })
+            ) : (
+              /* Fallback static cards if API fails */
+              <>
+                <div className="p-8 bg-white border border-slate-200 rounded-3xl hover:-translate-y-1 transition-all duration-200">
+                  <div className="mb-6">
+                    <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center mb-4">
+                      <i className="ri-seedling-line text-slate-600 text-lg"></i>
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-900">Starter</h3>
+                    <p className="text-slate-400 text-xs mt-1">Perfect for small businesses</p>
+                  </div>
+                  <div className="text-4xl font-extrabold text-slate-900 mb-6">
+                    $49<span className="text-base text-slate-400 font-normal">/mo</span>
+                  </div>
+                  <ul className="space-y-3 mb-8">
+                    {["Up to 100 scans/month", "AI mail summaries", "Email notifications", "Basic support"].map((item) => (
+                      <li key={item} className="flex items-center gap-2.5 text-sm text-slate-600">
+                        <i className="ri-check-line text-blue-500"></i> {item}
+                      </li>
+                    ))}
+                  </ul>
+                  <Link href="/register" className="block w-full py-3 text-center bg-slate-100 text-slate-800 font-semibold rounded-xl hover:bg-slate-200 transition-colors text-sm">Get Started</Link>
                 </div>
-                <h3 className="text-lg font-bold text-slate-900">Enterprise</h3>
-                <p className="text-slate-400 text-xs mt-1">For large organizations</p>
-              </div>
-              <div className="text-4xl font-extrabold text-slate-900 mb-6">Custom</div>
-              <ul className="space-y-3 mb-8">
-                {[
-                  "Unlimited scans",
-                  "Advanced AI features",
-                  "Custom integrations",
-                  "Dedicated account manager",
-                  "24/7 premium support",
-                ].map((item) => (
-                  <li key={item} className="flex items-center gap-2.5 text-sm text-slate-600">
-                    <i className="ri-check-line text-blue-500"></i> {item}
-                  </li>
-                ))}
-              </ul>
-              <a
-                href="#contact"
-                className="block w-full py-3 text-center bg-slate-100 text-slate-800 font-semibold rounded-xl hover:bg-slate-200 transition-colors text-sm whitespace-nowrap"
-              >
-                Contact Sales
-              </a>
-            </div>
+                <div className="p-8 bg-gradient-to-br from-blue-600 to-blue-800 rounded-3xl shadow-xl shadow-blue-200 relative -translate-y-3">
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-red-500 text-white text-xs font-bold rounded-full whitespace-nowrap">Most Popular</div>
+                  <div className="mb-6">
+                    <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mb-4">
+                      <i className="ri-rocket-line text-white text-lg"></i>
+                    </div>
+                    <h3 className="text-lg font-bold text-white">Professional</h3>
+                    <p className="text-white/70 text-xs mt-1">For growing companies</p>
+                  </div>
+                  <div className="text-4xl font-extrabold text-white mb-6">
+                    $149<span className="text-base text-white/60 font-normal">/mo</span>
+                  </div>
+                  <ul className="space-y-3 mb-8">
+                    {["Up to 500 scans/month", "AI mail summaries", "Priority notifications", "Cheque deposit service", "Priority support"].map((item) => (
+                      <li key={item} className="flex items-center gap-2.5 text-sm text-white">
+                        <i className="ri-check-line text-red-300"></i> {item}
+                      </li>
+                    ))}
+                  </ul>
+                  <Link href="/register" className="block w-full py-3 text-center bg-white text-blue-700 font-bold rounded-xl hover:bg-blue-50 transition-colors text-sm">Get Started</Link>
+                </div>
+                <div className="p-8 bg-white border border-slate-200 rounded-3xl hover:-translate-y-1 transition-all duration-200">
+                  <div className="mb-6">
+                    <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center mb-4">
+                      <i className="ri-building-2-line text-slate-600 text-lg"></i>
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-900">Enterprise</h3>
+                    <p className="text-slate-400 text-xs mt-1">For large organizations</p>
+                  </div>
+                  <div className="text-4xl font-extrabold text-slate-900 mb-6">Custom</div>
+                  <ul className="space-y-3 mb-8">
+                    {["Unlimited scans", "Advanced AI features", "Custom integrations", "Dedicated account manager", "24/7 premium support"].map((item) => (
+                      <li key={item} className="flex items-center gap-2.5 text-sm text-slate-600">
+                        <i className="ri-check-line text-blue-500"></i> {item}
+                      </li>
+                    ))}
+                  </ul>
+                  <button type="button" onClick={openContact} className="block w-full py-3 text-center bg-slate-100 text-slate-800 font-semibold rounded-xl hover:bg-slate-200 transition-colors text-sm cursor-pointer">Contact Sales</button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </section>
@@ -537,46 +591,17 @@ function LandingPage() {
           </div>
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              {
-                name: "Sarah Mitchell",
-                role: "CFO at FinGroup Ltd",
-                quote:
-                  "VScan Mail has completely eliminated our physical mail backlog. We deposit cheques the same day they arrive — it's been a game changer.",
-                avatar: "SM",
-                color: "bg-blue-600",
-              },
-              {
-                name: "David Osei",
-                role: "Operations Manager at TechNova",
-                quote:
-                  "The AI summaries are incredibly accurate. I can action 20 letters in the time it used to take me to read 3. Absolutely worth every penny.",
-                avatar: "DO",
-                color: "bg-red-600",
-              },
-              {
-                name: "Priya Sharma",
-                role: "MD at LegalEdge Partners",
-                quote:
-                  "Security was our biggest concern. VScan Mail's compliance features ticked every box our legal team needed. Highly recommended.",
-                avatar: "PS",
-                color: "bg-blue-700",
-              },
+              { name: "Sarah Mitchell", role: "CFO at FinGroup Ltd", quote: "VScan Mail has completely eliminated our physical mail backlog. We deposit cheques the same day they arrive — it's been a game changer.", avatar: "SM", color: "bg-blue-600" },
+              { name: "David Osei", role: "Operations Manager at TechNova", quote: "The AI summaries are incredibly accurate. I can action 20 letters in the time it used to take me to read 3. Absolutely worth every penny.", avatar: "DO", color: "bg-red-600" },
+              { name: "Priya Sharma", role: "MD at LegalEdge Partners", quote: "Security was our biggest concern. VScan Mail's compliance features ticked every box our legal team needed. Highly recommended.", avatar: "PS", color: "bg-blue-700" },
             ].map((t) => (
               <div key={t.name} className="p-7 bg-slate-50 rounded-2xl">
                 <div className="flex text-red-500 text-sm mb-4">
-                  {[...Array(5)].map((_, i) => (
-                    <i key={i} className="ri-star-fill"></i>
-                  ))}
+                  {[...Array(5)].map((_, i) => <i key={i} className="ri-star-fill"></i>)}
                 </div>
-                <p className="text-slate-700 text-sm leading-relaxed mb-6">
-                  &quot;{t.quote}&quot;
-                </p>
+                <p className="text-slate-700 text-sm leading-relaxed mb-6">&quot;{t.quote}&quot;</p>
                 <div className="flex items-center gap-3">
-                  <div
-                    className={`w-10 h-10 ${t.color} rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}
-                  >
-                    {t.avatar}
-                  </div>
+                  <div className={`w-10 h-10 ${t.color} rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>{t.avatar}</div>
                   <div>
                     <div className="text-sm font-bold text-slate-900">{t.name}</div>
                     <div className="text-xs text-slate-400">{t.role}</div>
@@ -589,10 +614,7 @@ function LandingPage() {
       </section>
 
       {/* CTA Section */}
-      <section
-        id="contact"
-        className="py-24 px-6 bg-gradient-to-br from-blue-700 via-blue-600 to-blue-800 relative overflow-hidden"
-      >
+      <section id="contact" className="py-24 px-6 bg-gradient-to-br from-blue-700 via-blue-600 to-blue-800 relative overflow-hidden">
         <div className="absolute inset-0">
           <div className="absolute top-0 right-0 w-80 h-80 bg-white/10 rounded-full blur-3xl translate-x-1/4 -translate-y-1/4"></div>
           <div className="absolute bottom-0 left-0 w-80 h-80 bg-red-500/20 rounded-full blur-3xl -translate-x-1/4 translate-y-1/4"></div>
@@ -610,17 +632,18 @@ function LandingPage() {
               </p>
               <div className="flex flex-wrap gap-4">
                 <Link
-                  href="/customer/select-plan"
+                  href="/register"
                   className="px-8 py-4 bg-white text-blue-700 font-bold rounded-2xl hover:bg-blue-50 transition-all whitespace-nowrap text-sm"
                 >
-                  Start Free Trial <i className="ri-arrow-right-line ml-1"></i>
+                  Get Started <i className="ri-arrow-right-line ml-1"></i>
                 </Link>
-                <a
-                  href="mailto:sales@vscanmail.com"
-                  className="px-8 py-4 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-600 transition-all whitespace-nowrap text-sm"
+                <button
+                  type="button"
+                  onClick={openContact}
+                  className="px-8 py-4 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-600 transition-all whitespace-nowrap text-sm cursor-pointer"
                 >
                   Contact Sales <i className="ri-mail-line ml-1"></i>
-                </a>
+                </button>
               </div>
             </div>
             <div>
@@ -646,25 +669,13 @@ function LandingPage() {
                 Revolutionizing mail and cheque management with AI-powered scanning technology for modern businesses.
               </p>
               <div className="flex items-center gap-3 mt-4">
-                <a
-                  href="#"
-                  aria-label="Twitter/X"
-                  className="w-8 h-8 bg-slate-200 rounded-lg flex items-center justify-center hover:bg-blue-100 hover:text-blue-600 transition-colors cursor-pointer"
-                >
+                <a href="#" aria-label="Twitter/X" className="w-8 h-8 bg-slate-200 rounded-lg flex items-center justify-center hover:bg-blue-100 hover:text-blue-600 transition-colors cursor-pointer">
                   <i className="ri-twitter-x-line text-sm"></i>
                 </a>
-                <a
-                  href="#"
-                  aria-label="LinkedIn"
-                  className="w-8 h-8 bg-slate-200 rounded-lg flex items-center justify-center hover:bg-blue-100 hover:text-blue-600 transition-colors cursor-pointer"
-                >
+                <a href="#" aria-label="LinkedIn" className="w-8 h-8 bg-slate-200 rounded-lg flex items-center justify-center hover:bg-blue-100 hover:text-blue-600 transition-colors cursor-pointer">
                   <i className="ri-linkedin-fill text-sm"></i>
                 </a>
-                <a
-                  href="#"
-                  aria-label="Instagram"
-                  className="w-8 h-8 bg-slate-200 rounded-lg flex items-center justify-center hover:bg-blue-100 hover:text-blue-600 transition-colors cursor-pointer"
-                >
+                <a href="#" aria-label="Instagram" className="w-8 h-8 bg-slate-200 rounded-lg flex items-center justify-center hover:bg-blue-100 hover:text-blue-600 transition-colors cursor-pointer">
                   <i className="ri-instagram-line text-sm"></i>
                 </a>
               </div>
@@ -672,76 +683,32 @@ function LandingPage() {
             <div>
               <h4 className="text-slate-700 font-bold mb-4 text-sm">Product</h4>
               <ul className="space-y-2 text-xs">
-                <li>
-                  <a href="#features" className="hover:text-blue-600 transition-colors">
-                    Features
-                  </a>
-                </li>
-                <li>
-                  <a href="#pricing" className="hover:text-blue-600 transition-colors">
-                    Pricing
-                  </a>
-                </li>
-                <li>
-                  <a href="#how-it-works" className="hover:text-blue-600 transition-colors">
-                    How It Works
-                  </a>
-                </li>
-                <li>
-                  <Link href="/register" className="hover:text-blue-600 transition-colors">
-                    Sign Up
-                  </Link>
-                </li>
+                <li><a href="#features" className="hover:text-blue-600 transition-colors">Features</a></li>
+                <li><a href="#pricing" className="hover:text-blue-600 transition-colors">Pricing</a></li>
+                <li><a href="#how-it-works" className="hover:text-blue-600 transition-colors">How It Works</a></li>
+                <li><Link href="/register" className="hover:text-blue-600 transition-colors">Sign Up</Link></li>
               </ul>
             </div>
             <div>
               <h4 className="text-slate-700 font-bold mb-4 text-sm">Company</h4>
               <ul className="space-y-2 text-xs">
+                <li><a href="#" className="hover:text-blue-600 transition-colors">About Us</a></li>
+                <li><a href="#" className="hover:text-blue-600 transition-colors">Careers</a></li>
                 <li>
-                  <a href="#" className="hover:text-blue-600 transition-colors">
-                    About Us
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-blue-600 transition-colors">
-                    Careers
-                  </a>
-                </li>
-                <li>
-                  <a href="#contact" className="hover:text-blue-600 transition-colors">
+                  <button type="button" onClick={openContact} className="hover:text-blue-600 transition-colors cursor-pointer bg-transparent border-0 p-0 text-xs text-slate-500">
                     Contact
-                  </a>
+                  </button>
                 </li>
-                <li>
-                  <a href="#" className="hover:text-blue-600 transition-colors">
-                    Blog
-                  </a>
-                </li>
+                <li><a href="#" className="hover:text-blue-600 transition-colors">Blog</a></li>
               </ul>
             </div>
             <div>
               <h4 className="text-slate-700 font-bold mb-4 text-sm">Legal</h4>
               <ul className="space-y-2 text-xs">
-                <li>
-                  <a href="#" className="hover:text-blue-600 transition-colors">
-                    Privacy Policy
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-blue-600 transition-colors">
-                    Terms of Service
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-blue-600 transition-colors">
-                    Security
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-blue-600 transition-colors">
-                    Compliance
-                  </a>
-                </li>
+                <li><a href="#" className="hover:text-blue-600 transition-colors">Privacy Policy</a></li>
+                <li><a href="#" className="hover:text-blue-600 transition-colors">Terms of Service</a></li>
+                <li><a href="#" className="hover:text-blue-600 transition-colors">Security</a></li>
+                <li><a href="#" className="hover:text-blue-600 transition-colors">Compliance</a></li>
               </ul>
             </div>
           </div>
@@ -751,6 +718,129 @@ function LandingPage() {
           </div>
         </div>
       </footer>
+
+      {/* Contact Sales Modal */}
+      {contactOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 sm:p-6"
+          onClick={() => setContactOpen(false)}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <i className="ri-mail-send-line text-blue-700 text-base"></i>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Talk to Sales</h3>
+                  <p className="text-xs text-slate-400">We&apos;ll get back to you within 24 hours</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setContactOpen(false)}
+                className="p-2 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+              >
+                <i className="ri-close-line text-slate-500 text-xl"></i>
+              </button>
+            </div>
+
+            {/* Modal body */}
+            <div className="p-6">
+              {contactSent ? (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i className="ri-check-line text-emerald-600 text-3xl"></i>
+                  </div>
+                  <h4 className="text-lg font-bold text-slate-900 mb-2">Message Sent!</h4>
+                  <p className="text-sm text-slate-500 mb-6">
+                    Thanks for reaching out. Our sales team will be in touch within 24 hours.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setContactOpen(false)}
+                    className="px-6 py-2.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors text-sm cursor-pointer"
+                  >
+                    Close
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleContactSubmit} className="space-y-4">
+                  {contactError && (
+                    <div className="flex items-start gap-2.5 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+                      <i className="ri-error-warning-line shrink-0 mt-0.5"></i>
+                      <span>{contactError}</span>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1.5">Full Name <span className="text-red-500">*</span></label>
+                      <input
+                        type="text"
+                        required
+                        value={contactForm.name}
+                        onChange={(e) => setContactForm((f) => ({ ...f, name: e.target.value }))}
+                        className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1.5">Company</label>
+                      <input
+                        type="text"
+                        value={contactForm.company}
+                        onChange={(e) => setContactForm((f) => ({ ...f, company: e.target.value }))}
+                        className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Work Email <span className="text-red-500">*</span></label>
+                    <input
+                      type="email"
+                      required
+                      value={contactForm.email}
+                      onChange={(e) => setContactForm((f) => ({ ...f, email: e.target.value }))}
+                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Message <span className="text-red-500">*</span></label>
+                    <textarea
+                      required
+                      rows={4}
+                      value={contactForm.message}
+                      onChange={(e) => setContactForm((f) => ({ ...f, message: e.target.value }))}
+                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={contactSending}
+                    className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors text-sm disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    {contactSending ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                        Sending…
+                      </>
+                    ) : (
+                      <>Send Message <i className="ri-send-plane-line"></i></>
+                    )}
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

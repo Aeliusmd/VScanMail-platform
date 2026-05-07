@@ -19,6 +19,7 @@ export async function middleware(req: NextRequest) {
     "/api/auth/registration-checkout-complete",
     "/api/stripe/webhook",
     "/api/quickbooks/callback",
+    "/api/contact",
   ];
 
   if (publicPaths.some((p) => pathname.startsWith(p))) {

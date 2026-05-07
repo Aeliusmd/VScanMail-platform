@@ -531,12 +531,13 @@ export const depositService = {
     }
 
     // Never persist raw full account number in the AI JSON blob.
-    // Keep account_last4 for display, but drop account_number before saving.
+    // Drop fields not needed by the client — ocr_text/notes/confidence can contain newlines
+    // and other characters that corrupt MySQL raw string literals.
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { account_number: _accountNumber, ...extractedSafe } = extracted as any;
+    const { account_number: _accountNumber, ocr_text: _ocr, confidence: _conf, notes: _notes, ...extractedCore } = extracted as any;
 
     const aiResult = {
-      ...extractedSafe,
+      ...extractedCore,
       validation: {
         cheque_amount: chequeAmount,
         amount_matches: amountMatches,
@@ -545,7 +546,15 @@ export const depositService = {
       },
     };
 
-    const aiJson = JSON.stringify(aiResult).replace(/'/g, "''");
+    // Proper MySQL single-quoted string escaping: backslash must be doubled first,
+    // then escape null bytes, newlines, and carriage returns so the JSON survives
+    // round-trip through a raw SQL string literal.
+    const aiJson = JSON.stringify(aiResult)
+      .replace(/\\/g, "\\\\")
+      .replace(/\0/g, "\\0")
+      .replace(/\n/g, "\\n")
+      .replace(/\r/g, "\\r")
+      .replace(/'/g, "''");
 
     await db.execute(
       sql.raw(

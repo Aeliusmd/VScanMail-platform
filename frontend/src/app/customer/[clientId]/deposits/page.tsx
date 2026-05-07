@@ -7,6 +7,19 @@ import { mailApi, type MailItem } from "@/lib/api/mail";
 
 type DepositStatus = "Open Deposit Request" | "Processing" | "Deposited" | "Rejected";
 
+interface SlipAiResult {
+  deposit_date?: string | null;
+  amount?: number | null;
+  reference?: string | null;
+  bank_name?: string | null;
+  account_last4?: string | null;
+  validation?: {
+    amount_matches?: boolean;
+    account_number_matches?: boolean;
+    issues?: string[];
+  } | null;
+}
+
 interface CustomerDepositRequest {
   id: string;
   chequeId: string;
@@ -20,6 +33,7 @@ interface CustomerDepositRequest {
   requestedBy: string;
   depositDate?: string;
   depositSlipUrl?: string;
+  slipAiResult?: SlipAiResult | null;
   notes?: string;
   thumbnail: string;
 }
@@ -66,6 +80,8 @@ function mapDepositToRequest(d: DepositDto): CustomerDepositRequest {
     status,
     requestedBy: "You",
     depositDate,
+    depositSlipUrl: d.slipUrl || undefined,
+    slipAiResult: (d.slipAiResult as SlipAiResult | null) || null,
     notes: d.rejectReason || undefined,
     thumbnail: "",
   };
@@ -641,35 +657,205 @@ export default function CustomerDepositRequestsPage() {
       )}
 
       {showSlipModal && selectedRequest?.depositSlipUrl && (
-        <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-6" onClick={() => setShowSlipModal(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+        <div
+          className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4 sm:p-6"
+          onClick={() => setShowSlipModal(false)}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 shrink-0">
               <div className="flex items-center gap-2">
-                <i className="ri-file-text-fill text-teal-600 text-lg"></i>
-                <h3 className="text-base font-bold text-gray-900">Deposit Slip</h3>
-                <span className="text-xs text-gray-400">- {selectedRequest.id}</span>
-              </div>
-              <button onClick={() => setShowSlipModal(false)} className="p-2 hover:bg-gray-100 rounded-lg cursor-pointer transition-colors">
-                <i className="ri-close-line text-gray-600 text-xl"></i>
-              </button>
-            </div>
-            <div className="p-5 space-y-4">
-              <div className="rounded-xl overflow-hidden border border-gray-200">
-                <img src={selectedRequest.depositSlipUrl} alt="Deposit slip" className="w-full object-cover" />
-              </div>
-              <div className="flex items-center gap-3 px-4 py-3 bg-teal-50 rounded-xl border border-teal-200">
-                <i className="ri-calendar-check-line text-teal-600"></i>
-                <div>
-                  <p className="text-xs text-teal-600">Deposited on</p>
-                  <p className="text-sm font-bold text-teal-800">{selectedRequest.depositDate}</p>
+                <div className="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center">
+                  <i className="ri-file-text-fill text-teal-700 text-base"></i>
                 </div>
-                <div className="ml-auto">
-                  <span className="text-xs font-bold text-teal-700 bg-teal-100 px-2 py-1 rounded-full">{selectedRequest.amount}</span>
+                <div>
+                  <h3 className="text-base font-bold text-gray-900">Deposit Slip</h3>
+                  <p className="text-xs text-gray-400">{selectedRequest.id}</p>
                 </div>
               </div>
               <button
                 onClick={() => setShowSlipModal(false)}
-                className="w-full py-2.5 bg-gray-100 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-200 transition-colors cursor-pointer whitespace-nowrap"
+                className="p-2 hover:bg-gray-100 rounded-lg cursor-pointer transition-colors"
+              >
+                <i className="ri-close-line text-gray-600 text-xl"></i>
+              </button>
+            </div>
+
+            {/* Scrollable body */}
+            <div className="p-5 space-y-4 overflow-y-auto flex-1 min-h-0">
+
+              {/* Slip image — click to zoom */}
+              <div
+                className="rounded-xl overflow-hidden border border-gray-200 cursor-zoom-in"
+                onClick={() => {
+                  setChequeViewerUrl(selectedRequest.depositSlipUrl!);
+                  setChequeViewerOpen(true);
+                }}
+              >
+                <img
+                  src={selectedRequest.depositSlipUrl}
+                  alt="Deposit slip"
+                  className="w-full object-cover"
+                />
+              </div>
+              <p className="text-center text-xs text-gray-400">Click image to zoom</p>
+
+              {/* AI Verification Results */}
+              {selectedRequest.slipAiResult ? (
+                <div className="rounded-xl border border-teal-200 bg-teal-50 overflow-hidden">
+                  {/* Section header */}
+                  <div className="flex items-center gap-2 px-4 py-3 border-b border-teal-200 bg-teal-100/60">
+                    <i className="ri-shield-check-fill text-teal-600 text-base"></i>
+                    <p className="text-sm font-bold text-teal-900">AI Verification Results</p>
+                    {selectedRequest.slipAiResult.validation?.amount_matches !== false &&
+                     selectedRequest.slipAiResult.validation?.account_number_matches !== false ? (
+                      <span className="ml-auto text-xs font-semibold text-teal-700 bg-teal-200 px-2 py-0.5 rounded-full">
+                        All Checks Passed
+                      </span>
+                    ) : (
+                      <span className="ml-auto text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                        Review Required
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="divide-y divide-teal-100">
+                    {/* Deposit Date */}
+                    {selectedRequest.slipAiResult.deposit_date && (
+                      <div className="flex items-center gap-3 px-4 py-3">
+                        <div className="w-7 h-7 rounded-lg bg-teal-200/60 flex items-center justify-center shrink-0">
+                          <i className="ri-calendar-line text-teal-700 text-sm"></i>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-teal-600 font-medium">Deposit Date</p>
+                          <p className="text-sm font-bold text-gray-900">
+                            {new Date(selectedRequest.slipAiResult.deposit_date).toLocaleDateString(undefined, {
+                              year: "numeric",
+                              month: "long",
+                              day: "numeric",
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Amount */}
+                    {selectedRequest.slipAiResult.amount != null && (
+                      <div className="flex items-center gap-3 px-4 py-3">
+                        <div className="w-7 h-7 rounded-lg bg-teal-200/60 flex items-center justify-center shrink-0">
+                          <i className="ri-money-dollar-circle-line text-teal-700 text-sm"></i>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-teal-600 font-medium">Amount on Slip</p>
+                          <p className="text-sm font-bold text-gray-900">
+                            {formatMoney(selectedRequest.slipAiResult.amount)}
+                          </p>
+                        </div>
+                        <div className="shrink-0">
+                          {selectedRequest.slipAiResult.validation?.amount_matches === true ? (
+                            <span className="flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-full">
+                              <i className="ri-check-line"></i> Matches
+                            </span>
+                          ) : selectedRequest.slipAiResult.validation?.amount_matches === false ? (
+                            <span className="flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-100 px-2.5 py-1 rounded-full">
+                              <i className="ri-alert-line"></i> Mismatch
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Reference */}
+                    {selectedRequest.slipAiResult.reference && (
+                      <div className="flex items-center gap-3 px-4 py-3">
+                        <div className="w-7 h-7 rounded-lg bg-teal-200/60 flex items-center justify-center shrink-0">
+                          <i className="ri-hashtag text-teal-700 text-sm"></i>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-teal-600 font-medium">Reference</p>
+                          <p className="text-sm font-bold text-gray-900 font-mono">
+                            {selectedRequest.slipAiResult.reference}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Bank */}
+                    {selectedRequest.slipAiResult.bank_name && (
+                      <div className="flex items-center gap-3 px-4 py-3">
+                        <div className="w-7 h-7 rounded-lg bg-teal-200/60 flex items-center justify-center shrink-0">
+                          <i className="ri-bank-line text-teal-700 text-sm"></i>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-teal-600 font-medium">Bank</p>
+                          <p className="text-sm font-bold text-gray-900">
+                            {selectedRequest.slipAiResult.bank_name}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Account last 4 */}
+                    {selectedRequest.slipAiResult.account_last4 && (
+                      <div className="flex items-center gap-3 px-4 py-3">
+                        <div className="w-7 h-7 rounded-lg bg-teal-200/60 flex items-center justify-center shrink-0">
+                          <i className="ri-lock-line text-teal-700 text-sm"></i>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-teal-600 font-medium">Account</p>
+                          <p className="text-sm font-bold text-gray-900 font-mono tracking-wider">
+                            ••••{selectedRequest.slipAiResult.account_last4}
+                          </p>
+                        </div>
+                        <div className="shrink-0">
+                          {selectedRequest.slipAiResult.validation?.account_number_matches === true ? (
+                            <span className="flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-full">
+                              <i className="ri-check-line"></i> Verified
+                            </span>
+                          ) : selectedRequest.slipAiResult.validation?.account_number_matches === false ? (
+                            <span className="flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-100 px-2.5 py-1 rounded-full">
+                              <i className="ri-alert-line"></i> Review
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Issues list */}
+                  {(selectedRequest.slipAiResult.validation?.issues ?? []).length > 0 && (
+                    <div className="px-4 pb-3 pt-1 space-y-1.5">
+                      {selectedRequest.slipAiResult.validation!.issues!.map((issue, i) => (
+                        <div key={i} className="flex items-start gap-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                          <i className="ri-alert-line mt-0.5 shrink-0"></i>
+                          <span>{issue}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Fallback when no AI result — still show deposit date + amount */
+                <div className="flex items-center gap-3 px-4 py-3 bg-teal-50 rounded-xl border border-teal-200">
+                  <i className="ri-calendar-check-line text-teal-600"></i>
+                  <div>
+                    <p className="text-xs text-teal-600">Deposited on</p>
+                    <p className="text-sm font-bold text-teal-800">{selectedRequest.depositDate}</p>
+                  </div>
+                  <div className="ml-auto">
+                    <span className="text-xs font-bold text-teal-700 bg-teal-100 px-2 py-1 rounded-full">
+                      {selectedRequest.amount}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={() => setShowSlipModal(false)}
+                className="w-full py-2.5 bg-gray-100 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
               >
                 Close
               </button>

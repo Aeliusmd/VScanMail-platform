@@ -1,6 +1,7 @@
 import { auditService } from "../audit/audit.service";
 import { notificationService } from "../notifications/notification.service";
 import {
+  assertEncryptionKeysValid,
   decryptField,
   encryptField,
   hmacSha256Hex,
@@ -8,6 +9,9 @@ import {
 import { depositModel } from "../records/deposit.model";
 import { bankAccountModel } from "./bank-account.model";
 import type { CreateBankAccountInput } from "./bank-account.schema";
+
+// Fail fast on startup if the encryption key is missing or malformed.
+assertEncryptionKeysValid();
 
 export type BankAccountListDto = Awaited<
   ReturnType<typeof bankAccountModel.listActiveByClient>

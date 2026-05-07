@@ -104,6 +104,31 @@ export function decryptField(
   return plaintext.toString("utf8");
 }
 
+/**
+ * Verifies BANK_ENC_KEY_V1 and BANK_ENC_HMAC_KEY_V1 are present and valid
+ * by performing a round-trip encrypt→decrypt. Call once at server startup.
+ * Throws with a clear message if the keys are missing or malformed.
+ */
+export function assertEncryptionKeysValid(): void {
+  const provider = envKeyProvider();
+  const version = provider.currentVersion();
+  const plaintext = "vscanmail-key-selftest";
+  const aad = "selftest";
+
+  const encrypted = encryptField(plaintext, { aad, keyProvider: provider });
+  const decrypted = decryptField(encrypted, { aad, keyProvider: provider });
+
+  if (decrypted !== plaintext) {
+    throw new Error(
+      "BANK_ENC_KEY_V1 self-test failed: encrypt→decrypt round-trip mismatch. " +
+      "Check that the key in .env.local is correct and has not been changed."
+    );
+  }
+
+  // Also verify HMAC key loads without error
+  hmacSha256Hex(plaintext, { keyVersion: version, keyProvider: provider });
+}
+
 export function hmacSha256Hex(
   plaintext: string,
   opts?: { keyVersion?: KeyVersion; keyProvider?: KeyProvider }

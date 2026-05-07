@@ -26,7 +26,15 @@
       "Bash(findstr *)",
       "Bash(not exist *)",
       "WebFetch(domain:1drv.ms)",
-      "WebFetch(domain:onedrive.live.com)"
+      "WebFetch(domain:onedrive.live.com)",
+      "Bash(Get-ChildItem -Path \"E:\\\\04-Dev Visal\\\\VScanmail\\\\frontend\\\\src\" -Recurse -Force)",
+      "Bash(Select-Object FullName)",
+      "Bash(grep -E \"\\\\.\\(ts|js\\)$\")",
+      "Bash(ls E:\\\\\\\\04-Dev Visal\\\\\\\\VScanmail\\\\\\\\app\\\\\\\\api\\\\\\\\superadmin\\\\\\\\ *)",
+      "Bash(grep -r \"Unsupported\\\\|unable to authenticate\" \"E:\\\\\\\\04-Dev Visal\\\\\\\\VScanmail\\\\\\\\\" --include=\"*.ts\" --include=\"*.js\")",
+      "Bash(grep *)",
+      "Bash(find \"E:\\\\\\\\04-Dev Visal\\\\\\\\VScanmail\\\\\\\\app\\\\\\\\api\\\\\\\\superadmin\" -type f -name \"*.ts\")",
+      "Bash(xargs ls *)"
     ]
   }
 }

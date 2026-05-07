@@ -19,12 +19,6 @@ const items = [
     desc: "Add, update & remove admins",
   },
   {
-    href: "/superadmin/settings/activity",
-    label: "Activity Log",
-    icon: "ri:history-line",
-    desc: "System activity records",
-  },
-  {
     href: "/superadmin/settings/billing",
     label: "Billing",
     icon: "ri:bank-card-line",
@@ -36,9 +30,9 @@ export default function SuperAdminSettingsLayout({ children }: { children: React
   const pathname = usePathname();
 
   return (
-    <div className="flex flex-1 min-h-0 min-w-0 w-full flex-col md:flex-row">
+    <div className="flex h-full w-full flex-col md:flex-row overflow-hidden">
       {/* Settings sub-sidebar — desktop */}
-      <aside className="hidden md:block w-60 bg-white border-r border-slate-200 flex-shrink-0 p-4 space-y-1">
+      <aside className="hidden md:block w-60 bg-white border-r border-slate-200 flex-shrink-0 p-4 space-y-1 overflow-y-auto">
         <nav>
           {items.map((it) => {
             const active = pathname === it.href || pathname === `${it.href}/`;
