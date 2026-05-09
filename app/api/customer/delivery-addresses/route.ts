@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
     withRole(user, ["client"]);
     if (!user.clientId) return NextResponse.json({ error: "ClientId missing for user" }, { status: 400 });
 
-    const ok = rateLimit(`customer:delivery-addresses:list:${user.id}`, 120, 60_000);
+    const ok = await rateLimit(`customer:delivery-addresses:list:${user.id}`, 120, 60_000);
     if (!ok) return NextResponse.json({ error: "Rate limited" }, { status: 429 });
 
     const addresses = await deliveryAddressService.listForClient(user.clientId);
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     withRole(user, ["client"]);
     if (!user.clientId) return NextResponse.json({ error: "ClientId missing for user" }, { status: 400 });
 
-    const ok = rateLimit(`customer:delivery-addresses:create:${user.id}`, 30, 60_000);
+    const ok = await rateLimit(`customer:delivery-addresses:create:${user.id}`, 30, 60_000);
     if (!ok) return NextResponse.json({ error: "Rate limited" }, { status: 429 });
 
     const body = await req.json();

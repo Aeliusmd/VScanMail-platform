@@ -36,7 +36,9 @@ export async function middleware(req: NextRequest) {
 
   // --- Check Authorization header for API routes ---
   if (pathname.startsWith("/api/")) {
-    const token = req.headers.get("authorization")?.replace("Bearer ", "");
+    const token =
+      req.headers.get("authorization")?.replace("Bearer ", "") ||
+      req.cookies.get("sb-access-token")?.value;
     if (!token) {
       return NextResponse.json(
         { error: "Unauthorized — missing Bearer token" },

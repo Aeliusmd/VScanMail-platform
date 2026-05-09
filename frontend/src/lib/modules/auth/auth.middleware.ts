@@ -16,7 +16,9 @@ export type AuthUser = {
  * Returns the authenticated user or throws 401.
  */
 export async function withAuth(req: NextRequest): Promise<AuthUser> {
-  const token = req.headers.get("authorization")?.replace("Bearer ", "");
+  const bearerToken = req.headers.get("authorization")?.replace("Bearer ", "");
+  const cookieToken = req.cookies.get("sb-access-token")?.value;
+  const token = bearerToken || cookieToken;
 
   if (!token) {
     throw new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -53,7 +55,7 @@ export async function withAuth(req: NextRequest): Promise<AuthUser> {
 
   const profile = profileRows[0];
 
-  let role = (profile?.role as AuthUser["role"]) || "client";
+  const role = (profile?.role as AuthUser["role"]) || "client";
   let clientId = profile?.clientId || undefined;
 
   // Company signups use clients.id === users.id. If profiles.client_id is missing

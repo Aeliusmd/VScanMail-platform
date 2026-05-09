@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
     const result = await aiService.generateSummary(text);
     return NextResponse.json(result);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[ai.summarize] failed", error instanceof Error ? error.message : "Unknown error");
+    return NextResponse.json({ error: "AI summarization failed." }, { status: 500 });
   }
 }

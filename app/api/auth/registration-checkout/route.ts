@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const successUrl = `${appUrl}/login?checkout=success&session_id={CHECKOUT_SESSION_ID}`;
+    const successUrl = `${appUrl}/login?checkout=success&session_id={CHECKOUT_SESSION_ID}&email=${encodeURIComponent(body.email)}`;
     const cancelUrl = `${appUrl}/verify-email?email=${encodeURIComponent(body.email)}&checkout=cancel&plan=${encodeURIComponent(body.planId)}`;
 
     const { url } = await stripeService.createCheckoutSession(clientId, priceId, {

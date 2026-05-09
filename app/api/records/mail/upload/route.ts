@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(result, { status: 201 });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[records.mail.upload] failed", error instanceof Error ? error.message : "Unknown error");
+    return NextResponse.json({ error: "Mail upload failed." }, { status: 500 });
   }
 }

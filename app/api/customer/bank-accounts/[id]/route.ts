@@ -19,7 +19,7 @@ export async function DELETE(
       return NextResponse.json({ error: "ClientId missing for user" }, { status: 400 });
     }
 
-    const ok = rateLimit(`customer:bank-accounts:delete:${user.id}`, 20, 60_000);
+    const ok = await rateLimit(`customer:bank-accounts:delete:${user.id}`, 20, 60_000);
     if (!ok) return NextResponse.json({ error: "Rate limited" }, { status: 429 });
 
     const body = await req.json();

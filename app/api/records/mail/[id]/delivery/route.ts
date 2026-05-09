@@ -15,7 +15,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const user = await withAuth(req);
     withRole(user, ["client"]);
     if (!user.clientId) return NextResponse.json({ error: "ClientId missing" }, { status: 400 });
-    if (!rateLimit(`customer:delivery:request:mail:${user.id}`, 30, 60_000)) {
+    if (!(await rateLimit(`customer:delivery:request:mail:${user.id}`, 30, 60_000))) {
       return NextResponse.json({ error: "Rate limited" }, { status: 429 });
     }
 
@@ -44,7 +44,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const user = await withAuth(req);
     withRole(user, ["client"]);
     if (!user.clientId) return NextResponse.json({ error: "ClientId missing" }, { status: 400 });
-    if (!rateLimit(`customer:delivery:cancel:mail:${user.id}`, 30, 60_000)) {
+    if (!(await rateLimit(`customer:delivery:cancel:mail:${user.id}`, 30, 60_000))) {
       return NextResponse.json({ error: "Rate limited" }, { status: 429 });
     }
 

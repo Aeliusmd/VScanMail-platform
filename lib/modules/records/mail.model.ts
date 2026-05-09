@@ -354,7 +354,7 @@ export const mailItemModel = {
         total: Number(countRows[0]?.count || 0),
       };
     } catch (dbErr: any) {
-      console.error('[mailItemModel.listAllGlobal] DB Error:', dbErr?.message, '\nSQL (union):', unionSql.substring(0, 500));
+      console.error('[mailItemModel.listAllGlobal] DB Error:', dbErr?.message);
       throw dbErr;
     }
   },

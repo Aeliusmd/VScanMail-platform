@@ -35,7 +35,14 @@
       "Bash(grep *)",
       "Bash(find \"E:\\\\\\\\04-Dev Visal\\\\\\\\VScanmail\\\\\\\\app\\\\\\\\api\\\\\\\\superadmin\" -type f -name \"*.ts\")",
       "Bash(xargs ls *)",
-      "Bash(Get-ChildItem -Path \"E:\\\\04-Dev Visal\\\\VScanmail\\\\app\\\\api\\\\admin\" -Recurse -File)"
+      "Bash(Get-ChildItem -Path \"E:\\\\04-Dev Visal\\\\VScanmail\\\\app\\\\api\\\\admin\" -Recurse -File)",
+      "Bash(Select-String \"next-codex\")",
+      "Bash(reg query *)",
+      "Bash(reg delete *)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(cmd *)",
+      "Bash(python3 *)",
+      "Bash(python *)"
     ]
   }
 }

@@ -18,8 +18,8 @@ export async function POST(req: NextRequest) {
       "unknown";
 
     // 3 requests per email per 15 minutes — prevent OTP spam
-    const okByEmail = rateLimit(`forgot-pwd:email:${email}`, 3, 15 * 60_000);
-    const okByIp = rateLimit(`forgot-pwd:ip:${ip}`, 10, 15 * 60_000);
+    const okByEmail = await rateLimit(`forgot-pwd:email:${email}`, 3, 15 * 60_000);
+    const okByIp = await rateLimit(`forgot-pwd:ip:${ip}`, 10, 15 * 60_000);
 
     if (!okByEmail || !okByIp) {
       // Return ok:true to avoid confirming the email exists

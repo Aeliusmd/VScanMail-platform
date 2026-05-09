@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Invalid Stripe webhook signature";
     console.error("Stripe webhook signature error:", message);
-    return NextResponse.json({ error: message }, { status: 400 });
+    return NextResponse.json({ error: "Invalid Stripe webhook signature" }, { status: 400 });
   }
 
   try {
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     const message = error instanceof Error ? error.message : "Stripe webhook handler failed";
     console.error("Stripe webhook handler error:", message);
     return NextResponse.json(
-      { error: message },
+      { error: "Stripe webhook handler failed" },
       { status: 500 }
     );
   }

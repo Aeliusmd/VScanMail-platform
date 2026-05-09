@@ -47,7 +47,7 @@ export const mailService = {
     );
 
     // 3. OCR + AI summary on content pages (if any)
-    let ocrText = null;
+    const ocrText = null;
     let aiSummary = null;
     let aiActions = null;
     let aiRiskLevel = null;

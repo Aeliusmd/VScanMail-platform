@@ -462,9 +462,8 @@ function CustomerAccountPageContent() {
 
     setDownloadingInvoiceId(invoiceId);
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("vscanmail_token") : null;
       const res = await fetch(`/api/billing/invoices/${invoiceId}/download`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include",
       });
       if (!res.ok) throw new Error("Download failed");
       const blob = await res.blob();

@@ -24,18 +24,12 @@ const emptyForm = {
   status: "Active" as "Active" | "Inactive",
 };
 
-function getAuthToken() {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("vscanmail_token");
-}
-
 function apiFetch(path: string, options?: RequestInit) {
-  const token = getAuthToken();
   return fetch(path, {
     ...options,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
       ...(options?.headers ?? {}),
     },
   });
@@ -751,4 +745,4 @@ function formatTimeAgo(dateStr: string) {
   if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
 
   return date.toLocaleDateString();
-}
+}

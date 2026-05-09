@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
       req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       req.headers.get("x-real-ip") ||
       "unknown";
-    const ok = rateLimit(`contact:${ip}`, 3, 60_000);
+    const ok = await rateLimit(`contact:${ip}`, 3, 60_000);
     if (!ok) {
       return NextResponse.json({ error: "Too many requests. Please wait a moment and try again." }, { status: 429 });
     }

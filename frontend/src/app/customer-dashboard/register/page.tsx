@@ -110,7 +110,7 @@ export default function CustomerRegister() {
         <div className="relative z-10">
           <Link href="/customer-dashboard">
             <img
-              src="\images\A-4.png"
+              src="/images/A-4.png"
               alt="VScan Mail"
               className="w-[139px] h-[72px] object-contain opacity-100"
             />

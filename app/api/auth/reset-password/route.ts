@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
       "unknown";
 
     // 5 attempts per email per 15 minutes — brute-force protection
-    const ok = rateLimit(`reset-pwd:${email}:${ip}`, 5, 15 * 60_000);
+    const ok = await rateLimit(`reset-pwd:${email}:${ip}`, 5, 15 * 60_000);
     if (!ok) {
       return NextResponse.json({ error: "Too many attempts. Please wait and try again." }, { status: 429 });
     }

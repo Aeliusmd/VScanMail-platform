@@ -115,9 +115,8 @@ export default function ActivityLogTab() {
   const fetchLogs = useCallback(async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("vscanmail_token");
       const res = await fetch("/api/audit-logs", {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to load logs");
       const data = await res.json();

@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
     const result = await chequeService.processAndValidate(mailItemId, base64, user.id, req);
     return NextResponse.json(result);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[ai.validate-cheque] failed", error instanceof Error ? error.message : "Unknown error");
+    return NextResponse.json({ error: "Cheque validation failed." }, { status: 500 });
   }
 }

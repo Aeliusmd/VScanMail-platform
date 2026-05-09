@@ -20,12 +20,13 @@ async function resolveClientUserId(clientId: string): Promise<string | null> {
 }
 
 export async function POST(req: NextRequest) {
+  let actorId: string | undefined;
   try {
     const user = await withAuth(req);
+    actorId = user.id;
     withRole(user, ["admin", "super_admin"]);
 
     const body = await req.json();
-    console.log("Finalize request body:", JSON.stringify(body, null, 2));
 
     const { 
       clientId, 
@@ -36,12 +37,20 @@ export async function POST(req: NextRequest) {
       ocrText 
     } = body;
 
+    console.info("[records.finalize] request", {
+      actorId: user.id,
+      clientId,
+      docType,
+      hasUrls: !!urls,
+      hasAiResults: !!aiResults,
+    });
+
     if (!clientId) {
       return NextResponse.json({ error: "Client ID is required" }, { status: 400 });
     }
 
     if (!docType) {
-      console.error("Missing docType in finalize request:", body);
+      console.error("[records.finalize] missing docType", { actorId: user.id, clientId });
       return NextResponse.json({ error: "Document type is required (docType missing)" }, { status: 400 });
     }
 
@@ -117,7 +126,10 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error("Finalization error:", error);
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    console.error("[records.finalize] failed", {
+      actorId,
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
+    return NextResponse.json({ error: "Unable to finalize record." }, { status: 400 });
   }
 }

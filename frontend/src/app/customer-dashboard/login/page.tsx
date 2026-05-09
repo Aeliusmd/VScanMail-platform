@@ -8,7 +8,6 @@ export default function CustomerLogin() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -28,7 +27,7 @@ export default function CustomerLogin() {
         <div className="relative z-10">
           <Link href="/customer-dashboard">
             <img
-              src="\images\A-4.png"
+              src="/images/A-4.png"
               alt="VScan Mail"
               className="w-[139px] h-[72px] object-contain opacity-100"
             />
@@ -149,16 +148,7 @@ export default function CustomerLogin() {
               </div>
 
               <div className="flex items-center justify-between">
-                <label className="flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="remember_me"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 text-[#0A3D8F] border-gray-300 rounded focus:ring-[#0A3D8F] cursor-pointer"
-                  />
-                  <span className="ml-2 text-sm text-gray-600">Remember me</span>
-                </label>
+                <span aria-hidden="true" />
                 <a href="#" className="text-sm font-medium text-[#0A3D8F] hover:text-[#083170] whitespace-nowrap">
                   Forgot password?
                 </a>

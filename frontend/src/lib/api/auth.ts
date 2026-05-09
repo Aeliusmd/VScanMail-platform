@@ -3,11 +3,6 @@ import { apiClient } from "../api-client";
 export type UserRole = "super_admin" | "admin" | "operator" | "client";
 
 export interface LoginResponse {
-  session: {
-    access_token?: string;
-    accessToken?: string;
-    [key: string]: any;
-  };
   user: {
     id: string;
     email: string;
@@ -101,19 +96,19 @@ export const authApi = {
       body: JSON.stringify({ email, planId }),
     }),
 
-  completeRegistrationCheckout: (sessionId: string) =>
+  completeRegistrationCheckout: (sessionId: string, email: string) =>
     apiClient<{
       active: boolean;
       status?: string;
       paymentStatus?: string;
       error?: string;
-      access_token?: string;
       user?: { id: string; email: string; role: string; clientId: string };
+      requiresLogin?: boolean;
     }>(
       "/api/auth/registration-checkout-complete",
       {
         method: "POST",
-        body: JSON.stringify({ sessionId }),
+        body: JSON.stringify({ sessionId, email }),
       }
     ),
 

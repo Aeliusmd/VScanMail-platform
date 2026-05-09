@@ -63,12 +63,7 @@ function CompaniesPageContent() {
   const fetchCompanies = async () => {
     try {
       setLoading(true);
-      const token = typeof window !== 'undefined' ? localStorage.getItem('vscanmail_token') : null;
-      const res = await fetch('/api/clients/manual', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const res = await fetch('/api/clients/manual', { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to fetch companies');
       const data = await res.json();
       setCompanyList(data.companies || []);
@@ -143,13 +138,12 @@ function CompaniesPageContent() {
         notes: newCompany.notes,
       };
 
-      const token = typeof window !== 'undefined' ? localStorage.getItem('vscanmail_token') : null;
       const res = await fetch('/api/clients/manual', {
         method: 'POST',
         headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify(payload),
       });
 

@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
     const user = await withAuth(req);
     withRole(user, ["admin", "super_admin"]);
 
-    const ok = rateLimit(`admin:deposits:list:${user.id}`, 240, 60_000);
+    const ok = await rateLimit(`admin:deposits:list:${user.id}`, 240, 60_000);
     if (!ok) return NextResponse.json({ error: "Rate limited" }, { status: 429 });
 
     const result = await depositService.adminList({ limit: 500 });

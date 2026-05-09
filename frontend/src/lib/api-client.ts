@@ -12,28 +12,12 @@ export class ApiError extends Error {
   }
 }
 
-function getCookieValue(name: string): string | null {
-  if (typeof document === "undefined") return null;
-  const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
-  return match ? decodeURIComponent(match[2]) : null;
-}
-
-function getToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return (
-    window.localStorage.getItem("vscanmail_token") ||
-    getCookieValue("sb-access-token")
-  );
-}
-
 type JsonHeaders = Record<string, string>;
 
 export async function apiClient<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const token = getToken();
-
   const headers: JsonHeaders = {
     "Content-Type": "application/json",
   };
@@ -44,16 +28,13 @@ export async function apiClient<T>(
     });
   }
 
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
   const url = `${API_BASE}${endpoint}`;
   let res: Response;
   try {
     res = await fetch(url, {
       ...options,
       headers,
+      credentials: "include",
     });
   } catch {
     throw new ApiError(
@@ -70,9 +51,6 @@ export async function apiClient<T>(
       .catch(() => ({} as any));
 
     if (res.status === 401 && endpoint !== "/api/auth/login") {
-      window.localStorage.removeItem("vscanmail_token");
-      document.cookie =
-        "sb-access-token=; path=/; max-age=0; samesite=lax";
       window.location.href = "/login";
     }
 
@@ -90,12 +68,7 @@ export async function apiUpload<T>(
   endpoint: string,
   formData: FormData
 ): Promise<T> {
-  const token = getToken();
-
   const headers: JsonHeaders = {};
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
 
   const url = `${API_BASE}${endpoint}`;
   let res: Response;
@@ -104,6 +77,7 @@ export async function apiUpload<T>(
       method: "POST",
       headers,
       body: formData,
+      credentials: "include",
     });
   } catch {
     throw new ApiError(
@@ -123,4 +97,3 @@ export async function apiUpload<T>(
 
   return res.json();
 }
-

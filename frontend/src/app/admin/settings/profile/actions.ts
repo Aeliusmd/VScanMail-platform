@@ -109,9 +109,10 @@ export async function updateProfile(formData: z.infer<typeof profileSchema>) {
       email: validatedData.email,
     });
     cookieStore.set("sb-access-token", newToken, {
-      httpOnly: false,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
       path: "/",
-      maxAge: 7 * 24 * 60 * 60,
+      maxAge: 15 * 60,
       sameSite: "lax",
     });
 

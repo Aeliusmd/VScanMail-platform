@@ -11,7 +11,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     withRole(user, ["client"]);
     if (!user.clientId) return NextResponse.json({ error: "ClientId missing for user" }, { status: 400 });
 
-    const ok = rateLimit(`customer:delivery-addresses:get:${user.id}`, 120, 60_000);
+    const ok = await rateLimit(`customer:delivery-addresses:get:${user.id}`, 120, 60_000);
     if (!ok) return NextResponse.json({ error: "Rate limited" }, { status: 429 });
 
     const { id } = await ctx.params;
@@ -31,7 +31,7 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
     withRole(user, ["client"]);
     if (!user.clientId) return NextResponse.json({ error: "ClientId missing for user" }, { status: 400 });
 
-    const ok = rateLimit(`customer:delivery-addresses:update:${user.id}`, 60, 60_000);
+    const ok = await rateLimit(`customer:delivery-addresses:update:${user.id}`, 60, 60_000);
     if (!ok) return NextResponse.json({ error: "Rate limited" }, { status: 429 });
 
     const { id } = await ctx.params;
@@ -62,7 +62,7 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
     withRole(user, ["client"]);
     if (!user.clientId) return NextResponse.json({ error: "ClientId missing for user" }, { status: 400 });
 
-    const ok = rateLimit(`customer:delivery-addresses:delete:${user.id}`, 30, 60_000);
+    const ok = await rateLimit(`customer:delivery-addresses:delete:${user.id}`, 30, 60_000);
     if (!ok) return NextResponse.json({ error: "Rate limited" }, { status: 429 });
 
     const { id } = await ctx.params;

@@ -12,7 +12,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const user = await withAuth(req);
     withRole(user, ["admin"]);
-    if (!rateLimit(`admin:deliveries:reject:${user.id}`, 120, 60_000)) {
+    if (!(await rateLimit(`admin:deliveries:reject:${user.id}`, 120, 60_000))) {
       return NextResponse.json({ error: "Rate limited" }, { status: 429 });
     }
 

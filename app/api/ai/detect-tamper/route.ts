@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
     const result = await aiService.detectTampering(frontBase64, backBase64);
     return NextResponse.json(result);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[ai.detect-tamper] failed", error instanceof Error ? error.message : "Unknown error");
+    return NextResponse.json({ error: "Tamper detection failed." }, { status: 500 });
   }
 }

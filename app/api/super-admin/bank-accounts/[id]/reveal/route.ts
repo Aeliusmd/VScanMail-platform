@@ -16,7 +16,7 @@ export async function POST(
     const user = await withAuth(req);
     withRole(user, ["super_admin"]);
 
-    const ok = rateLimit(`super-admin:bank-accounts:reveal:${user.id}`, 30, 60_000);
+    const ok = await rateLimit(`super-admin:bank-accounts:reveal:${user.id}`, 30, 60_000);
     if (!ok) return NextResponse.json({ error: "Rate limited" }, { status: 429 });
 
     const body = await req.json();

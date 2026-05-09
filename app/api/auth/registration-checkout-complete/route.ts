@@ -6,15 +6,15 @@ import { clientModel } from "@/lib/modules/clients/client.model";
 import { db } from "@/lib/modules/core/db/mysql";
 import { users, profiles } from "@/lib/modules/core/db/schema";
 import { eq } from "drizzle-orm";
-import { signAccessToken } from "@/lib/modules/auth/jwt";
 
 const bodySchema = z.object({
   sessionId: z.string().min(1),
+  email: z.string().email(),
 });
 
 export async function POST(req: NextRequest) {
   try {
-    const { sessionId } = bodySchema.parse(await req.json());
+    const { sessionId, email } = bodySchema.parse(await req.json());
     const session = await stripe.checkout.sessions.retrieve(sessionId);
 
     if (session.mode !== "subscription") {
@@ -47,6 +47,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const expectedEmail = String(session.customer_details?.email || session.customer_email || "").toLowerCase();
+    if (!expectedEmail || expectedEmail !== email.toLowerCase()) {
+      return NextResponse.json({ active: false, error: "Checkout verification failed." }, { status: 403 });
+    }
+
     // Fix 2: Activate org directly first — don't depend on Stripe subscription object being ready.
     await clientModel.update(clientId, {
       status: "active",
@@ -64,8 +69,8 @@ export async function POST(req: NextRequest) {
       console.error("[checkout-complete] webhook handler error (org already activated):", webhookErr);
     }
 
-    // Issue a JWT so the frontend can auto-login without requiring credentials.
-    // Look up the user via profiles table: org clientId → userId → user row.
+    // Look up the user via profiles table so the frontend can show activation status.
+    // The user must sign in normally after checkout; this public route must not mint JWTs.
     const profileRows = await db
       .select({ userId: profiles.userId, role: profiles.role })
       .from(profiles)
@@ -90,16 +95,14 @@ export async function POST(req: NextRequest) {
 
     const role = profileRow.role ?? "client";
 
-    const access_token = await signAccessToken({ sub: user.id, email: user.email });
-
     return NextResponse.json({
       active: true,
-      access_token,
       user: { id: user.id, email: user.email, role, clientId },
+      requiresLogin: true,
     });
   } catch (error: any) {
     return NextResponse.json(
-      { active: false, error: error.message || "Could not confirm checkout." },
+      { active: false, error: "Could not confirm checkout." },
       { status: 400 }
     );
   }

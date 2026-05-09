@@ -70,8 +70,11 @@ function VerifyEmailInner() {
   // Clear any stale session so no API call on this page accidentally triggers a 401 redirect.
   useEffect(() => {
     if (typeof window !== "undefined") {
-      localStorage.removeItem("vscanmail_token");
-      document.cookie = "sb-access-token=; path=/; max-age=0; samesite=lax";
+      void fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+        keepalive: true,
+      });
     }
   }, []);
 

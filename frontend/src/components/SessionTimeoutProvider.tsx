@@ -4,53 +4,28 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { resetSessionTimer, startSessionTimer, stopSessionTimer } from "@/lib/session-timeout";
 
-function base64UrlDecode(input: string): string {
-  const normalized = input.replace(/-/g, "+").replace(/_/g, "/");
-  const pad = normalized.length % 4;
-  const padded = pad ? normalized + "=".repeat(4 - pad) : normalized;
-  return atob(padded);
-}
-
-function getJwtRole(token: string | null): string | null {
-  if (!token) return null;
-  const parts = token.split(".");
-  if (parts.length < 2) return null;
-  try {
-    const json = base64UrlDecode(parts[1]);
-    const payload = JSON.parse(json) as any;
-    const role = payload?.role;
-    return typeof role === "string" ? role : null;
-  } catch {
-    return null;
-  }
-}
-
 export default function SessionTimeoutProvider({ children }: { children: ReactNode }) {
   const [showWarning, setShowWarning] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const token = window.localStorage.getItem("vscanmail_token");
-    if (!token) return;
+    const publicPaths = ["/login", "/register", "/forgot-password", "/reset-password", "/verify-email"];
+    if (publicPaths.some((path) => window.location.pathname.startsWith(path))) return;
 
     const handleWarn = () => {
       setShowWarning(true);
     };
 
     const handleExpire = () => {
-      const currentToken = window.localStorage.getItem("vscanmail_token");
-      const role = getJwtRole(currentToken);
-
-      window.localStorage.removeItem("vscanmail_token");
       window.localStorage.removeItem("vscanmail_last_activity");
-      document.cookie = "sb-access-token=; path=/; max-age=0; samesite=lax";
-
-      if (role === "super_admin") {
-        window.location.href = "/super-admin-login";
-      } else {
+      void fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+        keepalive: true,
+      }).finally(() => {
         window.location.href = "/login";
-      }
+      });
     };
 
     startSessionTimer(handleExpire, handleWarn);

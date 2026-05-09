@@ -14,11 +14,11 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const checkoutSuccess = searchParams.get("checkout") === "success";
   const checkoutSessionId = searchParams.get("session_id");
+  const checkoutEmail = searchParams.get("email") || "";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [lastErrorAtMs, setLastErrorAtMs] = useState<number | null>(null);
@@ -27,29 +27,10 @@ function LoginForm() {
   // True while we're activating the account after Stripe redirect — hides the login form.
   const [activating, setActivating] = useState(checkoutSuccess && !!checkoutSessionId);
 
-  const autoLoginWithToken = (token: string, role: string) => {
-    localStorage.setItem("vscanmail_token", token);
-    localStorage.setItem("vscanmail_last_activity", new Date().toISOString());
-    localStorage.removeItem("selectedPlanId");
-    document.cookie = `sb-access-token=${token}; path=/; max-age=${7 * 24 * 60 * 60}; samesite=lax`;
-    if (role === "super_admin") {
-      router.push("/superadmin/dashboard");
-    } else if (role === "admin") {
-      router.push("/admin");
-    } else {
-      router.push("/customer");
-    }
-  };
-
   const finalizeRegistrationCheckout = async () => {
-    if (!checkoutSuccess || !checkoutSessionId) return false;
+    if (!checkoutSuccess || !checkoutSessionId || !checkoutEmail) return false;
 
-    const result = await authApi.completeRegistrationCheckout(checkoutSessionId);
-
-    if (result.active && result.access_token && result.user) {
-      autoLoginWithToken(result.access_token, result.user.role);
-      return true;
-    }
+    const result = await authApi.completeRegistrationCheckout(checkoutSessionId, checkoutEmail);
 
     setCheckoutBanner(
       result.active
@@ -65,7 +46,7 @@ function LoginForm() {
 
     localStorage.removeItem("selectedPlanId");
 
-    if (!checkoutSessionId) {
+    if (!checkoutSessionId || !checkoutEmail) {
       setActivating(false);
       setCheckoutBanner("Payment successful. Your subscription is processing — please sign in to continue.");
       return;
@@ -88,7 +69,7 @@ function LoginForm() {
         setCheckoutBanner(message);
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checkoutSessionId, checkoutSuccess]);
+  }, [checkoutEmail, checkoutSessionId, checkoutSuccess]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,14 +90,7 @@ function LoginForm() {
         await finalizeRegistrationCheckout();
       }
       const response = await authApi.login(email, password);
-      const token = response.session.access_token || response.session.accessToken;
-
-      if (token) {
-        localStorage.setItem("vscanmail_token", token);
-        localStorage.setItem("vscanmail_last_activity", new Date().toISOString());
-        // Set cookie for middleware (7 days)
-        document.cookie = `sb-access-token=${token}; path=/; max-age=${7 * 24 * 60 * 60}; samesite=lax`;
-      }
+      localStorage.setItem("vscanmail_last_activity", new Date().toISOString());
 
       const role = response.user.role;
       if (role === "super_admin") {
@@ -264,14 +238,7 @@ function LoginForm() {
               </div>
 
               <div className={styles.rememberRow}>
-                <label className={styles.rememberLabel}>
-                  <input
-                    type="checkbox"
-                    checked={remember}
-                    onChange={(e) => setRemember(e.target.checked)}
-                  />
-                  Remember me
-                </label>
+                <span aria-hidden="true" />
                 <Link href="/forgot-password" className={styles.forgotLink}>Forgot password?</Link>
               </div>
 

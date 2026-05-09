@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     withRole(user, ["client"]);
     if (!user.clientId) return NextResponse.json({ error: "ClientId missing" }, { status: 400 });
 
-    const ok = rateLimit(`customer:deliveries:list:${user.id}`, 120, 60_000);
+    const ok = await rateLimit(`customer:deliveries:list:${user.id}`, 120, 60_000);
     if (!ok) return NextResponse.json({ error: "Rate limited" }, { status: 429 });
 
     const result = await deliveryService.listMine({ clientId: user.clientId, limit: 200 });
