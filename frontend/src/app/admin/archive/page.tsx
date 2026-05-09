@@ -1,7 +1,7 @@
 "use client";
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAdminProfile } from '../components/useAdminProfile';
 import { mailApi, type MailItem as ApiMailItem } from '@/lib/api/mail';
 import { chequeApi, type Cheque as ApiCheque } from '@/lib/api/cheques';
@@ -50,6 +50,12 @@ interface ArchivedCheque {
   starred: boolean;
   depositToggle: boolean;
 }
+
+type ArchiveApiMailItem = ApiMailItem & {
+  company_name?: string;
+};
+
+const isArchivedMailRecord = (item: ApiMailItem) => item.type !== 'cheque';
 
 const toBoxFromIso = (iso: string | null | undefined) => {
   const d = iso ? new Date(iso) : new Date();
@@ -120,10 +126,13 @@ export default function AdminArchivedMailsPage() {
   const [cheques, setCheques] = useState<ArchivedCheque[]>([]);
   const [chequeCheckedIds, setChequeCheckedIds] = useState<Set<string>>(new Set());
   const [chequeAllChecked, setChequeAllChecked] = useState(false);
+  const mailBoxFilterRef = useRef<HTMLDivElement | null>(null);
+  const mailDateFilterRef = useRef<HTMLDivElement | null>(null);
+  const chequeBoxFilterRef = useRef<HTMLDivElement | null>(null);
+  const chequeDateFilterRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let alive = true;
-    setLoading(true);
 
     Promise.all([
       mailApi.list({ archived: true, limit: 100 }),
@@ -132,7 +141,7 @@ export default function AdminArchivedMailsPage() {
       .then(([mailRes, chequeRes]) => {
         if (!alive) return;
 
-        const mappedMails: ArchivedMail[] = mailRes.items.map((item: ApiMailItem & any) => {
+        const mappedMails: ArchivedMail[] = mailRes.items.filter(isArchivedMailRecord).map((item: ArchiveApiMailItem) => {
           const scannedIso = item.scanned_at || item.created_at;
           const archiveBox = toBoxFromIso(scannedIso);
           const scannedDate = toDateIso(scannedIso);
@@ -174,7 +183,7 @@ export default function AdminArchivedMailsPage() {
           };
         });
 
-        const mappedCheques: ArchivedCheque[] = chequeRes.cheques.map((c: ApiCheque & any) => {
+        const mappedCheques: ArchivedCheque[] = chequeRes.cheques.map((c: ApiCheque) => {
           const createdIso = c.created_at;
           const archiveBox = toBoxFromIso(createdIso);
           const scannedDate = toDateIso(createdIso);
@@ -225,6 +234,40 @@ export default function AdminArchivedMailsPage() {
     };
   }, []);
 
+  useEffect(() => {
+    const closeFilterPopups = (event: MouseEvent) => {
+      const target = event.target as Node;
+      const refs = [
+        mailBoxFilterRef,
+        mailDateFilterRef,
+        chequeBoxFilterRef,
+        chequeDateFilterRef,
+      ];
+
+      if (refs.some((ref) => ref.current?.contains(target))) return;
+
+      setShowMailBoxFilter(false);
+      setShowMailDateFilter(false);
+      setShowChequeBoxFilter(false);
+      setShowChequeDateFilter(false);
+    };
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setShowMailBoxFilter(false);
+      setShowMailDateFilter(false);
+      setShowChequeBoxFilter(false);
+      setShowChequeDateFilter(false);
+    };
+
+    document.addEventListener('mousedown', closeFilterPopups);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeFilterPopups);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, []);
+
   const uniqueMailBoxes = useMemo(
     () => [...new Set(mails.map((m) => m.archiveBox))],
     [mails]
@@ -271,6 +314,73 @@ export default function AdminArchivedMailsPage() {
     return matchSearch && matchStatus && matchBox && matchDateFrom && matchDateTo;
   });
 
+  const reload = () => {
+    setLoading(true);
+    Promise.all([
+      mailApi.list({ archived: true, limit: 100 }),
+      chequeApi.list({ archived: true, limit: 100 }),
+    ])
+      .then(([mailRes, chequeRes]) => {
+        const mappedMails: ArchivedMail[] = mailRes.items.filter(isArchivedMailRecord).map((item: ArchiveApiMailItem) => {
+          const scannedIso = item.scanned_at || item.created_at;
+          const archiveBox = toBoxFromIso(scannedIso);
+          const scannedDate = toDateIso(scannedIso);
+          return {
+            id: item.id,
+            serialNumber: item.irn || item.id.slice(0, 8),
+            company: item.company_name || 'Unknown Company',
+            companyEmail: '',
+            sender: item.company_name || 'Unknown',
+            subject: `${String(item.type || 'mail').charAt(0).toUpperCase()}${String(item.type || 'mail').slice(1)} - ${item.irn || item.id.slice(0, 8)}`,
+            preview: item.ai_summary || 'No preview available.',
+            scannedAt: toHumanDate(scannedIso),
+            scannedDate,
+            timeShort: toTimeShort(scannedIso),
+            archivedAt: toHumanDate(scannedIso),
+            archiveBox,
+            status: item.status === 'processed' ? 'Processed' : item.status === 'delivered' ? 'Delivered' : 'Pending Delivery',
+            aiSummary: item.ai_summary || '',
+            emailSent: false,
+            thumbnail: item.envelope_front_url || item.envelope_back_url || (item.content_scan_urls?.[0] ?? ''),
+            starred: false,
+            hasAttachment: Array.isArray(item.content_scan_urls) && item.content_scan_urls.length > 0,
+            tag: item.status === 'processed' ? 'Processed' : item.status === 'delivered' ? 'Delivered' : 'Inbox',
+            tagColor: item.status === 'delivered' ? 'bg-green-100 text-[#2F8F3A]' : 'bg-[#0A3D8F]/10 text-[#0A3D8F]',
+          };
+        });
+        const mappedCheques: ArchivedCheque[] = chequeRes.cheques.map((c: ApiCheque) => {
+          const createdIso = c.created_at;
+          const archiveBox = toBoxFromIso(createdIso);
+          const scannedDate = toDateIso(createdIso);
+          const bankName = c.ai_raw_result?.bank_name || c.ai_raw_result?.bankName || 'Bank';
+          const chequeNumber = c.ai_raw_result?.cheque_number || c.ai_raw_result?.chequeNumber || c.ai_raw_result?.number || '—';
+          return {
+            id: c.id,
+            serialNumber: c.id.slice(0, 12),
+            company: c.company_name || 'Unknown Company',
+            companyEmail: '',
+            payee: c.beneficiary || c.company_name || 'Payee',
+            amount: new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(Number(c.amount_figures || 0)),
+            bankName,
+            chequeNumber: String(chequeNumber),
+            scannedAt: toHumanDate(createdIso),
+            scannedDate,
+            timeShort: toTimeShort(createdIso),
+            archivedAt: toHumanDate(createdIso),
+            archiveBox,
+            status: c.client_decision === 'rejected' ? 'Rejected' : c.status === 'flagged' ? 'On Hold' : 'Deposited',
+            aiSummary: c.ai_raw_result?.summary || c.ai_raw_result?.notes || '',
+            thumbnail: '',
+            starred: false,
+            depositToggle: c.status === 'deposited' || c.status === 'cleared',
+          };
+        });
+        setMails(mappedMails);
+        setCheques(mappedCheques);
+      })
+      .finally(() => setLoading(false));
+  };
+
   // Mail handlers
   const toggleMailCheck = (id: string) => {
     setMailCheckedIds(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
@@ -279,13 +389,44 @@ export default function AdminArchivedMailsPage() {
     if (mailAllChecked) { setMailCheckedIds(new Set()); setMailAllChecked(false); }
     else { setMailCheckedIds(new Set(filteredMails.map(m => m.id))); setMailAllChecked(true); }
   };
-  const handleUnarchiveMail = (id: string) => {
-    setMails(prev => prev.filter(m => m.id !== id));
-    setMailCheckedIds(prev => { const next = new Set(prev); next.delete(id); return next; });
+  const handleUnarchiveMail = async (id: string) => {
+    try {
+      await mailApi.unarchive(id);
+      setMails(prev => prev.filter(m => m.id !== id));
+      setMailCheckedIds(prev => { const next = new Set(prev); next.delete(id); return next; });
+    } catch (err) {
+      console.error('Unarchive failed:', err);
+    }
   };
-  const handleUnarchiveSelectedMails = () => {
-    setMails(prev => prev.filter(m => !mailCheckedIds.has(m.id)));
-    setMailCheckedIds(new Set()); setMailAllChecked(false);
+  const handleUnarchiveSelectedMails = async () => {
+    const ids = Array.from(mailCheckedIds);
+    try {
+      await mailApi.bulk('unarchive', ids);
+      setMails(prev => prev.filter(m => !mailCheckedIds.has(m.id)));
+      setMailCheckedIds(new Set()); setMailAllChecked(false);
+    } catch (err) {
+      console.error('Bulk unarchive failed:', err);
+    }
+  };
+  const handleDeleteSelectedMails = async () => {
+    if (!confirm(`Permanently delete ${mailCheckedIds.size} mail record(s)? This cannot be undone.`)) return;
+    const ids = Array.from(mailCheckedIds);
+    try {
+      await mailApi.bulk('delete', ids);
+      setMails(prev => prev.filter(m => !mailCheckedIds.has(m.id)));
+      setMailCheckedIds(new Set()); setMailAllChecked(false);
+    } catch (err) {
+      console.error('Bulk delete failed:', err);
+    }
+  };
+  const handleDownloadMail = async (id: string) => {
+    try {
+      const data = await mailApi.download(id);
+      const url = data.frontUrl || data.backUrl || (data.contentUrls?.[0] ?? '');
+      if (url) window.open(url, '_blank');
+    } catch (err) {
+      console.error('Download failed:', err);
+    }
   };
 
   // Cheque handlers
@@ -296,13 +437,35 @@ export default function AdminArchivedMailsPage() {
     if (chequeAllChecked) { setChequeCheckedIds(new Set()); setChequeAllChecked(false); }
     else { setChequeCheckedIds(new Set(filteredCheques.map(c => c.id))); setChequeAllChecked(true); }
   };
-  const handleUnarchiveCheque = (id: string) => {
-    setCheques(prev => prev.filter(c => c.id !== id));
-    setChequeCheckedIds(prev => { const next = new Set(prev); next.delete(id); return next; });
+  const handleUnarchiveCheque = async (id: string) => {
+    try {
+      await chequeApi.unarchive(id);
+      setCheques(prev => prev.filter(c => c.id !== id));
+      setChequeCheckedIds(prev => { const next = new Set(prev); next.delete(id); return next; });
+    } catch (err) {
+      console.error('Unarchive failed:', err);
+    }
   };
-  const handleUnarchiveSelectedCheques = () => {
-    setCheques(prev => prev.filter(c => !chequeCheckedIds.has(c.id)));
-    setChequeCheckedIds(new Set()); setChequeAllChecked(false);
+  const handleUnarchiveSelectedCheques = async () => {
+    const ids = Array.from(chequeCheckedIds);
+    try {
+      await chequeApi.bulk('unarchive', ids);
+      setCheques(prev => prev.filter(c => !chequeCheckedIds.has(c.id)));
+      setChequeCheckedIds(new Set()); setChequeAllChecked(false);
+    } catch (err) {
+      console.error('Bulk unarchive failed:', err);
+    }
+  };
+  const handleDeleteSelectedCheques = async () => {
+    if (!confirm(`Permanently delete ${chequeCheckedIds.size} cheque record(s)? This cannot be undone.`)) return;
+    const ids = Array.from(chequeCheckedIds);
+    try {
+      await chequeApi.bulk('delete', ids);
+      setCheques(prev => prev.filter(c => !chequeCheckedIds.has(c.id)));
+      setChequeCheckedIds(new Set()); setChequeAllChecked(false);
+    } catch (err) {
+      console.error('Bulk delete failed:', err);
+    }
   };
 
   const mailBoxCounts = allUniqueBoxes.reduce<Record<string, number>>((acc, box) => {
@@ -489,18 +652,18 @@ export default function AdminArchivedMailsPage() {
                       <i className="ri-inbox-unarchive-line text-slate-600 text-base"></i>
                       <span className="text-xs font-medium text-slate-700 whitespace-nowrap">Unarchive</span>
                     </button>
-                    <button className="p-1.5 hover:bg-slate-100 rounded-lg cursor-pointer" title="Delete">
-                      <i className="ri-delete-bin-line text-slate-500 text-base"></i>
+                    <button onClick={handleDeleteSelectedMails} className="p-1.5 hover:bg-red-50 rounded-lg cursor-pointer" title="Delete selected">
+                      <i className="ri-delete-bin-line text-red-500 text-base"></i>
                     </button>
                     <span className="text-xs text-slate-500 ml-1">{mailCheckedIds.size} selected</span>
                   </div>
                 )}
-                <button className="p-1.5 hover:bg-slate-100 rounded-lg cursor-pointer" title="Refresh">
+                <button onClick={reload} className="p-1.5 hover:bg-slate-100 rounded-lg cursor-pointer" title="Refresh">
                   <i className="ri-refresh-line text-slate-500 text-base"></i>
                 </button>
 
                 {/* Box Filter */}
-                <div className="relative">
+                <div ref={mailBoxFilterRef} className="relative">
                   <button
                     onClick={() => setShowMailBoxFilter(!showMailBoxFilter)}
                     className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg cursor-pointer transition-colors text-xs font-medium whitespace-nowrap ${mailBoxFilter !== 'All' ? 'bg-[#0A3D8F]/10 text-[#0A3D8F]' : 'hover:bg-slate-100 text-slate-600'}`}
@@ -527,12 +690,12 @@ export default function AdminArchivedMailsPage() {
                     )}
                   </button>
                   {showMailBoxFilter && (
-                    <div className="absolute left-0 top-full mt-2 bg-white border border-slate-200 rounded-xl p-2 z-40 w-48">
-                      <button onClick={() => { setMailBoxFilter('All'); setShowMailBoxFilter(false); }} className={`w-full text-left px-3 py-2 text-sm rounded-lg cursor-pointer ${mailBoxFilter === 'All' ? 'bg-slate-100 font-semibold' : 'hover:bg-slate-50'}`}>All Boxes</button>
+                    <div className="absolute left-0 top-full mt-2 bg-white border border-slate-200 rounded-xl p-2 z-40 w-48 text-slate-800 shadow-lg">
+                      <button onClick={() => { setMailBoxFilter('All'); setShowMailBoxFilter(false); }} className={`w-full text-left px-3 py-2 text-sm rounded-lg cursor-pointer ${mailBoxFilter === 'All' ? 'bg-slate-100 text-slate-900 font-semibold' : 'text-slate-700 hover:bg-slate-50'}`}>All Boxes</button>
                       {uniqueMailBoxes.map(box => (
-                        <button key={box} onClick={() => { setMailBoxFilter(box); setShowMailBoxFilter(false); }} className={`w-full text-left px-3 py-2 text-sm rounded-lg cursor-pointer flex items-center justify-between ${mailBoxFilter === box ? 'bg-slate-100 font-semibold' : 'hover:bg-slate-50'}`}>
+                        <button key={box} onClick={() => { setMailBoxFilter(box); setShowMailBoxFilter(false); }} className={`w-full text-left px-3 py-2 text-sm rounded-lg cursor-pointer flex items-center justify-between ${mailBoxFilter === box ? 'bg-slate-100 text-slate-900 font-semibold' : 'text-slate-700 hover:bg-slate-50'}`}>
                           <span>{box}</span>
-                          <span className="text-xs text-slate-400">{mailBoxCounts[box]}</span>
+                          <span className="text-xs text-slate-600">{mailBoxCounts[box]}</span>
                         </button>
                       ))}
                     </div>
@@ -540,7 +703,7 @@ export default function AdminArchivedMailsPage() {
                 </div>
 
                 {/* Date Filter */}
-                <div className="relative">
+                <div ref={mailDateFilterRef} className="relative">
                   <button
                     onClick={() => setShowMailDateFilter(!showMailDateFilter)}
                     className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg cursor-pointer transition-colors text-xs font-medium whitespace-nowrap ${(mailDateFrom || mailDateTo) ? 'bg-[#0A3D8F]/10 text-[#0A3D8F]' : 'hover:bg-slate-100 text-slate-600'}`}
@@ -568,19 +731,19 @@ export default function AdminArchivedMailsPage() {
                     )}
                   </button>
                   {showMailDateFilter && (
-                    <div className="absolute left-0 top-full mt-2 bg-white border border-slate-200 rounded-xl p-4 z-40 w-64">
-                      <p className="text-xs font-semibold text-slate-700 mb-3">Filter by Scan Date</p>
+                    <div className="absolute left-0 top-full mt-2 bg-white border border-slate-200 rounded-xl p-4 z-40 w-64 text-slate-800 shadow-lg">
+                      <p className="text-xs font-semibold text-slate-900 mb-3">Filter by Scan Date</p>
                       <div className="space-y-3">
                         <div>
-                          <label className="text-xs text-slate-500 mb-1 block">From</label>
-                          <input type="date" value={mailDateFrom} onChange={e => setMailDateFrom(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#0A3D8F] cursor-pointer" />
+                          <label className="text-xs text-slate-700 mb-1 block">From</label>
+                          <input type="date" value={mailDateFrom} onChange={e => setMailDateFrom(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] cursor-pointer" />
                         </div>
                         <div>
-                          <label className="text-xs text-slate-500 mb-1 block">To</label>
-                          <input type="date" value={mailDateTo} onChange={e => setMailDateTo(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#0A3D8F] cursor-pointer" />
+                          <label className="text-xs text-slate-700 mb-1 block">To</label>
+                          <input type="date" value={mailDateTo} onChange={e => setMailDateTo(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] cursor-pointer" />
                         </div>
                         <div className="flex space-x-2 pt-1">
-                          <button onClick={() => { setMailDateFrom(''); setMailDateTo(''); }} className="flex-1 py-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer whitespace-nowrap">Clear</button>
+                          <button onClick={() => { setMailDateFrom(''); setMailDateTo(''); }} className="flex-1 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer whitespace-nowrap">Clear</button>
                           <button onClick={() => setShowMailDateFilter(false)} className="flex-1 py-2 text-xs font-medium text-white bg-[#0A3D8F] hover:bg-[#083170] rounded-lg cursor-pointer whitespace-nowrap">Apply</button>
                         </div>
                       </div>
@@ -690,18 +853,18 @@ export default function AdminArchivedMailsPage() {
                       <i className="ri-inbox-unarchive-line text-slate-600 text-base"></i>
                       <span className="text-xs font-medium text-slate-700 whitespace-nowrap">Unarchive</span>
                     </button>
-                    <button className="p-1.5 hover:bg-slate-100 rounded-lg cursor-pointer" title="Delete">
-                      <i className="ri-delete-bin-line text-slate-500 text-base"></i>
+                    <button onClick={handleDeleteSelectedCheques} className="p-1.5 hover:bg-red-50 rounded-lg cursor-pointer" title="Delete selected">
+                      <i className="ri-delete-bin-line text-red-500 text-base"></i>
                     </button>
                     <span className="text-xs text-slate-500 ml-1">{chequeCheckedIds.size} selected</span>
                   </div>
                 )}
-                <button className="p-1.5 hover:bg-slate-100 rounded-lg cursor-pointer" title="Refresh">
+                <button onClick={reload} className="p-1.5 hover:bg-slate-100 rounded-lg cursor-pointer" title="Refresh">
                   <i className="ri-refresh-line text-slate-500 text-base"></i>
                 </button>
 
                 {/* Box Filter */}
-                <div className="relative">
+                <div ref={chequeBoxFilterRef} className="relative">
                   <button
                     onClick={() => setShowChequeBoxFilter(!showChequeBoxFilter)}
                     className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg cursor-pointer transition-colors text-xs font-medium whitespace-nowrap ${chequeBoxFilter !== 'All' ? 'bg-[#0A3D8F]/10 text-[#0A3D8F]' : 'hover:bg-slate-100 text-slate-600'}`}
@@ -728,12 +891,12 @@ export default function AdminArchivedMailsPage() {
                     )}
                   </button>
                   {showChequeBoxFilter && (
-                    <div className="absolute left-0 top-full mt-2 bg-white border border-slate-200 rounded-xl p-2 z-40 w-48">
-                      <button onClick={() => { setChequeBoxFilter('All'); setShowChequeBoxFilter(false); }} className={`w-full text-left px-3 py-2 text-sm rounded-lg cursor-pointer ${chequeBoxFilter === 'All' ? 'bg-slate-100 font-semibold' : 'hover:bg-slate-50'}`}>All Boxes</button>
+                    <div className="absolute left-0 top-full mt-2 bg-white border border-slate-200 rounded-xl p-2 z-40 w-48 text-slate-800 shadow-lg">
+                      <button onClick={() => { setChequeBoxFilter('All'); setShowChequeBoxFilter(false); }} className={`w-full text-left px-3 py-2 text-sm rounded-lg cursor-pointer ${chequeBoxFilter === 'All' ? 'bg-slate-100 text-slate-900 font-semibold' : 'text-slate-700 hover:bg-slate-50'}`}>All Boxes</button>
                       {uniqueChequeBoxes.map(box => (
-                        <button key={box} onClick={() => { setChequeBoxFilter(box); setShowChequeBoxFilter(false); }} className={`w-full text-left px-3 py-2 text-sm rounded-lg cursor-pointer flex items-center justify-between ${chequeBoxFilter === box ? 'bg-slate-100 font-semibold' : 'hover:bg-slate-50'}`}>
+                        <button key={box} onClick={() => { setChequeBoxFilter(box); setShowChequeBoxFilter(false); }} className={`w-full text-left px-3 py-2 text-sm rounded-lg cursor-pointer flex items-center justify-between ${chequeBoxFilter === box ? 'bg-slate-100 text-slate-900 font-semibold' : 'text-slate-700 hover:bg-slate-50'}`}>
                           <span>{box}</span>
-                          <span className="text-xs text-slate-400">{chequeBoxCounts[box]}</span>
+                          <span className="text-xs text-slate-600">{chequeBoxCounts[box]}</span>
                         </button>
                       ))}
                     </div>
@@ -741,7 +904,7 @@ export default function AdminArchivedMailsPage() {
                 </div>
 
                 {/* Date Filter */}
-                <div className="relative">
+                <div ref={chequeDateFilterRef} className="relative">
                   <button
                     onClick={() => setShowChequeDateFilter(!showChequeDateFilter)}
                     className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg cursor-pointer transition-colors text-xs font-medium whitespace-nowrap ${(chequeDateFrom || chequeDateTo) ? 'bg-[#0A3D8F]/10 text-[#0A3D8F]' : 'hover:bg-slate-100 text-slate-600'}`}
@@ -769,19 +932,19 @@ export default function AdminArchivedMailsPage() {
                     )}
                   </button>
                   {showChequeDateFilter && (
-                    <div className="absolute left-0 top-full mt-2 bg-white border border-slate-200 rounded-xl p-4 z-40 w-64">
-                      <p className="text-xs font-semibold text-slate-700 mb-3">Filter by Scan Date</p>
+                    <div className="absolute left-0 top-full mt-2 bg-white border border-slate-200 rounded-xl p-4 z-40 w-64 text-slate-800 shadow-lg">
+                      <p className="text-xs font-semibold text-slate-900 mb-3">Filter by Scan Date</p>
                       <div className="space-y-3">
                         <div>
-                          <label className="text-xs text-slate-500 mb-1 block">From</label>
-                          <input type="date" value={chequeDateFrom} onChange={e => setChequeDateFrom(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#0A3D8F] cursor-pointer" />
+                          <label className="text-xs text-slate-700 mb-1 block">From</label>
+                          <input type="date" value={chequeDateFrom} onChange={e => setChequeDateFrom(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] cursor-pointer" />
                         </div>
                         <div>
-                          <label className="text-xs text-slate-500 mb-1 block">To</label>
-                          <input type="date" value={chequeDateTo} onChange={e => setChequeDateTo(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#0A3D8F] cursor-pointer" />
+                          <label className="text-xs text-slate-700 mb-1 block">To</label>
+                          <input type="date" value={chequeDateTo} onChange={e => setChequeDateTo(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] cursor-pointer" />
                         </div>
                         <div className="flex space-x-2 pt-1">
-                          <button onClick={() => { setChequeDateFrom(''); setChequeDateTo(''); }} className="flex-1 py-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer whitespace-nowrap">Clear</button>
+                          <button onClick={() => { setChequeDateFrom(''); setChequeDateTo(''); }} className="flex-1 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer whitespace-nowrap">Clear</button>
                           <button onClick={() => setShowChequeDateFilter(false)} className="flex-1 py-2 text-xs font-medium text-white bg-[#0A3D8F] hover:bg-[#083170] rounded-lg cursor-pointer whitespace-nowrap">Apply</button>
                         </div>
                       </div>
@@ -934,7 +1097,7 @@ export default function AdminArchivedMailsPage() {
                 <button onClick={() => { handleUnarchiveMail(selectedMail.id); setSelectedMail(null); }} className="flex-1 py-3 bg-slate-700 text-white font-semibold rounded-lg hover:bg-slate-800 transition-colors text-sm whitespace-nowrap cursor-pointer">
                   <i className="ri-inbox-unarchive-line mr-2"></i>Unarchive
                 </button>
-                <button className="flex-1 py-3 bg-white border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-colors text-sm whitespace-nowrap cursor-pointer">
+                <button onClick={() => handleDownloadMail(selectedMail.id)} className="flex-1 py-3 bg-white border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-colors text-sm whitespace-nowrap cursor-pointer">
                   <i className="ri-download-line mr-2"></i>Download
                 </button>
                 <button onClick={() => setSelectedMail(null)} className="px-5 py-3 bg-slate-100 text-slate-600 font-semibold rounded-lg hover:bg-slate-200 transition-colors text-sm whitespace-nowrap cursor-pointer">Close</button>
@@ -1008,7 +1171,16 @@ export default function AdminArchivedMailsPage() {
                 <button onClick={() => { handleUnarchiveCheque(selectedCheque.id); setSelectedCheque(null); }} className="flex-1 py-3 bg-slate-700 text-white font-semibold rounded-lg hover:bg-slate-800 transition-colors text-sm whitespace-nowrap cursor-pointer">
                   <i className="ri-inbox-unarchive-line mr-2"></i>Unarchive
                 </button>
-                <button className="flex-1 py-3 bg-white border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-colors text-sm whitespace-nowrap cursor-pointer">
+                <button
+                  onClick={async () => {
+                    try {
+                      const data = await chequeApi.download(selectedCheque.id);
+                      const url = data.frontUrl || data.backUrl || (data.contentUrls?.[0] ?? selectedCheque.thumbnail);
+                      if (url) window.open(url, '_blank');
+                    } catch { /* no-op */ }
+                  }}
+                  className="flex-1 py-3 bg-white border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-colors text-sm whitespace-nowrap cursor-pointer"
+                >
                   <i className="ri-download-line mr-2"></i>Download
                 </button>
                 <button onClick={() => setSelectedCheque(null)} className="px-5 py-3 bg-slate-100 text-slate-600 font-semibold rounded-lg hover:bg-slate-200 transition-colors text-sm whitespace-nowrap cursor-pointer">Close</button>

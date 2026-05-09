@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 /**
  * Edge middleware — runs before every request.
  * Protects /dashboard, /admin, /operator routes.
- * Public routes: /api/auth/*, /api/stripe/webhook, marketing pages.
+ * Public routes: /api/auth/*, /api/billing/stripe/webhook, marketing pages.
  */
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -17,9 +17,11 @@ export async function middleware(req: NextRequest) {
     "/api/auth/registration-status",
     "/api/auth/registration-checkout",
     "/api/auth/registration-checkout-complete",
-    "/api/stripe/webhook",
+    "/api/billing/stripe/webhook",
     "/api/quickbooks/callback",
     "/api/contact",
+    "/api/auth/forgot-password",
+    "/api/auth/reset-password",
   ];
 
   if (publicPaths.some((p) => pathname.startsWith(p))) {

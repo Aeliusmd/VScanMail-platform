@@ -272,7 +272,7 @@ function LoginForm() {
                   />
                   Remember me
                 </label>
-                <a className={styles.forgotLink}>Forgot password?</a>
+                <Link href="/forgot-password" className={styles.forgotLink}>Forgot password?</Link>
               </div>
 
               <button type="submit" className={styles.submitButton} disabled={loading}>

@@ -1,6 +1,6 @@
 import { auditService } from "../audit/audit.service";
 import { db, sql } from "@/lib/modules/core/db/mysql";
-import { getClientTableName } from "@/lib/modules/core/db/dynamic-table";
+import { ensureClientTableArchiveColumns, getClientTableName } from "@/lib/modules/core/db/dynamic-table";
 import { clients } from "@/lib/modules/core/db/schema";
 import { eq } from "drizzle-orm";
 
@@ -114,7 +114,14 @@ function rowToMailItem(row: any, clientId: string): MailItem {
 }
 
 async function locateRecordById(id: string) {
-  const allClients = await db.select({ id: clients.id, tableName: clients.tableName }).from(clients);
+  const allClientsRaw = await db.select({ id: clients.id, tableName: clients.tableName }).from(clients);
+  if (!allClientsRaw.length) return null;
+
+  const [tablesResult] = await db.execute(sql`SHOW TABLES`);
+  const existingTableNames = new Set(
+    ((tablesResult as unknown) as any[]).map((row) => Object.values(row)[0] as string)
+  );
+  const allClients = allClientsRaw.filter((c) => existingTableNames.has(c.tableName));
   if (!allClients.length) return null;
 
   const queries = allClients.map(c => 
@@ -206,19 +213,26 @@ export const mailItemModel = {
 
   async listByClient(
     clientId: string,
-    opts: { page?: number; limit?: number; type?: string; status?: string; archived?: boolean; hiddenIds?: Set<string> } = {}
+    opts: { page?: number; limit?: number; type?: string; status?: string; search?: string; archived?: boolean; hiddenIds?: Set<string> } = {}
   ) {
-    const { page = 1, limit = 20, type, status, archived, hiddenIds } = opts;
+    const { page = 1, limit = 20, type, status, search, archived, hiddenIds } = opts;
     const from = (page - 1) * limit;
     const tableName = await getClientTableName(clientId);
+    if (archived !== undefined) await ensureClientTableArchiveColumns(tableName);
 
     const conditions = [];
     if (type) conditions.push(sql`record_type = ${type}`);
     if (status) conditions.push(sql`mail_status = ${status}`);
+    if (search?.trim()) {
+      const q = `%${search.trim()}%`;
+      conditions.push(sql`(irn LIKE ${q} OR ocr_text LIKE ${q} OR ai_summary LIKE ${q})`);
+    }
     if (archived !== undefined) {
       const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       conditions.push(
-        archived ? sql`scanned_at < ${cutoff}` : sql`scanned_at >= ${cutoff}`
+        archived
+          ? sql`(is_archived = 1 OR (is_archived IS NULL AND scanned_at < ${cutoff}))`
+          : sql`(is_archived = 0 OR (is_archived IS NULL AND scanned_at >= ${cutoff}))`
       );
     }
     if (hiddenIds && hiddenIds.size > 0) {
@@ -242,25 +256,27 @@ export const mailItemModel = {
     const [countRows] = await db.execute(countQuery) as any;
 
     const [clientRow] = await db
-      .select({ companyName: clients.companyName })
+      .select({ companyName: clients.companyName, avatarUrl: clients.avatarUrl })
       .from(clients)
       .where(eq(clients.id, clientId))
       .limit(1);
     const companyName = clientRow?.companyName;
+    const companyAvatarUrl = clientRow?.avatarUrl ?? null;
 
     return {
       items: rows.map((r: any) => ({
         ...rowToMailItem(r, clientId),
         company_name: companyName,
+        company_avatar_url: companyAvatarUrl,
       })),
       total: Number(countRows[0]?.count || 0),
     };
   },
 
   async listAllGlobal(
-    opts: { page?: number; limit?: number; type?: string; status?: string; archived?: boolean } = {}
+    opts: { page?: number; limit?: number; type?: string; status?: string; search?: string; archived?: boolean } = {}
   ) {
-    const { page = 1, limit = 100, type, status, archived } = opts;
+    const { page = 1, limit = 100, type, status, search, archived } = opts;
     const from = (page - 1) * limit;
 
     const allClientsRaw = await db.select({ id: clients.id, tableName: clients.tableName }).from(clients);
@@ -277,13 +293,19 @@ export const mailItemModel = {
     const conditionParts: string[] = [];
     if (type) conditionParts.push(`record_type = '${type.replace(/'/g, "''")}'`);
     if (status) conditionParts.push(`mail_status = '${status.replace(/'/g, "''")}'`);
+    if (search?.trim()) {
+      const q = search.trim().replace(/'/g, "''");
+      conditionParts.push(`(irn LIKE '%${q}%' OR ocr_text LIKE '%${q}%' OR ai_summary LIKE '%${q}%')`);
+    }
     if (archived !== undefined) {
       const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
         .toISOString()
         .slice(0, 19)
         .replace("T", " ");
       conditionParts.push(
-        archived ? `scanned_at < '${cutoff}'` : `scanned_at >= '${cutoff}'`
+        archived
+          ? `(is_archived = 1 OR (is_archived IS NULL AND scanned_at < '${cutoff}'))`
+          : `(is_archived = 0 OR (is_archived IS NULL AND scanned_at >= '${cutoff}'))`
       );
     }
     const whereStr = conditionParts.length > 0 ? `WHERE ${conditionParts.join(' AND ')}` : '';
@@ -291,6 +313,9 @@ export const mailItemModel = {
     // Deduplicate allClients based on tableName to avoid double-counting 
     // if multiple client entries point to the same table.
     const uniqueTables = Array.from(new Map(allClients.map(c => [c.tableName, c])).values());
+    if (archived !== undefined) {
+      await Promise.all(uniqueTables.map((c) => ensureClientTableArchiveColumns(c.tableName)));
+    }
 
     // Column list as a raw string — Drizzle sql template cannot embed sql fragments as column selectors
     const columnList = `
@@ -311,7 +336,7 @@ export const mailItemModel = {
 
     try {
       const [rows] = await db.execute(sql.raw(`
-        SELECT q.*, cl.company_name as _client_name 
+        SELECT q.*, cl.company_name as _client_name, cl.avatar_url as _client_avatar_url 
         FROM (${unionSql}) q
         INNER JOIN \`clients\` cl ON q._client_id = cl.id
         ORDER BY q.scanned_at DESC
@@ -323,7 +348,8 @@ export const mailItemModel = {
       return {
         items: rows.map((r: any) => ({
           ...rowToMailItem(r, r._client_id),
-          company_name: r._client_name
+          company_name: r._client_name,
+          company_avatar_url: r._client_avatar_url ?? null,
         })),
         total: Number(countRows[0]?.count || 0),
       };
@@ -417,6 +443,48 @@ export const mailItemModel = {
         entity: id,
         clientId,
         before,
+        req,
+      });
+    }
+  },
+
+  async archive(id: string, actorId?: string, req?: Request) {
+    const row = await locateRecordById(id);
+    if (!row) throw new Error("Mail item not found");
+    const clientId = row._client_id;
+    const tableName = await getClientTableName(clientId);
+    await ensureClientTableArchiveColumns(tableName);
+    await db.execute(
+      sql`UPDATE ${sql.raw(`\`${tableName}\``)} SET is_archived = 1, archived_at = ${new Date()} WHERE id = ${id}`
+    );
+    if (actorId) {
+      await auditService.log({
+        actor: actorId,
+        actor_role: "admin",
+        action: "record.archived",
+        entity: id,
+        clientId,
+        req,
+      });
+    }
+  },
+
+  async unarchive(id: string, actorId?: string, req?: Request) {
+    const row = await locateRecordById(id);
+    if (!row) throw new Error("Mail item not found");
+    const clientId = row._client_id;
+    const tableName = await getClientTableName(clientId);
+    await ensureClientTableArchiveColumns(tableName);
+    await db.execute(
+      sql`UPDATE ${sql.raw(`\`${tableName}\``)} SET is_archived = 0, archived_at = NULL WHERE id = ${id}`
+    );
+    if (actorId) {
+      await auditService.log({
+        actor: actorId,
+        actor_role: "admin",
+        action: "record.unarchived",
+        entity: id,
+        clientId,
         req,
       });
     }

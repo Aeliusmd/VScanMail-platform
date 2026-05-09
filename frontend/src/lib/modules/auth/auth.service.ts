@@ -3,6 +3,7 @@ import { generateClientCode, generateClientTableName } from "@/lib/modules/clien
 import { stripeService } from "../billing/stripe.service";
 import { notificationService } from "../notifications/notification.service";
 import { auditService } from "../audit/audit.service";
+import { sendEmail } from "../notifications/email.client";
 import type { RegisterInput } from "./auth.schema";
 import { authenticator } from "otplib";
 import QRCode from "qrcode";
@@ -234,5 +235,118 @@ export const authService = {
       token: totpCode,
       secret: client.two_fa_secret,
     });
+  },
+
+  async forgotPassword(email: string, req?: Request) {
+    // Always return success — never reveal whether the email exists.
+    const userRows = await db
+      .select({ id: users.id, isActive: users.isActive })
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+
+    if (!userRows[0] || !userRows[0].isActive) return { ok: true };
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Wipe any existing OTP for this email (registration or previous reset)
+    await db.delete(emailVerifications).where(eq(emailVerifications.email, email));
+
+    await db.insert(emailVerifications).values({
+      id: crypto.randomUUID(),
+      email,
+      otp,
+      expiresAt,
+      createdAt: new Date(),
+    });
+
+    const html = `
+      <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:520px;margin:0 auto;background:#f8fafc;border-radius:12px;overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#1d4ed8,#1e40af);padding:28px 32px;">
+          <h2 style="color:#fff;margin:0;font-size:20px;font-weight:700;">Reset your password</h2>
+          <p style="color:#bfdbfe;margin:6px 0 0;font-size:13px;">VScanMail account security</p>
+        </div>
+        <div style="padding:28px 32px;background:#fff;">
+          <p style="color:#374151;font-size:14px;line-height:1.6;margin:0 0 20px;">
+            We received a request to reset the password for your VScanMail account.<br>
+            Use the code below — it expires in <strong>10 minutes</strong>.
+          </p>
+          <div style="background:#eff6ff;border:2px dashed #93c5fd;border-radius:10px;padding:20px 24px;text-align:center;margin:0 0 24px;">
+            <p style="color:#6b7280;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 8px;">Your verification code</p>
+            <p style="color:#1d4ed8;font-size:38px;font-weight:800;letter-spacing:0.22em;margin:0;font-variant-numeric:tabular-nums;">${otp}</p>
+          </div>
+          <p style="color:#6b7280;font-size:13px;line-height:1.6;margin:0 0 16px;">
+            If you didn't request a password reset, you can safely ignore this email — your password will not change.
+          </p>
+          <div style="padding:14px 16px;background:#fef3c7;border-radius:8px;border-left:3px solid #f59e0b;">
+            <p style="color:#92400e;font-size:12px;margin:0;">
+              <strong>Security tip:</strong> VScanMail will never ask for your code over the phone or chat.
+            </p>
+          </div>
+        </div>
+        <div style="padding:16px 32px;background:#f8fafc;border-top:1px solid #e2e8f0;">
+          <p style="color:#94a3b8;font-size:11px;margin:0;">VScanMail · vscanmail.com · This email was sent to ${email}</p>
+        </div>
+      </div>
+    `;
+
+    await sendEmail({
+      to: email,
+      subject: "VScanMail — Your password reset code",
+      html,
+    });
+
+    return { ok: true };
+  },
+
+  async resetPassword(email: string, otp: string, newPassword: string, req?: Request) {
+    if (!newPassword || newPassword.length < 8) {
+      throw new Error("Password must be at least 8 characters.");
+    }
+
+    const userRows = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+
+    if (!userRows[0]) throw new Error("Invalid or expired code.");
+
+    const userId = userRows[0].id;
+
+    const verRows = await db
+      .select()
+      .from(emailVerifications)
+      .where(
+        and(
+          eq(emailVerifications.email, email),
+          eq(emailVerifications.otp, otp),
+          gt(emailVerifications.expiresAt, new Date())
+        )
+      )
+      .limit(1);
+
+    if (!verRows[0]) throw new Error("Invalid or expired code.");
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+
+    await db
+      .update(users)
+      .set({ passwordHash, emailVerifiedAt: new Date(), updatedAt: new Date() })
+      .where(eq(users.id, userId));
+
+    await db.delete(emailVerifications).where(eq(emailVerifications.email, email));
+
+    await auditService.log({
+      actor: userId,
+      actor_role: "client",
+      action: "auth.password_reset",
+      entity: userId,
+      clientId: userId,
+      req,
+    });
+
+    return { ok: true };
   },
 };

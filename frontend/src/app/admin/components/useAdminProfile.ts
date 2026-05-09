@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { resolveAvatarUrl } from '@/lib/resolve-avatar-url';
 
 export function useAdminProfile() {
   const [userData, setUserData] = useState<{ firstName: string, lastName: string, avatarUrl: string, email: string, role: string } | null>(null);
@@ -12,7 +13,7 @@ export function useAdminProfile() {
           setUserData({
             firstName: res.data.firstName || '',
             lastName: res.data.lastName || '',
-            avatarUrl: res.data.avatarUrl || '',
+            avatarUrl: resolveAvatarUrl(res.data.avatarUrl) || '',
             email: res.data.email || '',
             role: res.data.role || '',
           });

@@ -8,6 +8,7 @@ const PUBLIC_ROUTES = [
   "/register/step-2",
   "/register/step-3",
   "/verify-email",
+  "/forgot-password",
 ];
 
 function decodeJwtPayload(token: string): any | null {

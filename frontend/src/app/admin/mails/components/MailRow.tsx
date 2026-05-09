@@ -2,14 +2,28 @@
 
 import { useState } from 'react';
 import { Icon } from '@iconify/react';
-import styles from './MailRow.module.css';
+import { resolveAvatarUrl } from '@/lib/resolve-avatar-url';
 
-type MailArchiveMeta = {
+type MailRowData = {
+  id: string;
+  sender: string;
+  senderInitial?: string;
+  senderColor?: string;
+  company?: string;
+  companyAvatarUrl?: string | null;
+  subject: string;
+  preview: string;
+  tag: string;
+  time: string;
+  rowDetail?: string;
+  hasAttachment?: boolean;
+  starred?: boolean;
+  flagged?: boolean;
   archiveBox?: string;
 };
 
 interface MailRowProps {
-  mail: any;
+  mail: MailRowData;
   selected: boolean;
   onSelect: (id: string) => void;
   onClick?: () => void;
@@ -27,84 +41,102 @@ const tagStyles: Record<string, string> = {
   Received: 'bg-gray-100 text-gray-700',
 };
 
-export default function MailRow({ mail, selected, onSelect, onClick, showArchiveMeta = false, showUnarchive = false, onUnarchive }: MailRowProps) {
+export default function MailRow({
+  mail,
+  selected,
+  onSelect,
+  onClick,
+  showArchiveMeta = false,
+  showUnarchive = false,
+  onUnarchive,
+}: MailRowProps) {
   const [starred, setStarred] = useState(mail.starred || false);
   const [flagged, setFlagged] = useState(mail.flagged || false);
-
+  const avatarSrc = resolveAvatarUrl(mail.companyAvatarUrl);
   const senderInitial = mail.senderInitial || (mail.sender ? mail.sender.charAt(0).toUpperCase() : '?');
-  const senderColor = mail.senderColor || 'bg-blue-500';
+  const senderColor = mail.senderColor || 'bg-blue-600';
 
   return (
     <div
-      className={`${styles.row} ${selected ? styles.rowSelected : ''}`}
       onClick={onClick}
+      className={`flex flex-wrap sm:flex-nowrap items-center px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition cursor-pointer group min-w-0 overflow-hidden ${
+        selected ? 'bg-[#EFF6FF]' : ''
+      }`}
     >
-      {/* Checkbox */}
-      <div className={styles.checkboxContainer}>
+      <div className="flex items-center gap-1.5 w-[78px] flex-shrink-0">
         <input
           type="checkbox"
           checked={selected}
           onChange={() => onSelect(mail.id)}
-          className={styles.checkbox}
+          className="w-4 h-4 rounded border-gray-300 cursor-pointer"
           onClick={(e) => e.stopPropagation()}
         />
         <button
-          onClick={(e) => { e.stopPropagation(); setStarred(!starred); }}
-          className={starred ? styles.starBtnActive : styles.starBtn}
+          onClick={(e) => {
+            e.stopPropagation();
+            setStarred(!starred);
+          }}
+          className={`w-4 h-4 flex items-center justify-center cursor-pointer transition ${starred ? 'text-[#FBBF24]' : 'text-gray-300 hover:text-[#FBBF24]'}`}
         >
           <Icon icon={starred ? 'ri:star-fill' : 'ri:star-line'} className="text-sm" />
         </button>
         <button
-          onClick={(e) => { e.stopPropagation(); setFlagged(!flagged); }}
-          className={flagged ? styles.flagBtnActive : styles.flagBtn}
+          onClick={(e) => {
+            e.stopPropagation();
+            setFlagged(!flagged);
+          }}
+          className={`w-4 h-4 flex items-center justify-center cursor-pointer transition ${flagged ? 'text-[#94A3B8]' : 'text-gray-300 hover:text-[#CBD5E1]'}`}
         >
-          <Icon icon={flagged ? 'ri-bookmark-fill' : 'ri-bookmark-line'} className="text-sm" />
+          <Icon icon={flagged ? 'ri:bookmark-fill' : 'ri:bookmark-line'} className="text-sm" />
         </button>
       </div>
 
-      {/* Avatar */}
-      <div className={styles.avatarContainer}>
-        <div className={`${styles.avatar} ${senderColor}`}>
-          {senderInitial}
-        </div>
-      </div>
-
-      {/* Sender */}
-      <div className={styles.senderContainer}>
-        <span className={styles.senderText}>{mail.sender}</span>
-      </div>
-
-      {/* Tag */}
-      <div className={styles.tagContainer}>
-        <span className={`${styles.tag} ${tagStyles[mail.tag] || tagStyles.Received}`}>
-          {mail.tag}
-        </span>
-      </div>
-
-      {/* Subject + Preview */}
-      <div className={styles.contentContainer}>
-        <span className={styles.subjectText}>{mail.subject}</span>
-        <span className={styles.previewText}>– {mail.preview}</span>
-        {showArchiveMeta && (mail as MailArchiveMeta).archiveBox && (
-          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 whitespace-nowrap">
-            Box {(mail as MailArchiveMeta).archiveBox}
-          </span>
-        )}
-        {mail.hasAttachment && (
-          <div className={styles.attachmentIcon}>
-            <Icon icon="ri:attachment-2" className="text-sm" />
+      <div className="w-[36px] flex-shrink-0 mr-3">
+        {avatarSrc ? (
+          <img
+            src={avatarSrc}
+            alt={mail.sender}
+            className="w-9 h-9 rounded-full object-cover"
+          />
+        ) : (
+          <div className={`w-9 h-9 rounded-full ${senderColor} flex items-center justify-center text-white font-semibold text-sm`}>
+            {senderInitial}
           </div>
         )}
       </div>
 
-      {/* Company */}
-      <div className={styles.companyContainer}>
-        <span className={styles.companyText}>{mail.company}</span>
+      <div className="w-full sm:w-[180px] min-w-0 sm:flex-shrink-0 mr-0 sm:mr-4 mt-2 sm:mt-0">
+        <span className="text-sm font-semibold text-gray-700 truncate block">{mail.sender}</span>
       </div>
 
-      {/* Time */}
-      <div className={styles.timeContainer}>
-        <span className={styles.timeText}>{mail.time}</span>
+      <div className="w-auto sm:w-[110px] flex-shrink-0 mr-2 mt-2 sm:mt-0">
+        <span className={`text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${tagStyles[mail.tag] || tagStyles.Received}`}>
+          {mail.tag}
+        </span>
+      </div>
+
+      <div className="w-full sm:w-[170px] min-w-0 sm:flex-shrink-0 mr-0 sm:mr-2 mt-2 sm:mt-0">
+        <span className="text-sm font-medium text-slate-700 truncate block">{mail.subject}</span>
+        {showArchiveMeta && mail.archiveBox && (
+          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 mt-1 inline-flex">
+            Box {mail.archiveBox}
+          </span>
+        )}
+      </div>
+
+      <div className="w-full sm:flex-1 min-w-0 mr-0 sm:mr-3 mt-2 sm:mt-0 flex items-center gap-2">
+        <span className="text-sm text-slate-400 truncate block">- {mail.preview}</span>
+        {mail.hasAttachment && (
+          <Icon icon="ri:attachment-2" className="text-sm text-slate-300 flex-shrink-0" />
+        )}
+      </div>
+
+      <div className="w-auto sm:w-[130px] min-w-0 flex-shrink-0 mr-2 sm:mr-3 mt-2 sm:mt-0">
+        <span className="text-xs text-slate-500 truncate block">{mail.rowDetail || mail.company || mail.sender}</span>
+      </div>
+
+      <div className="w-auto sm:w-[70px] flex-shrink-0 text-right mt-2 sm:mt-0">
+        <span className="text-xs text-slate-500 whitespace-nowrap">{mail.time}</span>
       </div>
 
       {showUnarchive && (

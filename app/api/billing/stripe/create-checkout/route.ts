@@ -4,7 +4,7 @@ import { stripeService } from "@/lib/modules/billing/stripe.service";
 import { z } from "zod";
 
 const checkoutSchema = z.object({
-  priceId: z.string().min(1),
+  planId: z.enum(["starter", "professional", "enterprise"]),
 });
 
 export async function POST(req: NextRequest) {
@@ -13,7 +13,8 @@ export async function POST(req: NextRequest) {
     withRole(user, ["client"]);
 
     const body = await req.json();
-    const { priceId } = checkoutSchema.parse(body);
+    const { planId } = checkoutSchema.parse(body);
+    const { priceId } = stripeService.resolvePriceIdForPlan(planId);
 
     const result = await stripeService.createCheckoutSession(
       user.clientId!,

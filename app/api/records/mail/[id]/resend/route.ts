@@ -8,10 +8,13 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await withAuth(req);
+    const user = await withAuth(req);
 
     const { id } = await params;
     const item = await mailItemModel.findById(id);
+    if (user.role === "client" && item.client_id !== user.clientId) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
 
     // Resend based on type and tamper state.
     if (item.tamper_detected) {

@@ -8,7 +8,11 @@ async function main() {
     console.log("Seeding an Admin account...");
     const adminId = crypto.randomUUID();
     const superProfileId = crypto.randomUUID();
-    const hash = await bcrypt.hash("password123", 10);
+    const password = process.env.SEED_ADMIN_PASSWORD;
+    if (!password) {
+      throw new Error("SEED_ADMIN_PASSWORD is required");
+    }
+    const hash = await bcrypt.hash(password, 12);
 
     await db.insert(users).values({
       id: adminId,
@@ -28,7 +32,7 @@ async function main() {
       updatedAt: new Date()
     });
 
-    console.log(`✅ Admin created! Email: admin@vscanmail.com | Password: password123`);
+    console.log(`✅ Admin created! Email: admin@vscanmail.com`);
     process.exit(0);
   } catch (err) {
     console.error("❌ Seeding failed:", err);

@@ -16,7 +16,14 @@ import { depositsApi } from '@/lib/api/deposits';
 import { useAdminProfile } from '../components/useAdminProfile';
 import NotificationBell from '../components/NotificationBell';
 
-type CompanyMetrics = { deliveries: number; deposits: number; depositAmount: number };
+type CompanyMetrics = {
+  mails?: number;
+  cheques?: number;
+  chequeValue?: number;
+  deliveries: number;
+  deposits: number;
+  depositAmount: number;
+};
 
 type TabType = 'All' | 'Active' | 'Pending' | 'Inactive';
 
@@ -138,8 +145,11 @@ function CompaniesPageContent() {
       industryBadge: industryColors[c.industry] || 'bg-slate-100 text-slate-700',
       contact: c.contact_person || c.email.split('@')[0], // Fallback if no contact person
       email: c.email,
+      mails: metrics?.mails ?? 0,
+      cheques: metrics?.cheques ?? 0,
       deliveries: metrics?.deliveries ?? 0,
       deposits: metrics?.deposits ?? 0,
+      chequeValue: metrics?.chequeValue ?? 0,
       status: (c.status.charAt(0).toUpperCase() + c.status.slice(1)) as any,
       time: new Date(c.created_at).toLocaleDateString(),
       joined: new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),

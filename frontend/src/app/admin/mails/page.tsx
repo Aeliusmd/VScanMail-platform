@@ -12,10 +12,16 @@ import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import { useAdminProfile } from '../components/useAdminProfile';
 import OrganizationPicker from '../components/OrganizationPicker';
 import NotificationBell from '../components/NotificationBell';
+import { formatRelativeTime } from '@/lib/format-relative-time';
 
 type TabType = 'All' | 'Processed' | 'Delivered' | 'Pending Delivery';
 const TABS: TabType[] = ['All', 'Processed', 'Delivered', 'Pending Delivery'];
 const PER_PAGE = 10;
+type AdminMailItem = ApiMailItem & {
+  company_name?: string;
+  company_avatar_url?: string | null;
+  beneficiary?: string | null;
+};
 
 export default function AllMailsPage() { 
   return (
@@ -65,16 +71,22 @@ function AllMailsPageContent() {
       });
 
       // Map API items to the UI Mail interface
-      const mappedItems = data.items.map(item => {
-        const companyName = (item as any).company_name ?? 'Unknown Company';
+      const mappedItems = data.items.map((item: AdminMailItem) => {
+        const companyName = item.company_name ?? 'Unknown Company';
+        const rowDetail =
+          item.cheque_beneficiary ||
+          item.beneficiary ||
+          item.type.charAt(0).toUpperCase() + item.type.slice(1);
         return {
         id: item.id,
         sender: companyName,
         subject: `${item.type.charAt(0).toUpperCase() + item.type.slice(1)} - ${item.irn}`,
         preview: item.ai_summary || 'No preview available.',
-        time: new Date(item.scanned_at || item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        time: formatRelativeTime(item.scanned_at || item.created_at),
         date: new Date(item.scanned_at || item.created_at).toLocaleDateString(),
         company: companyName,
+        companyAvatarUrl: item.company_avatar_url,
+        rowDetail,
         tag: item.status.charAt(0).toUpperCase() + item.status.slice(1),
         archived: false,
         senderInitial: String(companyName).charAt(0).toUpperCase(),
@@ -100,6 +112,19 @@ function AllMailsPageContent() {
     fetchMails();
   }, [fetchMails]);
 
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setMailItems((prev) =>
+        prev.map((mail) => ({
+          ...mail,
+          time: formatRelativeTime(mail.raw?.scanned_at || mail.raw?.created_at),
+        }))
+      );
+    }, 30000);
+
+    return () => window.clearInterval(interval);
+  }, []);
+
   // Keep the tab UI in sync when selecting filters via sidebar labels.
   useEffect(() => {
     if (!tabFromUrl) return;
@@ -112,16 +137,88 @@ function AllMailsPageContent() {
 
   if (!clientId) {
     return (
-      <div className="p-6">
-        <OrganizationPicker
-          title="Mails"
-          subtitle="Select an organization to view its mails."
-          onPick={(c) => {
-            const qs = new URLSearchParams(searchParams.toString());
-            qs.set('clientId', c.id);
-            router.replace(`${pathname}?${qs.toString()}`);
-          }}
-        />
+      <div className={styles.pageContainer}>
+        <div className={styles.topBar}>
+          <div className={styles.searchContainer}>
+            <div className={styles.searchIcon}>
+              <Icon icon="ri:search-line" className="text-sm" />
+            </div>
+            <input
+              type="text"
+              placeholder="Search organizations..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className={styles.searchInput}
+            />
+          </div>
+          <div className={styles.topActions}>
+            <Link href={scanPath}>
+              <button className={styles.newScanBtn}>
+                <div className={styles.newScanIcon}>
+                  <Icon icon="ri:scan-2-line" className="text-sm" />
+                </div>
+                New Scan
+              </button>
+            </Link>
+
+            {!isSuperadminRoute && (
+              <>
+                <NotificationBell />
+                <div className="relative">
+                  <button
+                    onClick={() => setShowUserMenu(!showUserMenu)}
+                    className="flex items-center gap-2 hover:bg-gray-50 rounded-lg px-2 py-1.5 transition cursor-pointer"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-[#1E40AF] flex items-center justify-center text-white font-bold text-sm flex-shrink-0 overflow-hidden">
+                      {userData?.avatarUrl ? <img src={userData.avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : initials}
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-semibold text-gray-900 leading-4">{displayName}</p>
+                      <p className="text-xs text-gray-500 uppercase">{displayRole}</p>
+                    </div>
+                    <div className="w-4 h-4 flex items-center justify-center text-gray-400">
+                      <Icon icon="ri:arrow-down-s-line" className="text-base" />
+                    </div>
+                  </button>
+
+                  {showUserMenu && (
+                    <div className="absolute right-0 top-12 w-[180px] bg-white rounded-2xl shadow-lg border border-gray-100 z-50 py-1 overflow-hidden">
+                      <Link href="/admin/settings/profile" className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
+                        <div className="w-4 h-4 flex items-center justify-center"><Icon icon="ri:user-line" className="text-sm" /></div>
+                        My Profile
+                      </Link>
+                      <Link href="/admin/settings" onClick={() => setShowUserMenu(false)} className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
+                        <div className="w-4 h-4 flex items-center justify-center"><Icon icon="ri:settings-3-line" className="text-sm" /></div>
+                        Settings
+                      </Link>
+                      <div className="border-t border-gray-100 my-1"></div>
+                      <a href="/login" className="flex items-center gap-2 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 cursor-pointer">
+                        <div className="w-4 h-4 flex items-center justify-center"><Icon icon="ri:logout-box-r-line" className="text-sm" /></div>
+                        Sign Out
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="p-6">
+          <OrganizationPicker
+            title="Mails"
+            subtitle="Select an organization to view its mails."
+            kind="mails"
+            searchValue={search}
+            onSearchChange={setSearch}
+            showSearch={false}
+            onPick={(c) => {
+              const qs = new URLSearchParams(searchParams.toString());
+              qs.set('clientId', c.id);
+              router.replace(`${pathname}?${qs.toString()}`);
+            }}
+          />
+        </div>
       </div>
     );
   }
@@ -154,13 +251,22 @@ function AllMailsPageContent() {
   const handleBulkDelete = async () => {
     if (!confirm(`Delete ${selectedIds.length} mail record(s)? This cannot be undone.`)) return;
     try {
-      await Promise.all(
-        selectedIds.map((id) => fetch(`/api/records/mail/${id}`, { method: 'DELETE' }))
-      );
+      await mailApi.bulk('delete', selectedIds);
       setSelectedIds([]);
       fetchMails();
     } catch (err) {
       console.error('Bulk delete failed:', err);
+    }
+  };
+
+  const handleBulkArchive = async () => {
+    if (!confirm(`Archive ${selectedIds.length} mail record(s)?`)) return;
+    try {
+      await mailApi.bulk('archive', selectedIds);
+      setSelectedIds([]);
+      fetchMails();
+    } catch (err) {
+      console.error('Bulk archive failed:', err);
     }
   };
 
@@ -253,6 +359,13 @@ function AllMailsPageContent() {
       {selectedIds.length > 0 && (
         <div className="px-4 py-2 border-b border-gray-100 bg-gray-50 flex items-center gap-2">
           <span className="text-xs text-slate-500">{selectedIds.length} selected</span>
+          <button
+            onClick={handleBulkArchive}
+            className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium transition-colors"
+          >
+            <Icon icon="ri:archive-line" className="text-sm" />
+            Archive
+          </button>
           <button
             onClick={handleBulkDelete}
             className="flex items-center gap-1.5 px-3 py-1 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg text-xs font-medium transition-colors"

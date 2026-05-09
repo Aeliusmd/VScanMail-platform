@@ -8,9 +8,12 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await withAuth(req);
+    const user = await withAuth(req);
     const { id } = await params;
     const cheque = await chequeModel.findById(id);
+    if (user.role === "client" && cheque.mail_items?.client_id !== user.clientId) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
     return NextResponse.json(cheque);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 404 });
@@ -24,11 +27,15 @@ export async function DELETE(
   try {
     const user = await withAuth(req);
     const { id } = await params;
+    const cheque = await chequeModel.findById(id);
 
     if (user.role === "client") {
       // Soft delete: hide from this customer's view only.
       if (!user.clientId) {
         return NextResponse.json({ error: "Missing client context" }, { status: 400 });
+      }
+      if (cheque.mail_items?.client_id !== user.clientId) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
       }
       await customerHiddenModel.hide(user.clientId, [id]);
       return NextResponse.json({ success: true });

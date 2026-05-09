@@ -13,8 +13,11 @@ export async function POST(
 
     const { id } = await params;
     const cheque = await chequeModel.findById(id);
+    if (user.role === "client" && cheque.mail_items?.client_id !== user.clientId) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
 
-    const mailItems = (cheque as any).mail_items;
+    const mailItems = cheque.mail_items;
     const clientId = mailItems?.client_id || user.clientId;
     if (!clientId) {
       return NextResponse.json({ error: "Unable to resolve client" }, { status: 400 });

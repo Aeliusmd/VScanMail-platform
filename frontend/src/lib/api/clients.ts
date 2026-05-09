@@ -68,6 +68,7 @@ export interface ClientDirectoryItem {
   two_fa_enabled: boolean;
   added_by: string | null;
   notes: string | null;
+  avatar_url: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -1,6 +1,6 @@
 import { auditService } from "../audit/audit.service";
 import { db, sql } from "@/lib/modules/core/db/mysql";
-import { getClientTableName } from "@/lib/modules/core/db/dynamic-table";
+import { ensureClientTableArchiveColumns, getClientTableName } from "@/lib/modules/core/db/dynamic-table";
 import { clients } from "@/lib/modules/core/db/schema";
 import { inArray, eq } from "drizzle-orm"; // Kept for other files potentially needed, but we use sql.raw here
 
@@ -25,8 +25,23 @@ export type Cheque = {
   deposit_batch_id: string | null;
   status: "validated" | "flagged" | "approved" | "deposited" | "cleared";
   created_at: string;
-  mail_items?: { client_id: string } | null;
+  mail_items?: {
+    client_id: string;
+    envelope_front_url?: string | null;
+    envelope_back_url?: string | null;
+    content_scan_urls?: string[];
+  } | null;
 };
+
+function parseJsonSafe(value: any, fallback: any = null): any {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
 
 function rowToCheque(row: any, clientId: string): Cheque {
   return {
@@ -43,19 +58,31 @@ function rowToCheque(row: any, clientId: string): Cheque {
     alteration_detected: Boolean(row.cheque_alteration_detected),
     crossing_present: Boolean(row.cheque_crossing_present),
     ai_confidence: Number(row.cheque_ai_confidence || 0),
-    ai_raw_result: typeof row.cheque_ai_raw_result === 'string' ? JSON.parse(row.cheque_ai_raw_result) : row.cheque_ai_raw_result || {},
+    ai_raw_result: parseJsonSafe(row.cheque_ai_raw_result, {}),
     client_decision: row.cheque_decision || "pending",
     decided_by: row.cheque_decided_by || null,
     decided_at: row.cheque_decided_at ? new Date(row.cheque_decided_at).toISOString() : null,
     deposit_batch_id: null,
     status: row.cheque_status || "validated",
     created_at: new Date(row.created_at).toISOString(),
-    mail_items: { client_id: clientId },
+    mail_items: {
+      client_id: clientId,
+      envelope_front_url: row.envelope_front_url ?? null,
+      envelope_back_url: row.envelope_back_url ?? null,
+      content_scan_urls: parseJsonSafe(row.content_scan_urls, []),
+    },
   };
 }
 
 async function locateChequeById(id: string) {
-  const allClients = await db.select({ id: clients.id, tableName: clients.tableName }).from(clients);
+  const allClientsRaw = await db.select({ id: clients.id, tableName: clients.tableName }).from(clients);
+  if (!allClientsRaw.length) return null;
+
+  const [tablesResult] = await db.execute(sql`SHOW TABLES`);
+  const existingTableNames = new Set(
+    ((tablesResult as unknown) as any[]).map((row) => Object.values(row)[0] as string)
+  );
+  const allClients = allClientsRaw.filter((c) => existingTableNames.has(c.tableName));
   if (!allClients.length) return null;
 
   const queries = allClients.map(c => 
@@ -82,6 +109,9 @@ export const chequeModel = {
     
     const allClients = allClientsRaw.filter(c => existingTableNames.has(c.tableName));
     if (!allClients.length) return { cheques: [], total: 0 };
+    if (archived !== undefined) {
+      await Promise.all(allClients.map((c) => ensureClientTableArchiveColumns(c.tableName)));
+    }
 
     const conditionParts: string[] = ["record_type = 'cheque'"];
     if (status) conditionParts.push(`cheque_status = '${status.replace(/'/g, "''")}'`);
@@ -91,7 +121,9 @@ export const chequeModel = {
         .slice(0, 19)
         .replace("T", " ");
       conditionParts.push(
-        archived ? `created_at < '${cutoff}'` : `created_at >= '${cutoff}'`
+        archived
+          ? `(is_archived = 1 OR (is_archived IS NULL AND created_at < '${cutoff}'))`
+          : `(is_archived = 0 OR (is_archived IS NULL AND created_at >= '${cutoff}'))`
       );
     }
     const whereStr = `WHERE ${conditionParts.join(' AND ')}`;
@@ -106,7 +138,7 @@ export const chequeModel = {
 
     try {
       const [rows] = await db.execute(sql.raw(`
-        SELECT q.*, cl.company_name as _client_name 
+        SELECT q.*, cl.company_name as _client_name, cl.avatar_url as _client_avatar_url 
         FROM (${unionSql}) q
         INNER JOIN \`clients\` cl ON q._client_id = cl.id
         ORDER BY q.created_at DESC
@@ -118,7 +150,8 @@ export const chequeModel = {
       return {
         cheques: rows.map((r: any) => ({
           ...rowToCheque(r, r._client_id),
-          company_name: r._client_name
+          company_name: r._client_name,
+          company_avatar_url: r._client_avatar_url ?? null,
         })),
         total: Number(countRows[0]?.count || 0),
       };
@@ -193,13 +226,14 @@ export const chequeModel = {
   ) {
     const from = (page - 1) * limit;
     const tableName = await getClientTableName(clientId);
+    if (archived !== undefined) await ensureClientTableArchiveColumns(tableName);
     const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const archiveClause =
       archived === undefined
         ? sql``
         : archived
-          ? sql` AND created_at < ${cutoff}`
-          : sql` AND created_at >= ${cutoff}`;
+          ? sql` AND (is_archived = 1 OR (is_archived IS NULL AND created_at < ${cutoff}))`
+          : sql` AND (is_archived = 0 OR (is_archived IS NULL AND created_at >= ${cutoff}))`;
     const statusClause = status ? sql` AND cheque_status = ${status}` : sql``;
     const hiddenClause =
       hiddenIds && hiddenIds.size > 0
@@ -222,16 +256,18 @@ export const chequeModel = {
     const [countRows] = await db.execute(countQuery) as any;
 
     const [clientRow] = await db
-      .select({ companyName: clients.companyName })
+      .select({ companyName: clients.companyName, avatarUrl: clients.avatarUrl })
       .from(clients)
       .where(eq(clients.id, clientId))
       .limit(1);
     const companyName = clientRow?.companyName;
+    const companyAvatarUrl = clientRow?.avatarUrl ?? null;
 
     return {
       cheques: rows.map((r: any) => ({
         ...rowToCheque(r, clientId),
         company_name: companyName,
+        company_avatar_url: companyAvatarUrl,
       })),
       total: Number(countRows[0]?.count || 0),
     };
@@ -274,6 +310,48 @@ export const chequeModel = {
     }
 
     return after;
+  },
+
+  async archive(id: string, actorId?: string, req?: Request) {
+    const row = await locateChequeById(id);
+    if (!row) throw new Error("Cheque not found");
+    const clientId = row._client_id;
+    const tableName = await getClientTableName(clientId);
+    await ensureClientTableArchiveColumns(tableName);
+    await db.execute(
+      sql`UPDATE ${sql.raw(`\`${tableName}\``)} SET is_archived = 1, archived_at = ${new Date()} WHERE id = ${id} AND record_type = 'cheque'`
+    );
+    if (actorId) {
+      await auditService.log({
+        actor: actorId,
+        actor_role: "admin",
+        action: "cheque.archived",
+        entity: id,
+        clientId,
+        req,
+      });
+    }
+  },
+
+  async unarchive(id: string, actorId?: string, req?: Request) {
+    const row = await locateChequeById(id);
+    if (!row) throw new Error("Cheque not found");
+    const clientId = row._client_id;
+    const tableName = await getClientTableName(clientId);
+    await ensureClientTableArchiveColumns(tableName);
+    await db.execute(
+      sql`UPDATE ${sql.raw(`\`${tableName}\``)} SET is_archived = 0, archived_at = NULL WHERE id = ${id} AND record_type = 'cheque'`
+    );
+    if (actorId) {
+      await auditService.log({
+        actor: actorId,
+        actor_role: "admin",
+        action: "cheque.unarchived",
+        entity: id,
+        clientId,
+        req,
+      });
+    }
   },
 
   async delete(id: string, actorId?: string, req?: Request) {

@@ -9,8 +9,11 @@ export interface Company {
   industryBadge: string;
   contact: string;
   email: string;
+  mails: number;
+  cheques: number;
   deliveries: number;
   deposits: number;
+  chequeValue: number;
   status: 'Active' | 'Pending' | 'Inactive';
   time: string;
   joined: string;

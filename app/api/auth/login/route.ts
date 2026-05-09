@@ -36,15 +36,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Verify 2FA if enabled
-    if (totpCode) {
-      const valid = await authService.verify2FA(user.id, totpCode);
-      if (!valid) {
-        return NextResponse.json({ error: "Invalid 2FA code" }, { status: 401 });
-      }
-    }
-
-    // 3. Obtain Role from Profiles
+    // 2. Obtain Role from Profiles
     const profileRows = await db
       .select({ role: profiles.role, clientId: profiles.clientId })
       .from(profiles)
@@ -61,6 +53,17 @@ export async function POST(req: NextRequest) {
         .where(eq(clients.id, user.id))
         .limit(1);
       clientId = clientRows[0]?.id;
+    }
+
+    // 3. Verify client 2FA if enabled. Omitting totpCode must not bypass MFA.
+    if (clientId) {
+      const valid2fa = await authService.verify2FA(clientId, totpCode || "");
+      if (!valid2fa) {
+        return NextResponse.json(
+          { error: totpCode ? "Invalid 2FA code" : "2FA code required" },
+          { status: 401 }
+        );
+      }
     }
 
     if (clientId) {
@@ -152,4 +155,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-

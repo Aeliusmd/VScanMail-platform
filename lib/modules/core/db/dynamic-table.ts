@@ -28,6 +28,8 @@ export async function createClientTable(tableName: string) {
       \`scanned_by\`                  VARCHAR(36)  NOT NULL,
       \`scanned_at\`                  DATETIME     NOT NULL,
       \`mail_status\`                 ENUM('received','scanned','processed','delivered') NOT NULL DEFAULT 'received',
+      \`is_archived\`                 TINYINT(1)   NULL DEFAULT NULL,
+      \`archived_at\`                 DATETIME     NULL,
 
       \`cheque_amount_figures\`       DECIMAL(12,2) NULL,
       \`cheque_amount_words\`         VARCHAR(255)  NULL,
@@ -96,6 +98,8 @@ export async function createClientTable(tableName: string) {
       UNIQUE KEY \`irn_uq\`            (\`irn\`),
       KEY \`record_type_idx\`          (\`record_type\`),
       KEY \`mail_status_idx\`          (\`mail_status\`),
+      KEY \`is_archived_idx\`          (\`is_archived\`),
+      KEY \`archived_at_idx\`          (\`archived_at\`),
       KEY \`scanned_at_idx\`           (\`scanned_at\`),
       KEY \`risk_level_idx\`           (\`ai_risk_level\`),
       KEY \`cheque_decision_idx\`      (\`cheque_decision\`),
@@ -112,6 +116,47 @@ export async function createClientTable(tableName: string) {
 
 function escapeSqlString(value: string): string {
   return String(value).replace(/'/g, "''");
+}
+
+/**
+ * Backfills archive columns for older client record tables.
+ * Safe to call repeatedly; it becomes a no-op once the columns exist.
+ */
+export async function ensureClientTableArchiveColumns(tableName: string): Promise<void> {
+  const archiveColumnDefs: Array<{ name: string; sql: string }> = [
+    { name: "is_archived", sql: "`is_archived` TINYINT(1) NULL DEFAULT NULL" },
+    { name: "archived_at", sql: "`archived_at` DATETIME NULL" },
+  ];
+
+  try {
+    const alterSql = `ALTER TABLE \`${tableName}\`\n  ${archiveColumnDefs
+      .map((c) => `ADD COLUMN IF NOT EXISTS ${c.sql}`)
+      .join(",\n  ")}`;
+    await db.execute(sql.raw(alterSql));
+    return;
+  } catch {
+    // Older MySQL versions may not support ADD COLUMN IF NOT EXISTS.
+  }
+
+  const columnNamesList = archiveColumnDefs.map((c) => `'${escapeSqlString(c.name)}'`).join(", ");
+  const [existingRows] = (await db.execute(
+    sql.raw(
+      `SELECT COLUMN_NAME AS name
+       FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = '${escapeSqlString(tableName)}'
+         AND COLUMN_NAME IN (${columnNamesList})`
+    )
+  )) as any;
+
+  const existing = new Set<string>((existingRows as any[]).map((r) => String(r.name)));
+  const missing = archiveColumnDefs.filter((c) => !existing.has(c.name));
+  if (!missing.length) return;
+
+  const alterSql = `ALTER TABLE \`${tableName}\`\n  ${missing
+    .map((c) => `ADD COLUMN ${c.sql}`)
+    .join(",\n  ")}`;
+  await db.execute(sql.raw(alterSql));
 }
 
 /**

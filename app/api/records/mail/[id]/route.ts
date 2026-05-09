@@ -12,6 +12,9 @@ export async function GET(
     const user = await withAuth(req);
     const { id } = await params;
     const item = await mailItemModel.findById(id);
+    if (user.role === "client" && item.client_id !== user.clientId) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
     return NextResponse.json(item);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 404 });
@@ -25,12 +28,16 @@ export async function DELETE(
   try {
     const user = await withAuth(req);
     const { id } = await params;
+    const item = await mailItemModel.findById(id);
 
     if (user.role === "client") {
       // Soft delete: hide from this customer's view only.
       // The record stays in the DB and admins can still see it.
       if (!user.clientId) {
         return NextResponse.json({ error: "Missing client context" }, { status: 400 });
+      }
+      if (item.client_id !== user.clientId) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
       }
       await customerHiddenModel.hide(user.clientId, [id]);
       return NextResponse.json({ success: true });

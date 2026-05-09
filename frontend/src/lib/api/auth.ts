@@ -118,4 +118,16 @@ export const authApi = {
     ),
 
   me: () => apiClient<MeResponse>("/api/auth/me", { method: "GET", cache: "no-store" }),
+
+  forgotPassword: (email: string) =>
+    apiClient<{ ok: true }>("/api/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+
+  resetPassword: (email: string, otp: string, newPassword: string) =>
+    apiClient<{ ok: true }>("/api/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ email, otp, newPassword }),
+    }),
 };

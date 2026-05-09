@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Icon } from '@iconify/react';
+import { resolveAvatarUrl } from '@/lib/resolve-avatar-url';
 
 export type ChequeListStatus = 'Pending Deposit' | 'Deposited' | 'Rejected' | 'On Hold';
 
@@ -11,6 +12,7 @@ export interface UiCheque {
   starred: boolean;
   flagged: boolean;
   company: string;
+  companyAvatarUrl?: string | null;
   companyColor: string;
   companyInitial: string;
   status: ChequeListStatus;
@@ -47,6 +49,7 @@ const statusStyles: Record<string, string> = {
 export default function ChequeRow({ cheque, selected, onSelect, onOpen, showArchiveMeta = false, showUnarchive = false, onUnarchive }: ChequeRowProps) {
   const [starred, setStarred] = useState(cheque.starred);
   const [flagged, setFlagged] = useState(cheque.flagged);
+  const avatarSrc = resolveAvatarUrl(cheque.companyAvatarUrl);
   const formattedAmount = new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
@@ -83,9 +86,17 @@ export default function ChequeRow({ cheque, selected, onSelect, onOpen, showArch
 
       {/* Avatar */}
       <div className="w-[36px] flex-shrink-0 mr-3">
-        <div className={`w-9 h-9 rounded-full ${cheque.companyColor} flex items-center justify-center text-white font-semibold text-sm`}>
-          {cheque.companyInitial}
-        </div>
+        {avatarSrc ? (
+          <img
+            src={avatarSrc}
+            alt={cheque.company}
+            className="w-9 h-9 rounded-full object-cover"
+          />
+        ) : (
+          <div className={`w-9 h-9 rounded-full ${cheque.companyColor} flex items-center justify-center text-white font-semibold text-sm`}>
+            {cheque.companyInitial}
+          </div>
+        )}
       </div>
 
       {/* Company Name */}

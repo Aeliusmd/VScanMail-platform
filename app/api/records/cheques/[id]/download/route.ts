@@ -7,12 +7,15 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await withAuth(req);
+    const user = await withAuth(req);
 
     const { id } = await params;
     const cheque = await chequeModel.findById(id);
+    if (user.role === "client" && cheque.mail_items?.client_id !== user.clientId) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
 
-    const mailItems = (cheque as any).mail_items;
+    const mailItems = cheque.mail_items;
     return NextResponse.json({
       id: cheque.id,
       frontUrl: mailItems?.envelope_front_url || null,

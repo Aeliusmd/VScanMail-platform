@@ -23,6 +23,9 @@ export interface MailItem {
   scanned_at: string | null;
   status: MailStatus;
   created_at: string;
+  company_name?: string;
+  company_avatar_url?: string | null;
+  cheque_beneficiary?: string | null;
 }
 
 export interface MailListResponse {
@@ -70,4 +73,16 @@ export const mailApi = {
     }),
 
   download: (id: string) => apiClient<any>(`/api/records/mail/${id}/download`, { method: "GET" }),
+
+  archive: (id: string) =>
+    apiClient<{ success: true }>(`/api/records/mail/${id}/archive`, { method: "POST" }),
+
+  unarchive: (id: string) =>
+    apiClient<{ success: true }>(`/api/records/mail/${id}/unarchive`, { method: "POST" }),
+
+  bulk: (action: "archive" | "unarchive" | "delete", ids: string[]) =>
+    apiClient<{ success: true; count: number }>(`/api/records/mail/bulk`, {
+      method: "POST",
+      body: JSON.stringify({ action, ids }),
+    }),
 };

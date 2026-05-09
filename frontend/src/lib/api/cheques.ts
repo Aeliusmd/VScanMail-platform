@@ -24,6 +24,7 @@ export interface Cheque {
   deposit_batch_id: string | null;
   created_at: string;
   company_name?: string;
+  company_avatar_url?: string | null;
 }
 
 export interface ChequeListResponse {
@@ -60,12 +61,21 @@ export const chequeApi = {
       body: JSON.stringify({ reason }),
     }),
   validate: (formData: FormData) =>
-    apiClient<any>(`/api/ai/validate-cheque`, {
-      method: "POST",
-      body: formData as any,
-    }),
+    apiUpload<any>(`/api/ai/validate-cheque`, formData),
   resend: (id: string) =>
     apiClient<any>(`/api/records/cheques/${id}/resend`, { method: "POST" }),
   download: (id: string) =>
     apiClient<any>(`/api/records/cheques/${id}/download`, { method: "GET" }),
+
+  archive: (id: string) =>
+    apiClient<{ success: true }>(`/api/records/cheques/${id}/archive`, { method: "POST" }),
+
+  unarchive: (id: string) =>
+    apiClient<{ success: true }>(`/api/records/cheques/${id}/unarchive`, { method: "POST" }),
+
+  bulk: (action: "archive" | "unarchive" | "delete", ids: string[]) =>
+    apiClient<{ success: true; count: number }>(`/api/records/cheques/bulk`, {
+      method: "POST",
+      body: JSON.stringify({ action, ids }),
+    }),
 };

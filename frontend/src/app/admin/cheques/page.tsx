@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { chequeApi, type Cheque as ApiCheque } from '@/lib/api/cheques';
 import OrganizationPicker from '../components/OrganizationPicker';
 import NotificationBell from '../components/NotificationBell';
+import { formatRelativeTime } from '@/lib/format-relative-time';
 
 type TabType = 'All' | 'Pending Deposit' | 'Deposited' | 'Rejected' | 'On Hold';
 type ChequeItem = UiCheque & { archived?: boolean; archiveBox?: string };
@@ -75,12 +76,6 @@ function AllChequesPageContent() {
     return h % max;
   };
 
-  const formatTime = (iso: string) => {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return '';
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
-
   const toUiCheque = (c: ApiCheque): UiCheque => {
     const company = c.company_name || 'Unknown Company';
     const bankName = c.ai_raw_result?.bank_name || c.ai_raw_result?.bankName || 'Bank';
@@ -96,6 +91,7 @@ function AllChequesPageContent() {
       starred: false,
       flagged: c.status === 'flagged',
       company,
+      companyAvatarUrl: c.company_avatar_url,
       companyInitial: company.trim().slice(0, 1).toUpperCase() || 'C',
       companyColor: COMPANY_COLORS[hashToIndex(company, COMPANY_COLORS.length)],
       status: normalizeStatus(c),
@@ -107,7 +103,7 @@ function AllChequesPageContent() {
         c.ai_raw_result?.notes ||
         `Cheque for ${c.beneficiary || 'beneficiary'} (${normalizeStatus(c)})`,
       recipient: c.beneficiary || company,
-      time: formatTime(c.created_at),
+      time: formatRelativeTime(c.created_at),
       email: undefined,
       raw: c,
     };
@@ -138,6 +134,19 @@ function AllChequesPageContent() {
   }, [clientId]);
 
   useEffect(() => {
+    const interval = window.setInterval(() => {
+      setChequeItems((prev) =>
+        prev.map((cheque) => ({
+          ...cheque,
+          time: formatRelativeTime(cheque.raw?.created_at),
+        }))
+      );
+    }, 30000);
+
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
     if (!tabFromUrl) return;
     const nextTab = TABS.find((t) => t.label === tabFromUrl)?.label;
     if (nextTab && nextTab !== activeTab) {
@@ -148,16 +157,92 @@ function AllChequesPageContent() {
 
   if (!clientId) {
     return (
-      <div className="p-6">
-        <OrganizationPicker
-          title="Cheques"
-          subtitle="Select an organization to view its cheques."
-          onPick={(c) => {
-            const qs = new URLSearchParams(searchParams.toString());
-            qs.set('clientId', c.id);
-            router.replace(`${pathname}?${qs.toString()}`);
-          }}
-        />
+      <div className={styles.pageContainer}>
+        <div className={styles.topBar}>
+          <div className={styles.searchWrapper}>
+            <div className={styles.searchIcon}>
+              <Icon icon="ri:search-line" className="text-sm" />
+            </div>
+            <input
+              type="text"
+              placeholder="Search organizations..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className={styles.searchInput}
+            />
+          </div>
+
+          <div className={styles.topActions}>
+            <Link href={scanPath}>
+              <button className={styles.addBtn}>
+                <div className={styles.addBtnIcon}>
+                  <Icon icon="ri:scan-2-line" className="text-sm" />
+                </div>
+                New Scan
+              </button>
+            </Link>
+
+            {!isSuperadminRoute && (
+              <>
+                <NotificationBell />
+                <div className="relative">
+                  <button
+                    onClick={() => {
+                      setShowUserMenu(!showUserMenu);
+                    }}
+                    className="flex items-center gap-2 hover:bg-gray-50 rounded-lg px-2 py-1.5 transition cursor-pointer"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-[#1E40AF] flex items-center justify-center text-white font-bold text-sm overflow-hidden flex-shrink-0">
+                      {userData?.avatarUrl ? <img src={userData.avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : initials}
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-semibold text-gray-900 leading-4">{displayName}</p>
+                      <p className="text-xs text-gray-500 uppercase">{displayRole}</p>
+                    </div>
+                  </button>
+
+                  {showUserMenu && (
+                    <div className="absolute right-0 top-12 w-[180px] bg-white rounded-2xl shadow-lg border border-gray-100 z-50 py-1 overflow-hidden">
+                      <Link href="/admin/settings/profile" className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
+                        <div className="w-4 h-4 flex items-center justify-center"><Icon icon="ri:user-line" className="text-sm" /></div>
+                        My Profile
+                      </Link>
+                      <Link
+                        href="/admin/settings"
+                        onClick={() => setShowUserMenu(false)}
+                        className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
+                      >
+                        <div className="w-4 h-4 flex items-center justify-center"><Icon icon="ri:settings-3-line" className="text-sm" /></div>
+                        Settings
+                      </Link>
+                      <div className="border-t border-gray-100 my-1"></div>
+                      <a href="/login" className="flex items-center gap-2 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 cursor-pointer">
+                        <Icon icon="ri:logout-box-r-line" className="text-sm" />
+                        Sign Out
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="p-6">
+          <OrganizationPicker
+            title="Cheques"
+            subtitle="Select an organization to view its cheques."
+            kind="cheques"
+            searchValue={search}
+            onSearchChange={setSearch}
+            showSearch={false}
+            onPick={(c) => {
+              const qs = new URLSearchParams(searchParams.toString());
+              qs.set('clientId', c.id);
+              router.replace(`${pathname}?${qs.toString()}`);
+            }}
+          />
+        </div>
       </div>
     );
   }
@@ -205,14 +290,24 @@ function AllChequesPageContent() {
   const handleBulkDelete = async () => {
     if (!confirm(`Delete ${selectedIds.length} cheque record(s)? This cannot be undone.`)) return;
     try {
-      await Promise.all(
-        selectedIds.map((id) => fetch(`/api/records/cheques/${id}`, { method: 'DELETE' }))
-      );
+      await chequeApi.bulk('delete', selectedIds);
       setSelectedIds([]);
       const res = await chequeApi.list({ archived: false, clientId, limit: 200 });
       setChequeItems(res.cheques.map((c) => toUiCheque(c)));
     } catch (err) {
       console.error('Bulk delete failed:', err);
+    }
+  };
+
+  const handleBulkArchive = async () => {
+    if (!confirm(`Archive ${selectedIds.length} cheque record(s)?`)) return;
+    try {
+      await chequeApi.bulk('archive', selectedIds);
+      setSelectedIds([]);
+      const res = await chequeApi.list({ archived: false, clientId, limit: 200 });
+      setChequeItems(res.cheques.map((c) => toUiCheque(c)));
+    } catch (err) {
+      console.error('Bulk archive failed:', err);
     }
   };
 
@@ -307,6 +402,13 @@ function AllChequesPageContent() {
       {selectedIds.length > 0 && (
         <div className="px-4 py-2 border-b border-gray-100 bg-gray-50 flex items-center gap-2">
           <span className="text-xs text-slate-500">{selectedIds.length} selected</span>
+          <button
+            onClick={handleBulkArchive}
+            className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium transition-colors"
+          >
+            <Icon icon="ri:archive-line" className="text-sm" />
+            Archive
+          </button>
           <button
             onClick={handleBulkDelete}
             className="flex items-center gap-1.5 px-3 py-1 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg text-xs font-medium transition-colors"

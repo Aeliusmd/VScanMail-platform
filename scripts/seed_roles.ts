@@ -6,7 +6,11 @@ import { eq } from "drizzle-orm";
 
 async function main() {
   try {
-    const hash = await bcrypt.hash("password123", 10);
+    const password = process.env.SEED_TEST_PASSWORD;
+    if (!password) {
+      throw new Error("SEED_TEST_PASSWORD is required");
+    }
+    const hash = await bcrypt.hash(password, 12);
     const now = new Date();
     const testEmails = ["admin@vscanmail.com", "operator@vscanmail.com", "cop@vscanmail.com"];
 
@@ -135,9 +139,9 @@ async function main() {
     console.log(`
 ✅ SEEDING COMPLETE!
 
-1. Super Admin: admin@vscanmail.com | password123
-2. Admin:       operator@vscanmail.com | password123
-3. Client:      cop@vscanmail.com | password123
+1. Super Admin: admin@vscanmail.com
+2. Admin:       operator@vscanmail.com
+3. Client:      cop@vscanmail.com
     `);
     
     process.exit(0);
