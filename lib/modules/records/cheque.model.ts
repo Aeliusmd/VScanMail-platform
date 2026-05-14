@@ -1,6 +1,10 @@
 import { auditService } from "../audit/audit.service";
 import { db, sql } from "@/lib/modules/core/db/mysql";
-import { ensureClientTableArchiveColumns, getClientTableName } from "@/lib/modules/core/db/dynamic-table";
+import {
+  ensureClientTableArchiveColumns,
+  ensureClientTableDeliveryColumns,
+  getClientTableName,
+} from "@/lib/modules/core/db/dynamic-table";
 import { clients } from "@/lib/modules/core/db/schema";
 import { inArray, eq } from "drizzle-orm"; // Kept for other files potentially needed, but we use sql.raw here
 
@@ -23,7 +27,7 @@ export type Cheque = {
   decided_by: string | null;
   decided_at: string | null;
   deposit_batch_id: string | null;
-  status: "validated" | "flagged" | "approved" | "deposited" | "cleared";
+  status: "validated" | "flagged" | "approved" | "deposit_requested" | "pickup_requested" | "deposited" | "cleared";
   created_at: string;
   mail_items?: {
     client_id: string;
@@ -44,6 +48,12 @@ function parseJsonSafe(value: any, fallback: any = null): any {
 }
 
 function rowToCheque(row: any, clientId: string): Cheque {
+  const deliveryStatus = String(row.delivery_status || "");
+  const status =
+    deliveryStatus === "pending" || deliveryStatus === "approved" || deliveryStatus === "in_transit"
+      ? "pickup_requested"
+      : row.cheque_status || "validated";
+
   return {
     id: row.id,
     mail_item_id: row.id,
@@ -63,7 +73,7 @@ function rowToCheque(row: any, clientId: string): Cheque {
     decided_by: row.cheque_decided_by || null,
     decided_at: row.cheque_decided_at ? new Date(row.cheque_decided_at).toISOString() : null,
     deposit_batch_id: null,
-    status: row.cheque_status || "validated",
+    status,
     created_at: new Date(row.created_at).toISOString(),
     mail_items: {
       client_id: clientId,
@@ -109,9 +119,12 @@ export const chequeModel = {
     
     const allClients = allClientsRaw.filter(c => existingTableNames.has(c.tableName));
     if (!allClients.length) return { cheques: [], total: 0 };
-    if (archived !== undefined) {
-      await Promise.all(allClients.map((c) => ensureClientTableArchiveColumns(c.tableName)));
-    }
+    await Promise.all(
+      allClients.map(async (c) => {
+        if (archived !== undefined) await ensureClientTableArchiveColumns(c.tableName);
+        await ensureClientTableDeliveryColumns(c.tableName);
+      })
+    );
 
     const conditionParts: string[] = ["record_type = 'cheque'"];
     if (status) conditionParts.push(`cheque_status = '${status.replace(/'/g, "''")}'`);
@@ -129,7 +142,7 @@ export const chequeModel = {
     const whereStr = `WHERE ${conditionParts.join(' AND ')}`;
 
     // Column list matches rowToCheque dependencies + id, record_type, created_at
-    const columnList = `id, record_type, cheque_amount_figures, cheque_amount_words, cheque_amounts_match, cheque_date_on_cheque, cheque_date_valid, cheque_beneficiary, cheque_beneficiary_match, cheque_signature_present, cheque_alteration_detected, cheque_crossing_present, cheque_ai_confidence, cheque_ai_raw_result, cheque_decision, cheque_decided_by, cheque_decided_at, cheque_status, created_at`;
+    const columnList = `id, record_type, cheque_amount_figures, cheque_amount_words, cheque_amounts_match, cheque_date_on_cheque, cheque_date_valid, cheque_beneficiary, cheque_beneficiary_match, cheque_signature_present, cheque_alteration_detected, cheque_crossing_present, cheque_ai_confidence, cheque_ai_raw_result, cheque_decision, cheque_decided_by, cheque_decided_at, cheque_status, delivery_status, created_at`;
 
     const unionParts = allClients.map(c => 
       `SELECT ${columnList}, '${c.id}' AS _client_id FROM \`${c.tableName}\` ${whereStr}`
@@ -227,6 +240,7 @@ export const chequeModel = {
     const from = (page - 1) * limit;
     const tableName = await getClientTableName(clientId);
     if (archived !== undefined) await ensureClientTableArchiveColumns(tableName);
+    await ensureClientTableDeliveryColumns(tableName);
     const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const archiveClause =
       archived === undefined

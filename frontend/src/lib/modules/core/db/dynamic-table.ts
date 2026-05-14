@@ -118,6 +118,44 @@ function escapeSqlString(value: string): string {
   return String(value).replace(/'/g, "''");
 }
 
+function escapeIdent(value: string): string {
+  return `\`${String(value).replace(/`/g, "``")}\``;
+}
+
+function isDuplicateColumnError(error: unknown): boolean {
+  const err = error as { code?: string; errno?: number; message?: string };
+  return (
+    err?.code === "ER_DUP_FIELDNAME" ||
+    err?.errno === 1060 ||
+    /Duplicate column name/i.test(String(err?.message || ""))
+  );
+}
+
+async function getColumnNames(tableName: string): Promise<Set<string>> {
+  try {
+    const [rows] = (await db.execute(sql.raw(`SHOW COLUMNS FROM ${escapeIdent(tableName)}`))) as any;
+    return new Set((rows as any[]).map((r) => String(r.Field || r.field || r.COLUMN_NAME || r.name)));
+  } catch {
+    const [rows] = (await db.execute(
+      sql.raw(
+        `SELECT COLUMN_NAME AS name
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = '${escapeSqlString(tableName)}'`
+      )
+    )) as any;
+    return new Set((rows as any[]).map((r) => String(r.name)));
+  }
+}
+
+async function addColumnIfMissing(tableName: string, columnSql: string): Promise<void> {
+  try {
+    await db.execute(sql.raw(`ALTER TABLE ${escapeIdent(tableName)} ADD COLUMN ${columnSql}`));
+  } catch (error) {
+    if (!isDuplicateColumnError(error)) throw error;
+  }
+}
+
 /**
  * Backfills archive columns for older client record tables.
  * Safe to call repeatedly; it becomes a no-op once the columns exist.
@@ -257,13 +295,27 @@ export async function ensureClientTableDepositColumns(tableName: string): Promis
     { name: "ai_summary", sql: "`ai_summary` TEXT NULL" },
   ];
 
+  const tryWidenChequeStatus = async () => {
+    try {
+      await db.execute(
+        sql.raw(
+          `ALTER TABLE ${escapeIdent(tableName)}
+             MODIFY COLUMN \`cheque_status\` ENUM('validated','flagged','approved','deposit_requested','deposited','cleared') NULL`
+        )
+      );
+    } catch {
+      // Best effort for legacy org tables. Deposit updates will still fail loudly
+      // if cheque_status is genuinely unavailable.
+    }
+  };
+
   const tryEnforceTypes = async () => {
     // Older tables might have the right columns but wrong types (e.g. VARCHAR too small, or JSON unsupported).
     // Best-effort: if this fails on some engines, swallow and continue.
     try {
       await db.execute(
         sql.raw(
-          `ALTER TABLE \`${tableName}\`
+          `ALTER TABLE ${escapeIdent(tableName)}
              MODIFY COLUMN \`deposit_slip_ai_result\` LONGTEXT NULL,
              MODIFY COLUMN \`deposit_slip_url\` TEXT NULL`
         )
@@ -273,39 +325,20 @@ export async function ensureClientTableDepositColumns(tableName: string): Promis
     }
   };
 
-  try {
-    const alterSql = `ALTER TABLE \`${tableName}\`\n  ${depositColumnDefs
-      .map((c) => `ADD COLUMN IF NOT EXISTS ${c.sql}`)
-      .join(",\n  ")}`;
-    await db.execute(sql.raw(alterSql));
-    await tryEnforceTypes();
-    return;
-  } catch (err) {
-    // Older MySQL versions may not support ADD COLUMN IF NOT EXISTS.
-  }
+  await tryWidenChequeStatus();
 
-  const columnNamesList = depositColumnDefs.map((c) => `'${escapeSqlString(c.name)}'`).join(", ");
-  const [existingRows] = (await db.execute(
-    sql.raw(
-      `SELECT COLUMN_NAME AS name
-       FROM INFORMATION_SCHEMA.COLUMNS
-       WHERE TABLE_SCHEMA = DATABASE()
-         AND TABLE_NAME = '${escapeSqlString(tableName)}'
-         AND COLUMN_NAME IN (${columnNamesList})`
-    )
-  )) as any;
-
-  const existing = new Set<string>((existingRows as any[]).map((r) => String(r.name)));
+  const existing = await getColumnNames(tableName);
   const missing = depositColumnDefs.filter((c) => !existing.has(c.name));
+
   if (!missing.length) {
     await tryEnforceTypes();
     return;
   }
 
-  const alterSql = `ALTER TABLE \`${tableName}\`\n  ${missing
-    .map((c) => `ADD COLUMN ${c.sql}`)
-    .join(",\n  ")}`;
-  await db.execute(sql.raw(alterSql));
+  for (const column of missing) {
+    await addColumnIfMissing(tableName, column.sql);
+  }
+
   await tryEnforceTypes();
 }
 

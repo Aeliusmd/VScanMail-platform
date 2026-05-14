@@ -29,7 +29,8 @@ const requiredColumns: Column[] = [
   { name: "deposit_slip_url", ddl: "TEXT NULL" },
   { name: "deposit_slip_uploaded_at", ddl: "DATETIME NULL" },
   { name: "deposit_slip_uploaded_by", ddl: "VARCHAR(36) NULL" },
-  { name: "deposit_slip_ai_result", ddl: "JSON NULL" },
+  { name: "deposit_slip_ai_result", ddl: "LONGTEXT NULL" },
+  { name: "ai_summary", ddl: "TEXT NULL" },
 ];
 
 const requiredIndexes: { name: string; ddl: string }[] = [
@@ -42,12 +43,37 @@ function escapeIdent(ident: string) {
   return `\`${ident.replace(/`/g, "``")}\``;
 }
 
+function isDuplicateColumnError(error: unknown): boolean {
+  const err = error as { code?: string; errno?: number; message?: string };
+  return (
+    err?.code === "ER_DUP_FIELDNAME" ||
+    err?.errno === 1060 ||
+    /Duplicate column name/i.test(String(err?.message || ""))
+  );
+}
+
+function isDuplicateIndexError(error: unknown): boolean {
+  const err = error as { code?: string; errno?: number; message?: string };
+  return (
+    err?.code === "ER_DUP_KEYNAME" ||
+    err?.errno === 1061 ||
+    /Duplicate key name/i.test(String(err?.message || ""))
+  );
+}
+
 async function tableExists(tableName: string) {
   const [rows] = (await db.execute(sql.raw(`SHOW TABLES LIKE '${tableName.replace(/'/g, "''")}'`))) as any;
   return Array.isArray(rows) && rows.length > 0;
 }
 
 async function getExistingColumns(tableName: string, schemaName: string) {
+  try {
+    const [rows] = (await db.execute(sql.raw(`SHOW COLUMNS FROM ${escapeIdent(tableName)}`))) as any;
+    return new Set((rows as any[]).map((r) => String(r.Field || r.field || r.COLUMN_NAME || r.name)));
+  } catch {
+    // Fall back to INFORMATION_SCHEMA below.
+  }
+
   const [rows] = (await db.execute(
     sql.raw(
       `SELECT COLUMN_NAME AS name
@@ -96,21 +122,42 @@ async function main() {
     const columns = await getExistingColumns(tableName, schemaName);
     const indexes = await getExistingIndexes(tableName, schemaName);
 
-    const alterParts: string[] = [];
+    let changes = 0;
 
     // 1) Ensure cheque_status enum includes deposit values
     // Always attempt to widen enum (safe) if column exists.
     if (columns.has("cheque_status")) {
-      alterParts.push(
-        "MODIFY COLUMN `cheque_status` ENUM('validated','flagged','approved','deposit_requested','deposited','cleared') NULL"
+      await db.execute(
+        sql.raw(
+          `ALTER TABLE ${escapeIdent(tableName)} MODIFY COLUMN \`cheque_status\` ENUM('validated','flagged','approved','deposit_requested','deposited','cleared') NULL`
+        )
       );
+      changes++;
     }
 
     // 2) Add missing columns
     for (const col of requiredColumns) {
       if (!columns.has(col.name)) {
-        alterParts.push(`ADD COLUMN ${escapeIdent(col.name)} ${col.ddl}`);
+        try {
+          await db.execute(sql.raw(`ALTER TABLE ${escapeIdent(tableName)} ADD COLUMN ${escapeIdent(col.name)} ${col.ddl}`));
+          changes++;
+        } catch (error) {
+          if (!isDuplicateColumnError(error)) throw error;
+        }
+        columns.add(col.name);
       }
+    }
+
+    try {
+      await db.execute(
+        sql.raw(
+          `ALTER TABLE ${escapeIdent(tableName)}
+             MODIFY COLUMN \`deposit_slip_ai_result\` LONGTEXT NULL,
+             MODIFY COLUMN \`deposit_slip_url\` TEXT NULL`
+        )
+      );
+    } catch {
+      // Best effort only; the runtime helper also enforces this.
     }
 
     // 3) Add indexes (only if the underlying column exists)
@@ -120,18 +167,21 @@ async function main() {
         (idx.name === "deposit_requested_at_idx" && columns.has("deposit_requested_at")) ||
         (idx.name === "deposit_slip_uploaded_at_idx" && columns.has("deposit_slip_uploaded_at"));
       if (canAdd && !indexes.has(idx.name)) {
-        alterParts.push(`ADD ${idx.ddl}`);
+        try {
+          await db.execute(sql.raw(`ALTER TABLE ${escapeIdent(tableName)} ADD ${idx.ddl}`));
+          changes++;
+        } catch (error) {
+          if (!isDuplicateIndexError(error)) throw error;
+        }
       }
     }
 
-    if (alterParts.length === 0) {
+    if (changes === 0) {
       console.log(`✅ ${tableName}: already up to date`);
       continue;
     }
 
-    const alterSql = `ALTER TABLE ${escapeIdent(tableName)} ${alterParts.join(", ")}`;
-    console.log(`🚀 ${tableName}: applying ${alterParts.length} changes`);
-    await db.execute(sql.raw(alterSql));
+    console.log(`🚀 ${tableName}: applied ${changes} changes`);
   }
 
   console.log("Done.");
@@ -142,4 +192,3 @@ main().catch((err) => {
   console.error("Failed:", err);
   process.exit(1);
 });
-

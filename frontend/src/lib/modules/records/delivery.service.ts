@@ -108,7 +108,7 @@ export const deliveryService = {
     clientId: string;
     req?: Request;
   }) {
-    const recordRow = await deliveryModel.findRecordRowById(params.recordId);
+    const recordRow = await deliveryModel.findRecordRowByClientAndId(params.clientId, params.recordId);
     if (!recordRow) throw new Error("Record not found");
     if (String(recordRow._client_id) !== params.clientId) throw new Error("Record does not belong to client");
 
@@ -211,7 +211,7 @@ export const deliveryService = {
     clientId: string;
     req?: Request;
   }) {
-    const recordRow = await deliveryModel.findRecordRowById(params.recordId);
+    const recordRow = await deliveryModel.findRecordRowByClientAndId(params.clientId, params.recordId);
     if (!recordRow) throw new Error("Record not found");
     if (String(recordRow._client_id) !== params.clientId) throw new Error("Not authorised");
 

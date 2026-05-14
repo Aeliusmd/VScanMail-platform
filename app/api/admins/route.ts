@@ -12,7 +12,7 @@ import { auditService } from "@/lib/modules/audit/audit.service";
 
 const createAdminSchema = z.object({
   firstName: z.string().min(1).max(100),
-  lastName: z.string().min(1).max(100),
+  lastName: z.string().max(100).default(""),
   email: z.string().email(),
   phone: z.string().optional().default(""),
   password: z.string().min(8, "Password must be at least 8 characters"),

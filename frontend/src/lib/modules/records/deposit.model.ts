@@ -14,6 +14,15 @@ function tryParseJson(v: unknown): any {
   }
 }
 
+function escapeIdent(ident: string) {
+  return `\`${String(ident).replace(/`/g, "``")}\``;
+}
+
+async function getExistingTableNames(): Promise<Set<string>> {
+  const [tablesResult] = await db.execute(sql`SHOW TABLES`);
+  return new Set(((tablesResult as unknown) as any[]).map((row) => String(Object.values(row)[0])));
+}
+
 export type DepositRow = {
   chequeId: string;
   mailItemId: string;
@@ -49,7 +58,11 @@ export type DepositRow = {
 };
 
 async function locateChequeById(id: string) {
-  const allClients = await db.select({ id: clients.id, tableName: clients.tableName }).from(clients);
+  const allClientsRaw = await db.select({ id: clients.id, tableName: clients.tableName }).from(clients);
+  if (!allClientsRaw.length) return null;
+
+  const existingTableNames = await getExistingTableNames();
+  const allClients = allClientsRaw.filter((c) => existingTableNames.has(c.tableName));
   if (!allClients.length) return null;
 
   await Promise.all(allClients.map((c) => ensureClientTableDepositColumns(c.tableName)));
@@ -66,9 +79,41 @@ async function locateChequeById(id: string) {
   return rows[0] || null;
 }
 
+async function locateChequeByClientAndId(clientId: string, id: string) {
+  const [clientRow] = await db
+    .select({ tableName: clients.tableName })
+    .from(clients)
+    .where(sql`id = ${clientId}`)
+    .limit(1);
+
+  if (!clientRow?.tableName) return null;
+
+  const existingTableNames = await getExistingTableNames();
+  if (!existingTableNames.has(clientRow.tableName)) return null;
+
+  await ensureClientTableDepositColumns(clientRow.tableName);
+
+  const [rows] = (await db.execute(
+    sql.raw(
+      `SELECT *, '${String(clientId).replace(/'/g, "''")}' AS _client_id, '${String(clientRow.tableName).replace(
+        /'/g,
+        "''"
+      )}' AS _table_name
+       FROM ${escapeIdent(clientRow.tableName)}
+       WHERE id = '${String(id).replace(/'/g, "''")}' AND record_type = 'cheque'`
+    )
+  )) as any;
+
+  return rows[0] || null;
+}
+
 export const depositModel = {
   async findChequeRowById(id: string) {
     return locateChequeById(id);
+  },
+
+  async findChequeRowByClientAndId(clientId: string, id: string) {
+    return locateChequeByClientAndId(clientId, id);
   },
 
   async listForClient(clientId: string, opts?: { limit?: number }) {
@@ -238,4 +283,3 @@ export const depositModel = {
     return { deposits };
   },
 };
-

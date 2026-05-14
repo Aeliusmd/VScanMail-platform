@@ -106,7 +106,7 @@ export const depositService = {
     clientId: string;
     req?: Request;
   }) {
-    const chequeRow = await depositModel.findChequeRowById(params.chequeId);
+    const chequeRow = await depositModel.findChequeRowByClientAndId(params.clientId, params.chequeId);
     if (!chequeRow) throw new Error("Cheque not found");
     if (String(chequeRow._client_id) !== params.clientId) throw new Error("Cheque does not belong to client");
 
@@ -191,7 +191,7 @@ export const depositService = {
     clientId: string;
     req?: Request;
   }) {
-    const chequeRow = await depositModel.findChequeRowById(params.chequeId);
+    const chequeRow = await depositModel.findChequeRowByClientAndId(params.clientId, params.chequeId);
     if (!chequeRow) throw new Error("Cheque not found");
     if (String(chequeRow._client_id) !== params.clientId) throw new Error("Not authorised");
 
@@ -584,4 +584,3 @@ export const depositService = {
     return { slipUrl, aiResult };
   },
 };
-

@@ -40,6 +40,8 @@ function mapApiChequeStatusToUi(status: ApiChequeStatus): ChequeStatus {
       return "Pending";
     case "deposit_requested":
       return "Deposit Requested";
+    case "pickup_requested":
+      return "Pickup Requested";
     case "deposited":
       return "Deposited";
     case "cleared":
@@ -1370,4 +1372,3 @@ export default function CustomerChequesPage() {
     </div>
   );
 }
-

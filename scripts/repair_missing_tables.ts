@@ -1,12 +1,14 @@
-import { db } from "../lib/modules/core/db/mysql";
-import { clients } from "../lib/modules/core/db/schema";
-import { createClientTable } from "../lib/modules/core/db/dynamic-table";
-import { sql } from "drizzle-orm";
 import dotenv from "dotenv";
+import { sql } from "drizzle-orm";
 
+dotenv.config({ path: ".env.local" });
 dotenv.config();
 
 async function repair() {
+  const { db } = await import("../lib/modules/core/db/mysql");
+  const { clients } = await import("../lib/modules/core/db/schema");
+  const { createClientTable } = await import("../lib/modules/core/db/dynamic-table");
+
   console.log("Starting Database Repair...");
   
   // 1. Get all clients from DB

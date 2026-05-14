@@ -495,9 +495,12 @@ export default function ManageAdminsTab() {
                     onChange={(e) =>
                       setForm((p) => ({ ...p, fullName: e.target.value }))
                     }
-                    placeholder="e.g. John Smith"
+                    placeholder="e.g. Scanner_01 or John Smith"
                     className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-2 focus:ring-[#0A3D8F]/10 transition-all shadow-sm"
                   />
+                  <p className="text-xs text-slate-400 mt-1">
+                    Single word (e.g. Scanner_01) or full name (First Last) both work.
+                  </p>
                 </div>
 
                 {/* Email */}

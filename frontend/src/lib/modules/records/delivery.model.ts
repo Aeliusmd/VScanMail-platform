@@ -83,8 +83,25 @@ const COLUMN_LIST = [
   "delivery_proof_of_service_url",
 ].join(", ");
 
+function escapeIdent(ident: string) {
+  return `\`${String(ident).replace(/`/g, "``")}\``;
+}
+
+function escapeSql(value: string): string {
+  return String(value).replace(/'/g, "''");
+}
+
+async function getExistingTableNames(): Promise<Set<string>> {
+  const [tablesResult] = await db.execute(sql`SHOW TABLES`);
+  return new Set(((tablesResult as unknown) as any[]).map((row) => String(Object.values(row)[0])));
+}
+
 async function locateRecordById(id: string) {
-  const allClients = await db.select({ id: clients.id, tableName: clients.tableName }).from(clients);
+  const allClientsRaw = await db.select({ id: clients.id, tableName: clients.tableName }).from(clients);
+  if (!allClientsRaw.length) return null;
+
+  const existingTableNames = await getExistingTableNames();
+  const allClients = allClientsRaw.filter((c) => existingTableNames.has(c.tableName));
   if (!allClients.length) return null;
 
   await Promise.all(allClients.map((c) => ensureClientTableDeliveryColumns(c.tableName)));
@@ -94,13 +111,45 @@ async function locateRecordById(id: string) {
   const unionSql = allClients
     .map(
       (c) =>
-        `SELECT ${COLUMN_LIST}, '${c.id}' AS clientId
-         FROM \`${c.tableName}\`
+        `SELECT ${COLUMN_LIST},
+                '${escapeSql(c.id)}' AS clientId,
+                '${escapeSql(c.id)}' AS _client_id,
+                '${escapeSql(c.tableName)}' AS _table_name
+         FROM ${escapeIdent(c.tableName)}
          WHERE id = '${safeId}' AND record_type IN ('cheque','letter','package','legal')`
     )
     .join(" UNION ALL ");
 
   const [rows] = (await db.execute(sql.raw(unionSql))) as any;
+  return rows[0] || null;
+}
+
+async function locateRecordByClientAndId(clientId: string, id: string) {
+  const [clientRow] = await db
+    .select({ tableName: clients.tableName })
+    .from(clients)
+    .where(sql`id = ${clientId}`)
+    .limit(1);
+
+  if (!clientRow?.tableName) return null;
+
+  const existingTableNames = await getExistingTableNames();
+  if (!existingTableNames.has(clientRow.tableName)) return null;
+
+  await ensureClientTableDeliveryColumns(clientRow.tableName);
+
+  const safeId = id.replace(/[^a-zA-Z0-9\-]/g, "");
+  const [rows] = (await db.execute(
+    sql.raw(
+      `SELECT ${COLUMN_LIST},
+              '${escapeSql(clientId)}' AS clientId,
+              '${escapeSql(clientId)}' AS _client_id,
+              '${escapeSql(clientRow.tableName)}' AS _table_name
+       FROM ${escapeIdent(clientRow.tableName)}
+       WHERE id = '${safeId}' AND record_type IN ('cheque','letter','package','legal')`
+    )
+  )) as any;
+
   return rows[0] || null;
 }
 
@@ -150,6 +199,10 @@ function mapRow(r: any): DeliveryRow {
 export const deliveryModel = {
   async findRecordRowById(id: string) {
     return locateRecordById(id);
+  },
+
+  async findRecordRowByClientAndId(clientId: string, id: string) {
+    return locateRecordByClientAndId(clientId, id);
   },
 
   async listForClient(clientId: string, opts?: { limit?: number }) {
