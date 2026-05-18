@@ -12,7 +12,8 @@
     "db:studio": "drizzle-kit studio",
     "db:repair": "npx tsx scripts/repair_missing_tables.ts",
     "db:normalize-collation": "npx tsx scripts/normalize-org-table-collation.ts",
-    "stripe:listen": "stripe listen --forward-to localhost:3010/api/billing/stripe/webhook"
+    "stripe:listen": "stripe listen --forward-to localhost:3010/api/billing/stripe/webhook",
+    "deploy:qa": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/deploy-qa.ps1"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1045.0",

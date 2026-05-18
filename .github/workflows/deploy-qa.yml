@@ -1,0 +1,28 @@
+name: Deploy QA
+
+on:
+  push:
+    branches:
+      - dev_visal
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch to deploy on QA
+        required: true
+        default: dev_visal
+        type: string
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, qa, Windows]
+    environment: qa
+    steps:
+      - name: Deploy on QA machine
+        shell: powershell
+        run: |
+          $branch = "${{ github.event.inputs.branch }}"
+          if ([string]::IsNullOrWhiteSpace($branch)) {
+            $branch = "dev_visal"
+          }
+          Set-Location E:\Visal\VScanmail
+          .\scripts\deploy-qa.ps1 -Branch $branch
