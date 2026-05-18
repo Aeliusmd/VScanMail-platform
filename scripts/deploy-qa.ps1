@@ -95,13 +95,46 @@ if (-not (Test-Path $ecosystem)) {
 
 function Invoke-Pm2 {
     param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Pm2Args)
-    & npx --yes pm2 @Pm2Args
-    if ($LASTEXITCODE -ne 0) { throw "pm2 $($Pm2Args -join ' ') failed with exit code $LASTEXITCODE" }
+    # PM2 writes warnings to stderr; do not treat them as terminating errors.
+    $prevEap = $ErrorActionPreference
+    $prevNative = $null
+    if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -Scope Global -ErrorAction SilentlyContinue) {
+        $prevNative = $global:PSNativeCommandUseErrorActionPreference
+        $global:PSNativeCommandUseErrorActionPreference = $false
+    }
+    $ErrorActionPreference = "Continue"
+    try {
+        & npx --yes pm2 @Pm2Args 2>&1 | ForEach-Object { Write-Host $_ }
+        if ($LASTEXITCODE -ne 0) {
+            throw "pm2 $($Pm2Args -join ' ') failed with exit code $LASTEXITCODE"
+        }
+    }
+    finally {
+        $ErrorActionPreference = $prevEap
+        if ($null -ne $prevNative) {
+            $global:PSNativeCommandUseErrorActionPreference = $prevNative
+        }
+    }
 }
 
 function Test-Pm2AppRunning([string]$AppName) {
-    & npx --yes pm2 describe $AppName 1>$null 2>$null
-    return $LASTEXITCODE -eq 0
+    $prevEap = $ErrorActionPreference
+    $prevNative = $null
+    if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -Scope Global -ErrorAction SilentlyContinue) {
+        $prevNative = $global:PSNativeCommandUseErrorActionPreference
+        $global:PSNativeCommandUseErrorActionPreference = $false
+    }
+    $ErrorActionPreference = "Continue"
+    try {
+        & npx --yes pm2 describe $AppName 2>&1 | Out-Null
+        return $LASTEXITCODE -eq 0
+    }
+    finally {
+        $ErrorActionPreference = $prevEap
+        if ($null -ne $prevNative) {
+            $global:PSNativeCommandUseErrorActionPreference = $prevNative
+        }
+    }
 }
 
 Write-Step "Reloading PM2 processes"
