@@ -99,15 +99,13 @@ function Invoke-Pm2 {
     if ($LASTEXITCODE -ne 0) { throw "pm2 $($Pm2Args -join ' ') failed with exit code $LASTEXITCODE" }
 }
 
-Write-Step "Reloading PM2 processes"
-$pm2ListJson = & npx --yes pm2 jlist 2>$null
-$apiRunning = $false
-if ($pm2ListJson) {
-    $pm2List = $pm2ListJson | ConvertFrom-Json -ErrorAction SilentlyContinue
-    $apiRunning = $null -ne ($pm2List | Where-Object { $_.name -eq "vscanmail-api" })
+function Test-Pm2AppRunning([string]$AppName) {
+    & npx --yes pm2 describe $AppName 1>$null 2>$null
+    return $LASTEXITCODE -eq 0
 }
 
-if ($apiRunning) {
+Write-Step "Reloading PM2 processes"
+if (Test-Pm2AppRunning "vscanmail-api") {
     Invoke-Pm2 reload $ecosystem --update-env
 } else {
     Write-Host "PM2 apps not found - starting fresh"
