@@ -22,6 +22,8 @@ export type MailItem = {
   scanned_by: string;
   scanned_at: string;
   status: "received" | "scanned" | "processed" | "delivered";
+  is_archived?: boolean | null;
+  archived_at?: string | null;
   created_at: string;
 
   // Cheque Specific Fields
@@ -91,6 +93,8 @@ function rowToMailItem(row: any, clientId: string): MailItem {
     scanned_by: row.scanned_by ?? '',
     scanned_at: toISOSafe(row.scanned_at),
     status: row.mail_status ?? 'received',
+    is_archived: row.is_archived === null || row.is_archived === undefined ? null : Boolean(row.is_archived),
+    archived_at: row.archived_at ? toISOSafe(row.archived_at) : null,
     created_at: toISOSafe(row.created_at),
 
     // Cheque Mappings
@@ -455,7 +459,11 @@ export const mailItemModel = {
     const tableName = await getClientTableName(clientId);
     await ensureClientTableArchiveColumns(tableName);
     await db.execute(
-      sql`UPDATE ${sql.raw(`\`${tableName}\``)} SET is_archived = 1, archived_at = ${new Date()} WHERE id = ${id}`
+      sql`UPDATE ${sql.raw(`\`${tableName}\``)}
+          SET is_archived = 1,
+              archived_at = ${new Date()},
+              mail_status = CASE WHEN mail_status = 'received' THEN 'processed' ELSE mail_status END
+          WHERE id = ${id}`
     );
     if (actorId) {
       await auditService.log({

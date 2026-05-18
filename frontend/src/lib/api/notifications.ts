@@ -35,6 +35,7 @@ export const customerNotificationsApi = {
   list: async (): Promise<AdminNotification[]> => {
     const res = await apiClient<{ notifications: AdminNotification[] }>(`/api/customer/notifications`, {
       method: "GET",
+      redirectOnUnauthorized: false,
     });
     return res.notifications || [];
   },

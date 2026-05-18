@@ -35,6 +35,10 @@ function mapApiStatusToUi(status: ApiMailStatus): MailStatus {
   return status === "received" ? "Unread" : "Read";
 }
 
+function mapApiMailToUiStatus(mail: MailItem): MailStatus {
+  return mail.is_archived ? "Archived" : mapApiStatusToUi(mail.status);
+}
+
 function mapMailTypeToTag(type: MailItem["type"]) {
   switch (type) {
     case "letter":
@@ -82,6 +86,7 @@ export default function CustomerMailsPage() {
   const [pickupNotes, setPickupNotes] = useState("");
   const [pickupError, setPickupError] = useState<string | null>(null);
   const [pickupSubmitting, setPickupSubmitting] = useState(false);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,11 +94,8 @@ export default function CustomerMailsPage() {
     (async () => {
       try {
         setLoading(true);
-        const archived = statusFilter === "Archived" ? true : undefined;
-
         const data = await mailApi.list({
           limit: 100,
-          archived,
         });
 
         if (cancelled) return;
@@ -117,7 +119,7 @@ export default function CustomerMailsPage() {
             body: m.ocr_text || "",
             date,
             timeShort,
-            status: mapApiStatusToUi(m.status),
+            status: mapApiMailToUiStatus(m),
             category: m.type,
             hasAttachment: (m.content_scan_urls || []).length > 0,
             thumbnail: m.envelope_front_url || "",
@@ -141,7 +143,7 @@ export default function CustomerMailsPage() {
     return () => {
       cancelled = true;
     };
-  }, [statusFilter]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -186,6 +188,18 @@ export default function CustomerMailsPage() {
   );
 
   const unreadCount = mails.filter((m) => m.status === "Unread").length;
+  const selectedMails = useMemo(
+    () => mails.filter((m) => checkedIds.has(m.id)),
+    [mails, checkedIds]
+  );
+  const selectedIds = useMemo(() => Array.from(checkedIds), [checkedIds]);
+  const selectedHasArchived = selectedMails.some((m) => m.status === "Archived");
+  const selectedHasNonArchived = selectedMails.some((m) => m.status !== "Archived");
+
+  const clearSelection = () => {
+    setCheckedIds(new Set());
+    setAllChecked(false);
+  };
 
   const toggleStar = (id: string) => {
     setMails((prev) => prev.map((m) => (m.id === id ? { ...m, starred: !m.starred } : m)));
@@ -212,6 +226,7 @@ export default function CustomerMailsPage() {
   };
 
   const openMail = (mail: Mail) => {
+    setArchiveError(null);
     setMails((prev) => prev.map((m) => (m.id === mail.id ? { ...m, status: m.status === "Unread" ? "Read" : m.status } : m)));
     setSelectedMail({ ...mail, status: mail.status === "Unread" ? "Read" : mail.status });
   };
@@ -296,9 +311,31 @@ export default function CustomerMailsPage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [zoomUrl, selectedMailItem, selectedMail?.thumbnail]);
 
-  const archiveMail = (id: string) => {
+  const archiveMail = async (id: string) => {
+    setArchiveError(null);
+
+    await mailApi.archive(id);
+
     setMails((prev) => prev.map((m) => (m.id === id ? { ...m, status: "Archived" } : m)));
-    if (selectedMail?.id === id) setSelectedMail((prev) => (prev ? { ...prev, status: "Archived" } : null));
+
+    setCheckedIds((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+
+    if (selectedMail?.id === id) setSelectedMail(null);
+  };
+
+  const unarchiveMail = async (id: string) => {
+    setArchiveError(null);
+
+    await mailApi.unarchive(id);
+
+    setMails((prev) => prev.map((m) => (m.id === id ? { ...m, status: "Read" } : m)));
+
+    if (selectedMail?.id === id) setSelectedMail(null);
   };
 
   const handleMailPickup = async () => {
@@ -372,24 +409,55 @@ export default function CustomerMailsPage() {
             </div>
             {checkedIds.size > 0 && (
               <div className="flex items-center space-x-1 ml-2">
-                <button
-                  onClick={() => {
-                    checkedIds.forEach((id) => archiveMail(id));
-                    setCheckedIds(new Set());
-                    setAllChecked(false);
-                  }}
-                  className="p-1.5 hover:bg-slate-100 rounded-lg cursor-pointer"
-                  title="Archive"
-                >
-                  <i className="ri-archive-line text-slate-500 text-base"></i>
-                </button>
+                {selectedHasNonArchived && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        const ids = selectedMails.filter((m) => m.status !== "Archived").map((m) => m.id);
+                        await mailApi.bulk("archive", ids);
+                        setMails((prev) => prev.map((m) => (ids.includes(m.id) ? { ...m, status: "Archived" } : m)));
+                        clearSelection();
+                      } catch (e: any) {
+                        setArchiveError(e?.message || "Failed to archive selected mail.");
+                      }
+                    }}
+                    className="p-1.5 hover:bg-slate-100 rounded-lg cursor-pointer"
+                    title="Archive"
+                  >
+                    <i className="ri-archive-line text-slate-500 text-base"></i>
+                  </button>
+                )}
+                {selectedHasArchived && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        const ids = selectedMails.filter((m) => m.status === "Archived").map((m) => m.id);
+                        await mailApi.bulk("unarchive", ids);
+                        setMails((prev) => prev.map((m) => (ids.includes(m.id) ? { ...m, status: "Read" } : m)));
+                        clearSelection();
+                      } catch (e: any) {
+                        setArchiveError(e?.message || "Failed to unarchive selected mail.");
+                      }
+                    }}
+                    className="p-1.5 hover:bg-slate-100 rounded-lg cursor-pointer"
+                    title="Unarchive"
+                  >
+                    <i className="ri-inbox-unarchive-line text-slate-500 text-base"></i>
+                  </button>
+                )}
                 <button
                   className="p-1.5 hover:bg-slate-100 rounded-lg cursor-pointer"
                   title="Mark as read"
-                  onClick={() => {
-                    setMails((prev) => prev.map((m) => (checkedIds.has(m.id) ? { ...m, status: "Read" } : m)));
-                    setCheckedIds(new Set());
-                    setAllChecked(false);
+                  onClick={async () => {
+                    try {
+                      await mailApi.bulk("mark_read", selectedIds);
+                      setMails((prev) =>
+                        prev.map((m) => (checkedIds.has(m.id) && m.status !== "Archived" ? { ...m, status: "Read" } : m))
+                      );
+                      clearSelection();
+                    } catch (e: any) {
+                      setArchiveError(e?.message || "Failed to mark selected mail as read.");
+                    }
                   }}
                 >
                   <i className="ri-mail-open-line text-slate-500 text-base"></i>
@@ -399,15 +467,18 @@ export default function CustomerMailsPage() {
                   title="Delete selected"
                   onClick={async () => {
                     if (!confirm(`Remove ${checkedIds.size} mail item(s) from your view? This only affects your portal.`)) return;
-                    const ids = Array.from(checkedIds);
-                    await Promise.all(ids.map((id) => fetch(`/api/records/mail/${id}`, { method: "DELETE" })));
-                    setMails((prev) => prev.filter((m) => !checkedIds.has(m.id)));
-                    setCheckedIds(new Set());
-                    setAllChecked(false);
+                    try {
+                      await mailApi.bulk("delete", selectedIds);
+                      setMails((prev) => prev.filter((m) => !checkedIds.has(m.id)));
+                      clearSelection();
+                    } catch (e: any) {
+                      setArchiveError(e?.message || "Failed to delete selected mail.");
+                    }
                   }}
                 >
                   <i className="ri-delete-bin-line text-red-500 text-base"></i>
                 </button>
+                {archiveError && <span className="text-xs text-red-600 ml-1">{archiveError}</span>}
                 <span className="text-xs text-slate-500 ml-1">{checkedIds.size} selected</span>
               </div>
             )}
@@ -443,15 +514,6 @@ export default function CustomerMailsPage() {
               }`}
             >
               {tab}
-              {tab !== "All" && (
-                <span
-                  className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${
-                    statusFilter === tab ? "bg-[#0A3D8F]/10 text-[#0A3D8F]" : "bg-slate-100 text-slate-500"
-                  }`}
-                >
-                  {mails.filter((m) => m.status === tab).length}
-                </span>
-              )}
             </button>
           ))}
         </div>
@@ -879,24 +941,36 @@ export default function CustomerMailsPage() {
               </div>
 
               <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:flex-wrap sm:items-stretch">
-                <button
-                  type="button"
-                  className="w-full py-3 bg-[#0A3D8F] text-white font-semibold rounded-lg hover:bg-[#083170] transition-colors text-sm cursor-pointer sm:flex-1 min-w-[140px]"
-                >
-                  <i className="ri-download-line mr-2"></i>Download PDF
-                </button>
-                {selectedMail.status !== "Archived" && (
+                {selectedMail.status === "Archived" ? (
                   <button
                     type="button"
-                    onClick={() => {
-                      archiveMail(selectedMail.id);
-                      setSelectedMail(null);
+                    onClick={async () => {
+                      try {
+                        await unarchiveMail(selectedMail.id);
+                      } catch (e: any) {
+                        setArchiveError(e?.message || "Failed to unarchive mail.");
+                      }
+                    }}
+                    className="w-full py-3 bg-white border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-colors text-sm cursor-pointer sm:flex-1 min-w-[140px]"
+                  >
+                    <i className="ri-inbox-unarchive-line mr-2"></i>Unarchive
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await archiveMail(selectedMail.id);
+                      } catch (e: any) {
+                        setArchiveError(e?.message || "Failed to archive mail.");
+                      }
                     }}
                     className="w-full py-3 bg-white border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-colors text-sm cursor-pointer sm:flex-1 min-w-[140px]"
                   >
                     <i className="ri-archive-line mr-2"></i>Archive
                   </button>
                 )}
+                {archiveError && <p className="w-full text-xs text-red-600">{archiveError}</p>}
                 <button
                   type="button"
                   onClick={() => setSelectedMail(null)}
@@ -1092,4 +1166,3 @@ export default function CustomerMailsPage() {
     </div>
   );
 }
-

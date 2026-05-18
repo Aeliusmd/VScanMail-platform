@@ -30,6 +30,10 @@ interface Cheque {
   tag: string;
   tagColor: string;
   aiSummary: string;
+  depositRequestedAt?: string | null;
+  depositMarkedDepositedAt?: string | null;
+  deliveryStatus?: ApiCheque["delivery_status"];
+  deliveryRequestedAt?: string | null;
 }
 
 function mapApiChequeStatusToUi(status: ApiChequeStatus): ChequeStatus {
@@ -158,6 +162,10 @@ export default function CustomerChequesPage() {
             tag,
             tagColor,
             aiSummary: c.ai_raw_result ? JSON.stringify(c.ai_raw_result) : "",
+            depositRequestedAt: c.deposit_requested_at ?? null,
+            depositMarkedDepositedAt: c.deposit_marked_deposited_at ?? null,
+            deliveryStatus: c.delivery_status ?? null,
+            deliveryRequestedAt: c.delivery_requested_at ?? null,
           } satisfies Cheque;
         });
 
@@ -368,7 +376,14 @@ export default function CustomerChequesPage() {
       setCheques((prev) =>
         prev.map((c) =>
           c.id === modalCheque.id
-            ? { ...c, status: "Deposit Requested", tag: "In Process", tagColor: "bg-[#0A3D8F]/10 text-[#0A3D8F]", read: true }
+            ? {
+                ...c,
+                status: "Deposit Requested",
+                tag: "In Process",
+                tagColor: "bg-[#0A3D8F]/10 text-[#0A3D8F]",
+                read: true,
+                depositRequestedAt: new Date().toISOString(),
+              }
             : c
         )
       );
@@ -411,7 +426,15 @@ export default function CustomerChequesPage() {
       setCheques((prev) =>
         prev.map((c) =>
           c.id === modalCheque.id
-            ? { ...c, status: "Pickup Requested", tag: "In Process", tagColor: "bg-[#0A3D8F]/10 text-[#0A3D8F]", read: true }
+            ? {
+                ...c,
+                status: "Pickup Requested",
+                tag: "In Process",
+                tagColor: "bg-[#0A3D8F]/10 text-[#0A3D8F]",
+                read: true,
+                deliveryStatus: "pending",
+                deliveryRequestedAt: new Date().toISOString(),
+              }
             : c
         )
       );
@@ -1024,40 +1047,54 @@ export default function CustomerChequesPage() {
               </div>
 
               <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:flex-wrap">
-                {selectedCheque.status !== "Deposited" && selectedCheque.status !== "Picked Up" && (
-                  <>
-                    {selectedCheque.status !== "Deposit Requested" && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedCheque(null);
-                          openModal(selectedCheque, "deposit");
-                        }}
-                        className="w-full py-3 bg-[#2F8F3A] text-white font-semibold rounded-lg hover:bg-[#267a30] transition-colors text-sm cursor-pointer sm:flex-1 min-w-[140px]"
-                      >
-                        <i className="ri-bank-line mr-2"></i>Deposit to Bank
-                      </button>
-                    )}
-                    {selectedCheque.status !== "Pickup Requested" && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedCheque(null);
-                          openModal(selectedCheque, "pickup");
-                        }}
-                        className="w-full py-3 bg-white border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-colors text-sm cursor-pointer sm:flex-1 min-w-[140px]"
-                      >
-                        <i className="ri-hand-coin-line mr-2"></i>Request Pickup
-                      </button>
-                    )}
-                  </>
-                )}
-                <button
-                  type="button"
-                  className="w-full py-3 bg-[#0A3D8F] text-white font-semibold rounded-lg hover:bg-[#083170] transition-colors text-sm cursor-pointer sm:flex-1 min-w-[140px]"
-                >
-                  <i className="ri-download-line mr-2"></i>Download
-                </button>
+                {(() => {
+                  const detail = selectedChequeFull as ApiCheque | null;
+                  const depositRequestedAt = detail?.deposit_requested_at ?? selectedCheque.depositRequestedAt;
+                  const depositMarkedDepositedAt =
+                    detail?.deposit_marked_deposited_at ?? selectedCheque.depositMarkedDepositedAt;
+                  const deliveryStatus = detail?.delivery_status ?? selectedCheque.deliveryStatus ?? null;
+                  const deliveryRequestedAt = detail?.delivery_requested_at ?? selectedCheque.deliveryRequestedAt;
+                  const activeDeliveryStatuses = ["pending", "approved", "in_transit", "delivered"];
+                  const chequeCompleted = selectedCheque.status === "Deposited" || selectedCheque.status === "Picked Up";
+                  const depositDone =
+                    selectedCheque.status === "Deposit Requested" ||
+                    chequeCompleted ||
+                    Boolean(depositRequestedAt || depositMarkedDepositedAt);
+                  const pickupDone =
+                    selectedCheque.status === "Pickup Requested" ||
+                    chequeCompleted ||
+                    activeDeliveryStatuses.includes(String(deliveryStatus)) ||
+                    (Boolean(deliveryRequestedAt) && deliveryStatus !== "cancelled" && deliveryStatus !== "rejected");
+
+                  return (
+                    <>
+                      {!depositDone && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCheque(null);
+                            openModal(selectedCheque, "deposit");
+                          }}
+                          className="w-full py-3 bg-[#2F8F3A] text-white font-semibold rounded-lg hover:bg-[#267a30] transition-colors text-sm cursor-pointer sm:flex-1 min-w-[140px]"
+                        >
+                          <i className="ri-bank-line mr-2"></i>Deposit to Bank
+                        </button>
+                      )}
+                      {!pickupDone && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCheque(null);
+                            openModal(selectedCheque, "pickup");
+                          }}
+                          className="w-full py-3 bg-white border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-colors text-sm cursor-pointer sm:flex-1 min-w-[140px]"
+                        >
+                          <i className="ri-hand-coin-line mr-2"></i>Request Pickup
+                        </button>
+                      )}
+                    </>
+                  );
+                })()}
                 <button
                   type="button"
                   onClick={() => setSelectedCheque(null)}

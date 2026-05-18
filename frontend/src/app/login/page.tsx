@@ -32,6 +32,19 @@ function LoginForm() {
 
     const result = await authApi.completeRegistrationCheckout(checkoutSessionId, checkoutEmail);
 
+    if (result.active && result.autoLoggedIn && result.user) {
+      localStorage.setItem("vscanmail_last_activity", new Date().toISOString());
+      const role = result.user.role;
+      if (role === "super_admin") {
+        router.replace("/superadmin/dashboard");
+      } else if (role === "admin") {
+        router.replace("/admin");
+      } else {
+        router.replace(result.user.clientId ? `/customer/${result.user.clientId}/dashboard` : "/customer");
+      }
+      return true;
+    }
+
     setCheckoutBanner(
       result.active
         ? "Payment successful. Your subscription is active — sign in with your company email and password."

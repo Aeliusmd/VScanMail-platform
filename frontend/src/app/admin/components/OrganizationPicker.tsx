@@ -136,11 +136,9 @@ export default function OrganizationPicker({
     const q = activeSearch.trim().toLowerCase();
     const base = q
       ? items.filter((c) => {
-      const name = (c.company_name || "").toLowerCase();
-      const industry = (c.industry || "").toLowerCase();
-      const email = (c.email || "").toLowerCase();
-      return name.includes(q) || industry.includes(q) || email.includes(q);
-    })
+          const name = (c.company_name || "").toLowerCase();
+          return name.includes(q);
+        })
       : items;
 
     return [...base].sort((a, b) => {

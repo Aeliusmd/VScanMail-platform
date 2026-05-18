@@ -8,8 +8,21 @@ export async function POST(
 ) {
   try {
     const user = await withAuth(req);
-    withRole(user, ["operator", "admin", "super_admin"]);
     const { id } = await params;
+
+    if (user.role === "client") {
+      if (!user.clientId) {
+        return NextResponse.json({ error: "Missing client context" }, { status: 400 });
+      }
+
+      const item = await mailItemModel.findById(id);
+      if (item.client_id !== user.clientId) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
+    } else {
+      withRole(user, ["operator", "admin", "super_admin"]);
+    }
+
     await mailItemModel.archive(id, user.id, req as unknown as Request);
     return NextResponse.json({ success: true });
   } catch (error: any) {

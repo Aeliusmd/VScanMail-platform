@@ -1,6 +1,7 @@
 import { apiClient, apiUpload } from "../api-client";
 
 export type ChequeClientDecision = "pending" | "approved" | "rejected";
+export type ChequeDeliveryStatus = "pending" | "approved" | "rejected" | "in_transit" | "delivered" | "cancelled";
 export type ChequeStatus =
   | "validated"
   | "flagged"
@@ -23,6 +24,10 @@ export interface Cheque {
   decided_by: string | null;
   decided_at: string | null;
   deposit_batch_id: string | null;
+  deposit_requested_at?: string | null;
+  deposit_marked_deposited_at?: string | null;
+  delivery_status?: ChequeDeliveryStatus | null;
+  delivery_requested_at?: string | null;
   created_at: string;
   company_name?: string;
   company_avatar_url?: string | null;

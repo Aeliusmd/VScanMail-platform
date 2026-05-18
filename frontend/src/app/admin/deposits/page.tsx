@@ -234,11 +234,15 @@ function DepositsPageContent() {
   };
 
   const filtered = requests.filter((r) => {
+    const query = search.trim().toLowerCase();
     const matchSearch =
-      r.company.toLowerCase().includes(search.toLowerCase()) ||
-      r.bankName.toLowerCase().includes(search.toLowerCase()) ||
-      r.chequeNumber.toLowerCase().includes(search.toLowerCase()) ||
-      r.id.toLowerCase().includes(search.toLowerCase());
+      query === '' ||
+      (isSuperadminRoute
+        ? r.company.toLowerCase().includes(query)
+        : r.company.toLowerCase().includes(query) ||
+          r.bankName.toLowerCase().includes(query) ||
+          r.chequeNumber.toLowerCase().includes(query) ||
+          r.id.toLowerCase().includes(query));
     const matchStatus = statusFilter === 'All' || r.status === statusFilter;
     return matchSearch && matchStatus;
   });

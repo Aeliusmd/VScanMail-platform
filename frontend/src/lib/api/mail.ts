@@ -22,6 +22,8 @@ export interface MailItem {
   scanned_by: string | null;
   scanned_at: string | null;
   status: MailStatus;
+  is_archived?: boolean | null;
+  archived_at?: string | null;
   created_at: string;
   company_name?: string;
   company_avatar_url?: string | null;
@@ -80,7 +82,7 @@ export const mailApi = {
   unarchive: (id: string) =>
     apiClient<{ success: true }>(`/api/records/mail/${id}/unarchive`, { method: "POST" }),
 
-  bulk: (action: "archive" | "unarchive" | "delete", ids: string[]) =>
+  bulk: (action: "archive" | "unarchive" | "delete" | "mark_read", ids: string[]) =>
     apiClient<{ success: true; count: number }>(`/api/records/mail/bulk`, {
       method: "POST",
       body: JSON.stringify({ action, ids }),

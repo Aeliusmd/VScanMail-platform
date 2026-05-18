@@ -39,14 +39,17 @@ export const stripeService = {
   async createCheckoutSession(
     clientId: string,
     priceId: string,
-    options?: { successUrl?: string; cancelUrl?: string }
+    options?: { successUrl?: string; cancelUrl?: string; customerEmail?: string }
   ) {
     const sub = await subscriptionModel.findByClient(clientId);
     const successUrl = options?.successUrl || `${APP_URL}/dashboard?checkout=success`;
     const cancelUrl = options?.cancelUrl || `${APP_URL}/pricing?checkout=cancel`;
+    const stripeCustomerId = sub?.stripe_customer_id || undefined;
 
     const session = await stripe.checkout.sessions.create({
-      customer: sub?.stripe_customer_id || undefined,
+      customer: stripeCustomerId,
+      customer_email: stripeCustomerId ? undefined : options?.customerEmail,
+      client_reference_id: clientId,
       mode: "subscription",
       payment_method_types: ["card"],
       payment_method_collection: "always",

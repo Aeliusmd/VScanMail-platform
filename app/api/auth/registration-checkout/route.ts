@@ -78,6 +78,7 @@ export async function POST(req: NextRequest) {
     const { url } = await stripeService.createCheckoutSession(clientId, priceId, {
       successUrl,
       cancelUrl,
+      customerEmail: body.email,
     });
     if (!url) {
       return NextResponse.json({ error: "Could not start Stripe Checkout." }, { status: 500 });

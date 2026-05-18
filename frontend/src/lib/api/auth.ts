@@ -104,6 +104,7 @@ export const authApi = {
       error?: string;
       user?: { id: string; email: string; role: string; clientId: string };
       requiresLogin?: boolean;
+      autoLoggedIn?: boolean;
     }>(
       "/api/auth/registration-checkout-complete",
       {

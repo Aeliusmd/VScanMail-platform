@@ -53,6 +53,8 @@ export default function CustomerNav() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const notificationsRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const mountedRef = useRef(false);
+  const signingOutRef = useRef(false);
 
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
@@ -90,16 +92,28 @@ export default function CustomerNav() {
   }, []);
 
   const loadNotifications = useCallback(async () => {
+    if (signingOutRef.current) return;
+
     try {
       setNotificationsLoading(true);
       const rows = await customerNotificationsApi.list();
+      if (!mountedRef.current || signingOutRef.current) return;
       setNotifications(rows);
     } catch (error) {
+      const status = typeof error === "object" && error !== null && "status" in error ? Number(error.status) : null;
+      if (signingOutRef.current || status === 401) return;
       console.error("Failed to load customer notifications:", error);
       setNotifications([]);
     } finally {
-      setNotificationsLoading(false);
+      if (mountedRef.current && !signingOutRef.current) setNotificationsLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -151,6 +165,19 @@ export default function CustomerNav() {
       console.error("Failed to mark all customer notifications as read:", error);
     }
   }, [loadNotifications]);
+
+  const handleSignOut = useCallback(() => {
+    signingOutRef.current = true;
+    closePanels();
+    window.localStorage.removeItem("vscanmail_last_activity");
+    void fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "include",
+      keepalive: true,
+    }).finally(() => {
+      router.replace("/login");
+    });
+  }, [closePanels, router]);
 
   return (
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-40" aria-label="Customer dashboard">
@@ -311,16 +338,16 @@ export default function CustomerNav() {
                     Account Settings
                   </Link>
                   <div className="border-t border-gray-200 mt-1 pt-1">
-                    <Link
-                      href="/login"
+                    <button
+                      type="button"
                       className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3 cursor-pointer"
-                      onClick={closePanels}
+                      onClick={handleSignOut}
                     >
                       <span className="inline-flex h-5 w-5 items-center justify-center" aria-hidden>
                         <i className="ri-logout-box-line" />
                       </span>
                       Sign Out
-                    </Link>
+                    </button>
                   </div>
                 </div>
               )}

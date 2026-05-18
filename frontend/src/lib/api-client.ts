@@ -13,10 +13,13 @@ export class ApiError extends Error {
 }
 
 type JsonHeaders = Record<string, string>;
+type ApiClientOptions = RequestInit & {
+  redirectOnUnauthorized?: boolean;
+};
 
 export async function apiClient<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: ApiClientOptions = {}
 ): Promise<T> {
   const headers: JsonHeaders = {
     "Content-Type": "application/json",
@@ -50,7 +53,7 @@ export async function apiClient<T>(
       .json()
       .catch(() => ({} as any));
 
-    if (res.status === 401 && endpoint !== "/api/auth/login") {
+    if (res.status === 401 && endpoint !== "/api/auth/login" && options.redirectOnUnauthorized !== false) {
       window.location.href = "/login";
     }
 

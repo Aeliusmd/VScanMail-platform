@@ -201,13 +201,15 @@ function CompaniesPageContent() {
 
   const filtered = companyList.filter((c) => {
     const matchTab = activeTab === 'All' || c.status === activeTab;
-    const query = search.toLowerCase();
+    const query = search.trim().toLowerCase();
     const matchSearch =
-      search === '' ||
-      c.name.toLowerCase().includes(query) ||
-      c.contact.toLowerCase().includes(query) ||
-      c.email.toLowerCase().includes(query) ||
-      c.industry.toLowerCase().includes(query);
+      query === '' ||
+      (isSuperadminRoute
+        ? c.name.toLowerCase().includes(query)
+        : c.name.toLowerCase().includes(query) ||
+          c.contact.toLowerCase().includes(query) ||
+          c.email.toLowerCase().includes(query) ||
+          c.industry.toLowerCase().includes(query));
     return matchTab && matchSearch;
   });
 

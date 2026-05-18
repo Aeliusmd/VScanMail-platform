@@ -93,17 +93,17 @@ export default function SuperAdminHeader({
 
   const searchPlaceholder =
     pathname === "/superadmin/companies"
-      ? "Search organizations..."
+      ? "Search by organization name..."
       : pathname === "/superadmin/deposits"
-        ? "Search deposit requests..."
-        : "Search delivery requests...";
+        ? "Search by organization name..."
+        : "Search by organization name...";
 
   const searchLabel =
     pathname === "/superadmin/companies"
-      ? "Search organizations"
+      ? "Search by organization name"
       : pathname === "/superadmin/deposits"
-        ? "Search deposit requests"
-        : "Search delivery requests";
+        ? "Search deposits by organization name"
+        : "Search deliveries by organization name";
 
   /** HEADER-108: Inter 14px / 500 input; Roboto 14px/600 & 12px/400 profile */
   const searchFieldClass =

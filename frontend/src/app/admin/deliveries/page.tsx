@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { deliveriesApi, type DeliveryDto } from "@/lib/api/deliveries";
+import { useSuperAdminToolbarOptional } from "../../superadmin/components/SuperAdminToolbarContext";
 import ClickedDelivery from "./components/ClickedDelivery";
 
 type TabType = "All" | "Pending" | "Approved" | "In Transit" | "Delivered" | "Rejected" | "Cancelled";
@@ -59,6 +60,7 @@ function sourceMeta(sourceType: DeliveryDto["sourceType"]): { label: string; cla
 export default function AdminDeliveriesPage() {
   const pathname = usePathname() ?? "";
   const isSuperadminRoute = pathname.startsWith("/superadmin");
+  const superToolbar = useSuperAdminToolbarOptional();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -67,6 +69,7 @@ export default function AdminDeliveriesPage() {
   const [opened, setOpened] = useState<DeliveryDto | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkCancelling, setBulkCancelling] = useState(false);
+  const search = isSuperadminRoute && superToolbar ? superToolbar.search : query;
 
   const load = async () => {
     setLoading(true);
@@ -88,16 +91,18 @@ export default function AdminDeliveriesPage() {
   const filtered = useMemo(() => {
     return rows.filter((r) => {
       const matchesTab = tab === "All" || toTab(r.status) === tab;
-      const q = query.toLowerCase();
+      const q = search.trim().toLowerCase();
       const matchesSearch =
         !q ||
-        r.id.toLowerCase().includes(q) ||
-        r.irn.toLowerCase().includes(q) ||
-        (r.clientName || "").toLowerCase().includes(q) ||
-        (r.trackingNumber || "").toLowerCase().includes(q);
+        (isSuperadminRoute
+          ? (r.clientName || "").toLowerCase().includes(q)
+          : r.id.toLowerCase().includes(q) ||
+            r.irn.toLowerCase().includes(q) ||
+            (r.clientName || "").toLowerCase().includes(q) ||
+            (r.trackingNumber || "").toLowerCase().includes(q));
       return matchesTab && matchesSearch;
     });
-  }, [rows, tab, query]);
+  }, [rows, tab, search, isSuperadminRoute]);
 
   const metrics = useMemo(() => {
     const total = rows.length;
@@ -185,6 +190,7 @@ export default function AdminDeliveriesPage() {
         {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
         <div className="bg-white rounded-xl border border-slate-200 mb-4">
+          {!isSuperadminRoute && (
           <div className="p-4 border-b border-slate-100">
             <div className="w-full md:w-[440px]">
               <div className="relative">
@@ -200,6 +206,7 @@ export default function AdminDeliveriesPage() {
               <div className="mt-1 text-[11px] text-slate-500">Tip: Paste an ID or IRN to jump straight to a request.</div>
             </div>
           </div>
+          )}
           <div className="flex items-center px-4 overflow-x-auto">
             {tabs.map((t) => (
               <button

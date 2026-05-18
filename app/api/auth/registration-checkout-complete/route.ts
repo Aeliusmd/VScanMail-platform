@@ -6,6 +6,8 @@ import { clientModel } from "@/lib/modules/clients/client.model";
 import { db } from "@/lib/modules/core/db/mysql";
 import { users, profiles } from "@/lib/modules/core/db/schema";
 import { eq } from "drizzle-orm";
+import { signAccessToken } from "@/lib/modules/auth/jwt";
+import { auditService } from "@/lib/modules/audit/audit.service";
 
 const bodySchema = z.object({
   sessionId: z.string().min(1),
@@ -47,8 +49,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const expectedEmail = String(session.customer_details?.email || session.customer_email || "").toLowerCase();
-    if (!expectedEmail || expectedEmail !== email.toLowerCase()) {
+    const client = await clientModel.findById(clientId);
+    const registeredEmail = String(client.email || "").toLowerCase();
+    if (!registeredEmail || registeredEmail !== email.toLowerCase()) {
       return NextResponse.json({ active: false, error: "Checkout verification failed." }, { status: 403 });
     }
 
@@ -69,8 +72,8 @@ export async function POST(req: NextRequest) {
       console.error("[checkout-complete] webhook handler error (org already activated):", webhookErr);
     }
 
-    // Look up the user via profiles table so the frontend can show activation status.
-    // The user must sign in normally after checkout; this public route must not mint JWTs.
+    // Look up the user via profiles table and create the same short-lived session as normal login.
+    // Stripe has already confirmed this checkout session is complete and paid for this client.
     const profileRows = await db
       .select({ userId: profiles.userId, role: profiles.role })
       .from(profiles)
@@ -94,13 +97,35 @@ export async function POST(req: NextRequest) {
     }
 
     const role = profileRow.role ?? "client";
+    const accessToken = await signAccessToken({ sub: user.id, email: user.email });
 
-    return NextResponse.json({
+    await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
+
+    await auditService.log({
+      actor: user.id,
+      actor_role: role as any,
+      action: "auth.login",
+      entity: user.id,
+      clientId,
+      after: { role, source: "registration_checkout" },
+      req,
+    });
+
+    const res = NextResponse.json({
       active: true,
       user: { id: user.id, email: user.email, role, clientId },
-      requiresLogin: true,
+      autoLoggedIn: true,
     });
+    res.cookies.set("sb-access-token", accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 15 * 60,
+    });
+    return res;
   } catch (error: any) {
+    console.error("[registration-checkout-complete]", error?.message || error);
     return NextResponse.json(
       { active: false, error: "Could not confirm checkout." },
       { status: 400 }

@@ -3,6 +3,7 @@ import { db, sql } from "@/lib/modules/core/db/mysql";
 import {
   ensureClientTableArchiveColumns,
   ensureClientTableDeliveryColumns,
+  ensureClientTableDepositColumns,
   getClientTableName,
 } from "@/lib/modules/core/db/dynamic-table";
 import { clients } from "@/lib/modules/core/db/schema";
@@ -27,6 +28,10 @@ export type Cheque = {
   decided_by: string | null;
   decided_at: string | null;
   deposit_batch_id: string | null;
+  deposit_requested_at: string | null;
+  deposit_marked_deposited_at: string | null;
+  delivery_status: "pending" | "approved" | "rejected" | "in_transit" | "delivered" | "cancelled" | null;
+  delivery_requested_at: string | null;
   status: "validated" | "flagged" | "approved" | "deposit_requested" | "pickup_requested" | "deposited" | "cleared";
   created_at: string;
   mail_items?: {
@@ -73,6 +78,12 @@ function rowToCheque(row: any, clientId: string): Cheque {
     decided_by: row.cheque_decided_by || null,
     decided_at: row.cheque_decided_at ? new Date(row.cheque_decided_at).toISOString() : null,
     deposit_batch_id: null,
+    deposit_requested_at: row.deposit_requested_at ? new Date(row.deposit_requested_at).toISOString() : null,
+    deposit_marked_deposited_at: row.deposit_marked_deposited_at
+      ? new Date(row.deposit_marked_deposited_at).toISOString()
+      : null,
+    delivery_status: row.delivery_status ?? null,
+    delivery_requested_at: row.delivery_requested_at ? new Date(row.delivery_requested_at).toISOString() : null,
     status,
     created_at: new Date(row.created_at).toISOString(),
     mail_items: {
@@ -123,6 +134,7 @@ export const chequeModel = {
       allClients.map(async (c) => {
         if (archived !== undefined) await ensureClientTableArchiveColumns(c.tableName);
         await ensureClientTableDeliveryColumns(c.tableName);
+        await ensureClientTableDepositColumns(c.tableName);
       })
     );
 
@@ -142,7 +154,7 @@ export const chequeModel = {
     const whereStr = `WHERE ${conditionParts.join(' AND ')}`;
 
     // Column list matches rowToCheque dependencies + id, record_type, created_at
-    const columnList = `id, record_type, cheque_amount_figures, cheque_amount_words, cheque_amounts_match, cheque_date_on_cheque, cheque_date_valid, cheque_beneficiary, cheque_beneficiary_match, cheque_signature_present, cheque_alteration_detected, cheque_crossing_present, cheque_ai_confidence, cheque_ai_raw_result, cheque_decision, cheque_decided_by, cheque_decided_at, cheque_status, delivery_status, created_at`;
+    const columnList = `id, record_type, cheque_amount_figures, cheque_amount_words, cheque_amounts_match, cheque_date_on_cheque, cheque_date_valid, cheque_beneficiary, cheque_beneficiary_match, cheque_signature_present, cheque_alteration_detected, cheque_crossing_present, cheque_ai_confidence, cheque_ai_raw_result, cheque_decision, cheque_decided_by, cheque_decided_at, cheque_status, deposit_requested_at, deposit_marked_deposited_at, delivery_status, delivery_requested_at, created_at`;
 
     const unionParts = allClients.map(c => 
       `SELECT ${columnList}, '${c.id}' AS _client_id FROM \`${c.tableName}\` ${whereStr}`
@@ -241,6 +253,7 @@ export const chequeModel = {
     const tableName = await getClientTableName(clientId);
     if (archived !== undefined) await ensureClientTableArchiveColumns(tableName);
     await ensureClientTableDeliveryColumns(tableName);
+    await ensureClientTableDepositColumns(tableName);
     const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const archiveClause =
       archived === undefined
