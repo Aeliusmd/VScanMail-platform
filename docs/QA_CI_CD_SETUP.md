@@ -48,6 +48,29 @@ New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name
 
 In GitHub → **Settings → Environments**, create environment **`qa`** (optional approval rules).
 
+### Runner service account (required)
+
+The runner must **not** stay on **NT AUTHORITY\\NETWORK SERVICE** if the repo lives under `E:\Visal\VScanmail` as user **aiuser**. Otherwise you get:
+
+- `fatal: detected dubious ownership in repository`
+- `npm error EPERM` on `node_modules` (no permission / files locked)
+
+**Fix — run the service as `aiuser`:**
+
+1. Stop manual `npm run dev` terminals on this machine.
+2. `Win+R` → `services.msc`
+3. **GitHub Actions Runner (Aeliusmd-VScanMail-platform.CLAUDMDWSDEV01)**
+4. **Properties** → **Log On** → **This account** → `CLAUDMD\aiuser` (or `.\aiuser`) + your Windows password
+5. **OK** → **Restart** the service
+
+Then re-run the workflow from GitHub Actions (or push again).
+
+Optional one-time fix for git only (as aiuser, not enough alone for npm):
+
+```powershell
+git config --global --add safe.directory E:/Visal/VScanmail
+```
+
 ## 3. First production build + PM2
 
 ```powershell

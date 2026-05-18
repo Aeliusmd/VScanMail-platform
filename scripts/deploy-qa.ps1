@@ -10,6 +10,14 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# GitHub Actions runner service often runs as NETWORK SERVICE without user PATH.
+$env:Path = @(
+    "C:\Program Files\nodejs",
+    "C:\Program Files\Git\cmd",
+    "$env:APPDATA\npm",
+    "$env:ProgramFiles\nodejs"
+) -join ";" + ";" + $env:Path
+
 function Write-Step([string]$Message) {
     Write-Host ""
     Write-Host "==> $Message" -ForegroundColor Cyan
@@ -26,6 +34,25 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     throw "git is not installed or not on PATH"
 }
 
+# Required when the runner service runs as NETWORK SERVICE but the repo is owned by aiuser.
+$safeDir = (Resolve-Path $RepoPath).Path -replace '\\', '/'
+git config --global --add safe.directory $safeDir 2>$null
+git config --global --add safe.directory '*' 2>$null
+
+function Stop-PortListeners {
+    param([int[]]$Ports)
+    foreach ($port in $Ports) {
+        $conns = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
+        foreach ($conn in $conns) {
+            $processId = $conn.OwningProcess
+            if ($processId -and $processId -ne 0) {
+                Write-Host "Stopping process $processId listening on port $port"
+                Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+}
+
 Write-Step "Syncing git to origin/$Branch"
 git fetch origin
 git checkout $Branch
@@ -35,6 +62,10 @@ if (-not $SkipBuild) {
     if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
         throw "npm is not installed or not on PATH"
     }
+
+    Write-Step "Stopping apps on ports 3010 and 3001 (avoids EPERM on node_modules)"
+    Stop-PortListeners -Ports @(3010, 3001)
+    Start-Sleep -Seconds 2
 
     Write-Step "Installing and building API (root)"
     npm ci

@@ -20,6 +20,8 @@ jobs:
       - name: Deploy on QA machine
         shell: powershell
         run: |
+          # Runner service (NETWORK SERVICE) does not inherit your user PATH.
+          $env:Path = "C:\Program Files\nodejs;C:\Program Files\Git\cmd;" + $env:Path
           $branch = "${{ github.event.inputs.branch }}"
           if ([string]::IsNullOrWhiteSpace($branch)) {
             $branch = "dev_visal"
