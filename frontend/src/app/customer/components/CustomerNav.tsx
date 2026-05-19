@@ -249,15 +249,23 @@ export default function CustomerNav() {
 
               {showNotifications && (
                 <div
-                  className="absolute right-0 mt-2 w-[min(20rem,calc(100vw-2rem))] bg-white rounded-2xl border border-gray-200 py-2 z-50 shadow-lg overflow-hidden"
+                  className="absolute right-0 mt-2 w-[min(22rem,calc(100vw-2rem))] bg-white rounded-2xl border border-gray-200 z-50 shadow-xl overflow-hidden"
                   role="region"
                   aria-label="Notifications list"
                 >
-                  <div className="px-4 py-2 border-b border-gray-200 flex items-center justify-between gap-2">
-                    <h3 className="font-semibold text-gray-900 text-sm">Notifications</h3>
+                  <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between gap-2">
+                    <div>
+                      <h3 className="font-semibold text-gray-900 text-sm">Notifications</h3>
+                      {unreadCount > 0 && (
+                        <span className="mt-1 inline-flex items-center rounded-full bg-[#0A3D8F] px-2 py-0.5 text-[10px] font-bold text-white">
+                          {unreadCount} unread
+                        </span>
+                      )}
+                    </div>
                     <button
                       type="button"
-                      className="text-xs text-[#0A3D8F] font-medium whitespace-nowrap hover:underline"
+                      className="text-xs text-[#0A3D8F] font-semibold whitespace-nowrap hover:underline disabled:cursor-not-allowed disabled:text-gray-300 disabled:no-underline"
+                      disabled={unreadCount === 0}
                       onClick={handleMarkAllRead}
                     >
                       Mark all read
@@ -273,17 +281,47 @@ export default function CustomerNav() {
                     {!notificationsLoading &&
                       notifications.map((n) => {
                         const accent = pickAccent(n);
+                        const unread = !n.notifIsRead;
                         return (
                           <button
                             key={n.id}
                             type="button"
                             onClick={() => void handleNotificationClick(n)}
-                            className={`w-full text-left px-4 py-3 hover:bg-gray-50 cursor-pointer border-l-4 ${accentBorder[accent]} ${
-                              !n.notifIsRead ? "bg-blue-50/40" : ""
+                            className={`w-full text-left px-4 py-3 cursor-pointer border-b border-gray-100 border-l-4 transition-colors ${
+                              unread
+                                ? `${accentBorder[accent]} bg-blue-50 hover:bg-blue-100/70`
+                                : "border-l-transparent bg-white hover:bg-gray-50"
                             }`}
                           >
-                            <p className="text-sm font-medium text-gray-900">{n.notifTitle || "New notification"}</p>
-                            <p className="text-xs text-gray-400 mt-1">{formatRelativeTime(n.createdAt)}</p>
+                            <div className="flex items-start gap-3">
+                              <span
+                                className={`mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                                  unread ? "bg-[#0A3D8F] text-white" : "bg-gray-100 text-gray-400"
+                                }`}
+                                aria-hidden
+                              >
+                                <i className={`${unread ? "ri-notification-3-fill" : "ri-notification-3-line"} text-sm`} />
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="flex items-start justify-between gap-2">
+                                  <span
+                                    className={`text-sm leading-5 ${
+                                      unread ? "font-bold text-gray-950" : "font-medium text-gray-500"
+                                    }`}
+                                  >
+                                    {n.notifTitle || "New notification"}
+                                  </span>
+                                  {unread && (
+                                    <span className="mt-0.5 shrink-0 rounded-full bg-[#0A3D8F] px-2 py-0.5 text-[10px] font-bold text-white">
+                                      Unread
+                                    </span>
+                                  )}
+                                </span>
+                                <span className={`block text-xs mt-1 ${unread ? "font-semibold text-[#0A3D8F]" : "text-gray-400"}`}>
+                                  {formatRelativeTime(n.createdAt)}
+                                </span>
+                              </span>
+                            </div>
                           </button>
                         );
                       })}

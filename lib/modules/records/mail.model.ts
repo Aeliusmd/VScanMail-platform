@@ -170,7 +170,7 @@ export const mailItemModel = {
         ${toSqlDatetime(data.retention_until || Date.now())}, 
         ${data.scanned_by || ""}, 
         ${toSqlDatetime(data.scanned_at || Date.now())}, 
-        ${data.status || 'scanned'}, 
+        ${data.status || 'received'}, 
         ${toSqlDatetime(created)},
         ${data.cheque_amount_figures ?? null},
         ${data.cheque_amount_words ?? null},

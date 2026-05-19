@@ -7,10 +7,57 @@ import { users, profiles, clients } from "@/lib/modules/core/db/schema";
 import { eq } from "drizzle-orm";
 import { signAccessToken } from "@/lib/modules/auth/jwt";
 import { subscriptionModel } from "@/lib/modules/billing/subscription.model";
+import { stripe } from "@/lib/modules/billing/stripe.config";
 import { rateLimit } from "@/lib/modules/core/middleware/rate-limit";
 import crypto from "crypto";
 
 import { auditService } from "@/lib/modules/audit/audit.service";
+
+/**
+ * When a subscription client is still "pending" after payment, check Stripe directly
+ * and activate the account if a valid paid subscription is found.
+ * Three-level fallback: DB consistency check → Stripe subscription lookup → Stripe email search.
+ */
+async function tryActivateByStripe(clientId: string, clientEmail: string): Promise<boolean> {
+  const sub = await subscriptionModel.findByClient(clientId).catch(() => null);
+
+  // Level 1: subscription in DB is already "active" but client status wasn't synced
+  if (sub?.status === "active") {
+    await db.update(clients).set({ status: "active", updatedAt: new Date() }).where(eq(clients.id, clientId));
+    return true;
+  }
+
+  // Level 2: subscription ID in DB — query Stripe for live status
+  if (sub?.stripe_subscription_id) {
+    try {
+      const stripeSub = await stripe.subscriptions.retrieve(sub.stripe_subscription_id);
+      if (stripeSub.status === "active") {
+        await db.update(clients).set({ status: "active", updatedAt: new Date() }).where(eq(clients.id, clientId));
+        return true;
+      }
+    } catch { /* Stripe unavailable */ }
+  }
+
+  // Level 3: no subscription in DB yet (webhook/checkout-complete never ran) — search Stripe by email.
+  // Accept "active" or "trialing" — both represent a successfully completed payment/checkout.
+  if (!sub) {
+    try {
+      const customers = await stripe.customers.list({ email: clientEmail, limit: 3 });
+      for (const customer of customers.data) {
+        const subs = await stripe.subscriptions.list({ customer: customer.id, limit: 5 });
+        const hasPaidSub = subs.data.some(
+          (s) => s.status === "active" || s.status === "trialing"
+        );
+        if (hasPaidSub) {
+          await db.update(clients).set({ status: "active", updatedAt: new Date() }).where(eq(clients.id, clientId));
+          return true;
+        }
+      }
+    } catch { /* Stripe unavailable */ }
+  }
+
+  return false;
+}
 
 export async function POST(req: NextRequest) {
   let user: any = null;
@@ -80,19 +127,33 @@ export async function POST(req: NextRequest) {
 
     if (clientId) {
       const clientRows = await db
-        .select({ status: clients.status })
+        .select({ status: clients.status, clientType: clients.clientType })
         .from(clients)
         .where(eq(clients.id, clientId))
         .limit(1);
       const clientStatus = clientRows[0]?.status;
+      const clientType = clientRows[0]?.clientType;
+
       if (clientStatus === "pending") {
-        return NextResponse.json(
-          {
-            error:
-              "Your subscription payment is still processing. Please wait a moment, then try signing in again.",
-          },
-          { status: 403 }
-        );
+        if (clientType === "subscription") {
+          // Payment may have completed but the webhook/redirect missed — check Stripe and auto-activate.
+          const activated = await tryActivateByStripe(clientId, user.email);
+          if (!activated) {
+            return NextResponse.json(
+              {
+                error:
+                  "Your subscription payment is still processing. Please complete payment or wait a moment, then try signing in again.",
+              },
+              { status: 403 }
+            );
+          }
+          // Activation succeeded — fall through to complete the login.
+        } else {
+          return NextResponse.json(
+            { error: "Your account is pending activation. Please contact your service provider." },
+            { status: 403 }
+          );
+        }
       }
 
       const sub = await subscriptionModel.findByClient(clientId).catch(() => null);

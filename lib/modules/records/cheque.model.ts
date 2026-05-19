@@ -54,10 +54,20 @@ function parseJsonSafe(value: any, fallback: any = null): any {
 
 function rowToCheque(row: any, clientId: string): Cheque {
   const deliveryStatus = String(row.delivery_status || "");
-  const status =
-    deliveryStatus === "pending" || deliveryStatus === "approved" || deliveryStatus === "in_transit"
+  const chequeStatus = String(row.cheque_status || "validated");
+  // Deposit takes priority: if the customer requested or completed a deposit,
+  // show that status even if a delivery/pickup request is still open.
+  const depositTakesPriority =
+    chequeStatus === "deposit_requested" || chequeStatus === "deposited";
+  const hasActiveDelivery =
+    deliveryStatus === "pending" ||
+    deliveryStatus === "approved" ||
+    deliveryStatus === "in_transit";
+  const status = depositTakesPriority
+    ? chequeStatus
+    : hasActiveDelivery
       ? "pickup_requested"
-      : row.cheque_status || "validated";
+      : chequeStatus;
 
   return {
     id: row.id,

@@ -304,8 +304,18 @@ export async function ensureClientTableDepositColumns(tableName: string): Promis
         )
       );
     } catch {
-      // Best effort for legacy org tables. Deposit updates will still fail loudly
-      // if cheque_status is genuinely unavailable.
+      // ENUM MODIFY failed (e.g. old schema missing deposit_requested). Fall back to
+      // VARCHAR so any status string can be stored without a strict-mode error.
+      try {
+        await db.execute(
+          sql.raw(
+            `ALTER TABLE ${escapeIdent(tableName)}
+               MODIFY COLUMN \`cheque_status\` VARCHAR(64) NULL`
+          )
+        );
+      } catch {
+        // Column is genuinely unavailable — deposit updates will fail with a DB error.
+      }
     }
   };
 

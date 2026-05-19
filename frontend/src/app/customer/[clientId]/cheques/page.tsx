@@ -51,7 +51,7 @@ function mapApiChequeStatusToUi(status: ApiChequeStatus): ChequeStatus {
     case "cleared":
       return "Picked Up";
     default:
-      return "Deposit Requested";
+      return "Pending";
   }
 }
 
@@ -393,8 +393,34 @@ export default function CustomerChequesPage() {
       setSuccessMsg("Deposit request submitted successfully!");
       setTimeout(() => setSuccessMsg(null), 4000);
     } catch (e: any) {
-      console.error("Failed to submit deposit request:", e);
-      setDepositError(e?.message || "Failed to submit deposit request.");
+      const msg: string = e?.message || "Failed to submit deposit request.";
+      const alreadyRequested = msg.toLowerCase().includes("already requested");
+      if (alreadyRequested) {
+        // Deposit exists in DB but local state was out of sync — correct it and
+        // navigate the user to the Deposit Requested tab instead of showing an error.
+        const targetId = modalCheque.id;
+        setCheques((prev) =>
+          prev.map((c) =>
+            c.id === targetId
+              ? {
+                  ...c,
+                  status: "Deposit Requested",
+                  tag: "In Process",
+                  tagColor: "bg-[#0A3D8F]/10 text-[#0A3D8F]",
+                  depositRequestedAt: c.depositRequestedAt ?? new Date().toISOString(),
+                }
+              : c
+          )
+        );
+        if (selectedCheque?.id === targetId) setSelectedCheque(null);
+        setModalType(null);
+        setModalCheque(null);
+        setStatusFilter("Deposit Requested");
+        setSuccessMsg("Your deposit request is already submitted. View it in the Deposit Requested tab.");
+        setTimeout(() => setSuccessMsg(null), 6000);
+      } else {
+        setDepositError(msg);
+      }
     } finally {
       setDepositSubmitting(false);
     }
@@ -561,15 +587,6 @@ export default function CustomerChequesPage() {
               }`}
             >
               {tab}
-              {tab !== "All" && (
-                <span
-                  className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${
-                    statusFilter === tab ? "bg-[#0A3D8F]/10 text-[#0A3D8F]" : "bg-slate-100 text-slate-500"
-                  }`}
-                >
-                  {cheques.filter((c) => c.status === tab).length}
-                </span>
-              )}
             </button>
           ))}
         </div>

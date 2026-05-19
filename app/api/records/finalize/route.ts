@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
       ai_risk_level: aiResults.risk_level || (tampering.risk_level as any) || "low",
       scanned_by: user.id,
       scanned_at: new Date().toISOString(),
-      status: "scanned",
+      status: "received",
       retention_until: dayjs().add(30, 'day').toISOString(),
 
       // Cheque specific mapping

@@ -11,7 +11,8 @@ export default function NotificationBell() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
-  const hasUnread = useMemo(() => notifications.some((n) => !n.notifIsRead), [notifications]);
+  const unreadCount = useMemo(() => notifications.filter((n) => !n.notifIsRead).length, [notifications]);
+  const hasUnread = unreadCount > 0;
 
   const loadNotifications = async () => {
     try {
@@ -102,13 +103,21 @@ export default function NotificationBell() {
       </button>
 
       {showNotifications && (
-        <div className="absolute right-0 top-12 w-[320px] bg-white rounded-2xl shadow-lg border border-gray-100 z-50 overflow-hidden">
+        <div className="absolute right-0 top-12 w-[340px] bg-white rounded-2xl shadow-xl border border-gray-200 z-50 overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-            <span className="font-semibold text-sm text-gray-900">Notifications</span>
+            <div>
+              <span className="font-semibold text-sm text-gray-900">Notifications</span>
+              {unreadCount > 0 && (
+                <span className="ml-2 inline-flex items-center rounded-full bg-[#0A3D8F] px-2 py-0.5 text-[10px] font-bold text-white">
+                  {unreadCount} unread
+                </span>
+              )}
+            </div>
             <button
               type="button"
               onClick={handleMarkAllRead}
-              className="text-xs text-[#1E40AF] cursor-pointer hover:underline"
+              disabled={!hasUnread}
+              className="text-xs font-semibold text-[#1E40AF] cursor-pointer hover:underline disabled:cursor-not-allowed disabled:text-gray-300 disabled:no-underline"
             >
               Mark all read
             </button>
@@ -121,27 +130,45 @@ export default function NotificationBell() {
               <div className="px-4 py-6 text-center text-xs text-gray-500">No notifications yet.</div>
             )}
             {!notificationsLoading &&
-              notifications.map((n) => (
-                <button
-                  key={n.id}
-                  type="button"
-                  onClick={() => handleNotificationClick(n)}
-                  className={`w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 cursor-pointer flex gap-3 ${
-                    !n.notifIsRead ? "bg-[#EFF6FF]/40" : ""
-                  }`}
-                >
-                  <div className="w-8 h-8 flex items-center justify-center rounded-full bg-[#EFF6FF] flex-shrink-0">
-                    <Icon icon="ri:notification-3-line" className="text-[#1E40AF] text-sm" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-gray-700 leading-5">{n.notifTitle || "New notification"}</p>
-                    <p className="text-[11px] text-gray-400 mt-0.5">{formatRelativeTime(n.createdAt)}</p>
-                  </div>
-                  {!n.notifIsRead && (
-                    <span className="w-2 h-2 bg-[#1E40AF] rounded-full flex-shrink-0 mt-1.5"></span>
-                  )}
-                </button>
-              ))}
+              notifications.map((n) => {
+                const unread = !n.notifIsRead;
+
+                return (
+                  <button
+                    key={n.id}
+                    type="button"
+                    onClick={() => handleNotificationClick(n)}
+                    className={`w-full text-left px-4 py-3 border-b border-gray-100 border-l-4 cursor-pointer flex gap-3 transition-colors ${
+                      unread
+                        ? "border-l-[#0A3D8F] bg-blue-50 hover:bg-blue-100/70"
+                        : "border-l-transparent bg-white hover:bg-gray-50"
+                    }`}
+                  >
+                    <div
+                      className={`w-8 h-8 flex items-center justify-center rounded-full flex-shrink-0 ${
+                        unread ? "bg-[#0A3D8F] text-white" : "bg-gray-100 text-gray-400"
+                      }`}
+                    >
+                      <Icon icon={unread ? "ri:notification-3-fill" : "ri:notification-3-line"} className="text-sm" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className={`text-xs leading-5 ${unread ? "font-bold text-gray-950" : "font-medium text-gray-500"}`}>
+                          {n.notifTitle || "New notification"}
+                        </p>
+                        {unread && (
+                          <span className="mt-0.5 shrink-0 rounded-full bg-[#0A3D8F] px-2 py-0.5 text-[10px] font-bold text-white">
+                            Unread
+                          </span>
+                        )}
+                      </div>
+                      <p className={`text-[11px] mt-0.5 ${unread ? "font-semibold text-[#0A3D8F]" : "text-gray-400"}`}>
+                        {formatRelativeTime(n.createdAt)}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
           </div>
         </div>
       )}

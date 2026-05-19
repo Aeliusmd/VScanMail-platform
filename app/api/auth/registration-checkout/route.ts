@@ -60,11 +60,14 @@ export async function POST(req: NextRequest) {
     }
 
     const { priceId } = stripeService.resolvePriceIdForPlan(body.planId);
-    // Same as customer billing checkout: browser routes (login, verify-email) live on the
-    // customer frontend origin; API may run on a different port (e.g. 3010 vs 3000).
-    const appUrl = (process.env.CUSTOMER_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "")
+    // Use the browser's Origin header as the authoritative frontend URL —
+    // it's always correct regardless of how the server env var is configured
+    // (e.g. env says localhost:3001 but the QA server is accessed via 10.103.0.91:3001).
+    const reqOrigin = req.headers.get("origin");
+    const envUrl = (process.env.CUSTOMER_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "")
       .trim()
       .replace(/\/$/, "");
+    const appUrl = (reqOrigin || envUrl).replace(/\/$/, "");
     if (!appUrl) {
       return NextResponse.json(
         { error: "Set CUSTOMER_APP_URL or NEXT_PUBLIC_APP_URL for post-checkout redirects." },

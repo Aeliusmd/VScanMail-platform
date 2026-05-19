@@ -227,8 +227,21 @@ export default function CustomerMailsPage() {
 
   const openMail = (mail: Mail) => {
     setArchiveError(null);
-    setMails((prev) => prev.map((m) => (m.id === mail.id ? { ...m, status: m.status === "Unread" ? "Read" : m.status } : m)));
-    setSelectedMail({ ...mail, status: mail.status === "Unread" ? "Read" : mail.status });
+    const nextStatus = mail.status === "Unread" ? "Read" : mail.status;
+    setMails((prev) => prev.map((m) => (m.id === mail.id ? { ...m, status: nextStatus } : m)));
+    setSelectedMail({ ...mail, status: nextStatus });
+
+    if (mail.status === "Unread") {
+      mailApi.bulk("mark_read", [mail.id]).catch((e) => {
+        console.error("Failed to mark mail as read:", e);
+        setMails((prev) =>
+          prev.map((m) => (m.id === mail.id && m.status === "Read" ? { ...m, status: "Unread" } : m))
+        );
+        setSelectedMail((prev) =>
+          prev?.id === mail.id && prev.status === "Read" ? { ...prev, status: "Unread" } : prev
+        );
+      });
+    }
   };
 
   useEffect(() => {

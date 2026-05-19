@@ -99,9 +99,6 @@ function LoginForm() {
     setLoading(true);
 
     try {
-      if (checkoutSuccess && checkoutSessionId) {
-        await finalizeRegistrationCheckout();
-      }
       const response = await authApi.login(email, password);
       localStorage.setItem("vscanmail_last_activity", new Date().toISOString());
 

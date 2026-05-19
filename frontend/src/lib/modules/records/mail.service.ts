@@ -78,7 +78,7 @@ export const mailService = {
       retention_until: dayjs().add(90, "day").format("YYYY-MM-DD"),
       scanned_by: operatorId,
       scanned_at: new Date().toISOString(),
-      status: "processed",
+      status: "received",
     }, operatorId, req);
 
     // 5. Track usage
