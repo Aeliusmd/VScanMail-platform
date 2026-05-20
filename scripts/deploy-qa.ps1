@@ -65,7 +65,19 @@ if (-not $SkipBuild) {
 
     Write-Step "Stopping apps on ports 3010 and 3001 (avoids EPERM on node_modules)"
     Stop-PortListeners -Ports @(3010, 3001)
-    Start-Sleep -Seconds 2
+
+    # Kill PM2 daemon so it releases file handles on native .node binaries before npm ci
+    Write-Host "Killing PM2 daemon to release node_modules locks..."
+    & npx --yes pm2 kill 2>&1 | Out-Null
+
+    # Give Windows time to flush kernel handles on memory-mapped native DLLs
+    Start-Sleep -Seconds 6
+
+    # Explicitly remove node_modules before npm ci — avoids EPERM on locked .node files
+    Write-Host "Clearing node_modules (root)..."
+    if (Test-Path "node_modules") {
+        cmd /c "rmdir /s /q node_modules"
+    }
 
     Write-Step "Installing and building API (root)"
     npm ci
@@ -75,6 +87,9 @@ if (-not $SkipBuild) {
 
     Write-Step "Installing and building UI (frontend)"
     Push-Location (Join-Path $RepoPath "frontend")
+    if (Test-Path "node_modules") {
+        cmd /c "rmdir /s /q node_modules"
+    }
     npm ci
     if ($LASTEXITCODE -ne 0) { throw "npm ci failed in frontend" }
     npm run build
