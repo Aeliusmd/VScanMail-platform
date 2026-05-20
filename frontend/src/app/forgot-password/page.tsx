@@ -73,10 +73,8 @@ export default function ForgotPasswordPage() {
       await authApi.forgotPassword(email.trim().toLowerCase());
       setResendCooldown(60);
       setStep("otp");
-    } catch {
-      // Always succeed on the frontend — no email enumeration
-      setResendCooldown(60);
-      setStep("otp");
+    } catch (err: any) {
+      setError(err?.message || "Please enter the email address registered in our system.");
     } finally {
       setLoading(false);
     }
@@ -168,10 +166,12 @@ export default function ForgotPasswordPage() {
     setLoading(true);
     try {
       await authApi.forgotPassword(email.trim().toLowerCase());
-    } catch { /* silent */ } finally {
       setResendCooldown(60);
       setOtp(["", "", "", "", "", ""]);
       setTimeout(() => otpRefs.current[0]?.focus(), 100);
+    } catch (err: any) {
+      setError(err?.message || "Please enter the email address registered in our system.");
+    } finally {
       setLoading(false);
     }
   };

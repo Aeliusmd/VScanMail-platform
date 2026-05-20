@@ -92,7 +92,8 @@ async function buildAccountPayload(clientId: string, userId: string) {
     },
     bankAccounts: [] as unknown[],
     security: {
-      twoFactor: Boolean(client.two_fa_enabled),
+      twoFactor: Boolean(userRow.totpEnabled),
+      mfaEnabledAt: userRow.mfaEnabledAt ? new Date(userRow.mfaEnabledAt as any).toISOString() : null,
       loginAlerts: Boolean(userRow.loginAlertsEnabled ?? true),
       sessionTimeout: userRow.sessionTimeout ?? "30",
     },
@@ -133,6 +134,12 @@ export async function PUT(req: NextRequest) {
     if (parsed.profile) {
       const p = parsed.profile;
       const before = await clientModel.findById(clientId);
+      if (p.email !== undefined && p.email.toLowerCase() !== before.email.toLowerCase()) {
+        return NextResponse.json(
+          { error: "Please verify your authenticator and new email address before changing your email." },
+          { status: 403 }
+        );
+      }
       const addr = (before.address_json || {}) as Record<string, string>;
 
       const nextAddress = {
@@ -147,7 +154,7 @@ export async function PUT(req: NextRequest) {
         clientId,
         {
           company_name: p.companyName ?? before.company_name,
-          email: p.email ?? before.email,
+          email: before.email,
           phone: p.phone ?? before.phone,
           industry: p.industry ?? before.industry,
           address_json: nextAddress,
@@ -173,8 +180,11 @@ export async function PUT(req: NextRequest) {
 
     if (parsed.security) {
       const s = parsed.security;
-      if (s.twoFactor !== undefined) {
-        await clientModel.update(clientId, { two_fa_enabled: s.twoFactor }, user.id, req);
+      if (s.twoFactor === false) {
+        await db
+          .update(users)
+          .set({ totpSecret: null, totpEnabled: false, mfaEnabledAt: null, updatedAt: new Date() })
+          .where(eq(users.id, user.id));
       }
       const userPatch: Partial<typeof users.$inferInsert> = { updatedAt: new Date() };
       if (s.loginAlerts !== undefined) {

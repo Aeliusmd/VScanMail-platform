@@ -34,9 +34,17 @@ export type NotificationPrefs = {
   pickupReady: boolean;
 };
 
+export type SecurityPrefs = {
+  twoFactor: boolean;
+  mfaEnabledAt: string | null;
+  loginAlerts: boolean;
+  sessionTimeout: string;
+};
+
 export type CustomerAccountResponse = {
   profile: CustomerProfile;
   bankAccounts: BankAccountDto[];
+  security: SecurityPrefs;
   notifications: NotificationPrefs;
   /** Same-origin path e.g. `/uploads/avatars/...` from `users.avatar_url` */
   avatarUrl?: string;
@@ -58,6 +66,12 @@ export const FALLBACK_ACCOUNT: CustomerAccountResponse = {
     employees: "51–200",
   },
   bankAccounts: [],
+  security: {
+    twoFactor: false,
+    mfaEnabledAt: null,
+    loginAlerts: true,
+    sessionTimeout: "30",
+  },
   notifications: {
     newMail: true,
     chequeReceived: true,
@@ -74,11 +88,37 @@ export async function saveCustomerAccount(
   body: Partial<{
     profile: CustomerProfile;
     bankAccounts: BankAccountDto[];
+    security: Partial<SecurityPrefs>;
     notifications: NotificationPrefs;
   }>
 ): Promise<CustomerAccountResponse> {
   return apiClient<CustomerAccountResponse>("/api/customer/account", {
     method: "PUT",
     body: JSON.stringify(body),
+  });
+}
+
+export async function verifyEmailChangeAuthenticator(totpCode: string): Promise<{ emailChangeToken: string }> {
+  return apiClient<{ emailChangeToken: string }>("/api/profile/email-change/verify-authenticator", {
+    method: "POST",
+    body: JSON.stringify({ totpCode }),
+  });
+}
+
+export async function sendEmailChangeOtp(emailChangeToken: string, email: string): Promise<{ ok: true }> {
+  return apiClient<{ ok: true }>("/api/profile/email-change/send-otp", {
+    method: "POST",
+    body: JSON.stringify({ emailChangeToken, email }),
+  });
+}
+
+export async function confirmEmailChange(
+  emailChangeToken: string,
+  email: string,
+  otp: string
+): Promise<{ ok: true; email: string }> {
+  return apiClient<{ ok: true; email: string }>("/api/profile/email-change/confirm", {
+    method: "POST",
+    body: JSON.stringify({ emailChangeToken, email, otp }),
   });
 }

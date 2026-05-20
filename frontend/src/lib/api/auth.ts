@@ -3,6 +3,17 @@ import { apiClient } from "../api-client";
 export type UserRole = "super_admin" | "admin" | "operator" | "client";
 
 export interface LoginResponse {
+  requiresMfa?: boolean;
+  tempToken?: string;
+  user?: {
+    id: string;
+    email: string;
+    role: UserRole;
+    clientId?: string;
+  };
+}
+
+export interface AuthenticatedLoginResponse {
   user: {
     id: string;
     email: string;
@@ -50,6 +61,13 @@ export const authApi = {
     apiClient<LoginResponse>("/api/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password, totpCode }),
+    }),
+
+  verifyMfa: (tempToken: string, totpCode: string) =>
+    apiClient<AuthenticatedLoginResponse>("/api/auth/verify-mfa", {
+      method: "POST",
+      redirectOnUnauthorized: false,
+      body: JSON.stringify({ tempToken, totpCode }),
     }),
 
   register: (data: any) =>
@@ -126,4 +144,28 @@ export const authApi = {
       method: "POST",
       body: JSON.stringify({ email, otp, newPassword }),
     }),
+  getSetup2FA: () => apiClient<{ qrCode: string; secret: string }>("/api/auth/setup-2fa", { method: "GET", cache: "no-store" }),
+  confirm2FA: (totpCode: string) => apiClient<{ verified: boolean }>("/api/auth/setup-2fa", {
+    method: "POST",
+    body: JSON.stringify({ totpCode }),
+  }),
+  sendBackupOTP: (backupEmail: string) => apiClient<{ success: boolean }>("/api/auth/send-backup-otp", {
+    method: "POST",
+    body: JSON.stringify({ backupEmail }),
+  }),
+  verifyBackupOTP: (otp: string) => apiClient<{ success: boolean; codes: string[] }>("/api/auth/verify-backup-otp", {
+    method: "POST",
+    body: JSON.stringify({ otp }),
+  }),
+  skipBackupEmail: () => apiClient<{ success: boolean; codes: string[] }>("/api/auth/skip-backup-email", {
+    method: "POST",
+  }),
+  sendRecoveryOTP: (email: string) => apiClient<{ success: boolean }>("/api/auth/login/recover-send-otp", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  }),
+  recoverAccount: (email: string, type: "email" | "code", code: string) => apiClient<{ success: boolean }>("/api/auth/login/recover", {
+    method: "POST",
+    body: JSON.stringify({ email, type, code }),
+  }),
 };

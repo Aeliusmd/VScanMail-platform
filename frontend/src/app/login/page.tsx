@@ -19,6 +19,9 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [totpCode, setTotpCode] = useState("");
+  const [showTotpInput, setShowTotpInput] = useState(false);
+  const [mfaTempToken, setMfaTempToken] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [lastErrorAtMs, setLastErrorAtMs] = useState<number | null>(null);
@@ -99,9 +102,26 @@ function LoginForm() {
     setLoading(true);
 
     try {
-      const response = await authApi.login(email, password);
-      localStorage.setItem("vscanmail_last_activity", new Date().toISOString());
+      if (mfaTempToken && totpCode.length !== 6) {
+        setError("Please enter the 6-digit Google Authenticator code.");
+        setLastErrorAtMs(Date.now());
+        return;
+      }
 
+      const response = mfaTempToken
+        ? await authApi.verifyMfa(mfaTempToken, totpCode)
+        : await authApi.login(email, password);
+
+      if ("requiresMfa" in response && response.requiresMfa) {
+        setMfaTempToken(response.tempToken || "");
+        setShowTotpInput(true);
+        setTotpCode("");
+        setError("");
+        return;
+      }
+
+      localStorage.setItem("vscanmail_last_activity", new Date().toISOString());
+      if (!response.user) throw new Error("Login failed");
       const role = response.user.role;
       if (role === "super_admin") {
         router.push("/superadmin/dashboard");
@@ -125,6 +145,11 @@ function LoginForm() {
             : "/customer/account?tab=billing"
         );
       }
+      
+      if (err instanceof ApiError && err.status === 401 && (message.toLowerCase().includes("2fa") || message.toLowerCase().includes("code"))) {
+        setShowTotpInput(true);
+      }
+      
       setError(message);
       setLastErrorAtMs(Date.now());
     } finally {
@@ -208,9 +233,15 @@ function LoginForm() {
                   <input
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setMfaTempToken("");
+                      setShowTotpInput(false);
+                      setTotpCode("");
+                    }}
                     placeholder="company@example.com"
                     className={styles.input}
+                    disabled={Boolean(mfaTempToken)}
                   />
                   <span className={styles.inputIcon}>
                     <span className={styles.inputIconGlyph}>
@@ -226,9 +257,15 @@ function LoginForm() {
                   <input
                     type={showPassword ? "text" : "password"}
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      setMfaTempToken("");
+                      setShowTotpInput(false);
+                      setTotpCode("");
+                    }}
                     placeholder="Enter your password"
                     className={`${styles.input} ${styles.inputPasswordPad}`}
+                    disabled={Boolean(mfaTempToken)}
                   />
                   <span className={styles.inputIcon}>
                     <span className={styles.inputIconGlyph}>
@@ -246,6 +283,33 @@ function LoginForm() {
                   </button>
                 </div>
               </div>
+
+              {showTotpInput && (
+                <div className={styles.fieldGroup}>
+                  <label className={styles.label}>Google Authenticator Code</label>
+                  <div className={styles.inputWrapper}>
+                    <input
+                      type="text"
+                      value={totpCode}
+                      onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ""))}
+                      placeholder="Enter 6-digit Google Authenticator code"
+                      className={styles.input}
+                      maxLength={6}
+                      required
+                    />
+                    <span className={styles.inputIcon}>
+                      <span className={styles.inputIconGlyph}>
+                        <HiOutlineLockClosed />
+                      </span>
+                    </span>
+                  </div>
+                  <div className="mt-2 text-right">
+                    <Link href="/recover" className="text-xs text-blue-600 hover:underline">
+                      Lost Google Authenticator access? Recover account
+                    </Link>
+                  </div>
+                </div>
+              )}
 
               <div className={styles.rememberRow}>
                 <span aria-hidden="true" />

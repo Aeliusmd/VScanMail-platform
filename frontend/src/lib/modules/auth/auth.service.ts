@@ -9,12 +9,13 @@ import { authenticator } from "otplib";
 import QRCode from "qrcode";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/modules/core/db/mysql";
-import { emailVerifications, profiles, users, clients } from "@/lib/modules/core/db/schema";
-import { and, eq, gt, sql } from "drizzle-orm";
+import { emailVerifications, profiles, users, clients, recoveryCodes } from "@/lib/modules/core/db/schema";
+import { and, eq, ne, gt, sql } from "drizzle-orm";
 import { createClientTable } from "@/lib/modules/core/db/dynamic-table";
 
 export const authService = {
   async register(input: RegisterInput, req?: Request) {
+    await authService.checkEmailUniqueness(input.email);
     const userId = crypto.randomUUID();
 
     const passwordHash = await bcrypt.hash(input.password, 12);
@@ -185,7 +186,7 @@ export const authService = {
     const qrCodeDataUrl = await QRCode.toDataURL(otpauthUrl);
 
     // Store secret temporarily (confirm on first valid TOTP)
-    await clientModel.update(userId, { two_fa_secret: secret });
+    await db.update(users).set({ totpSecret: secret, updatedAt: new Date() }).where(eq(users.id, userId));
 
     await auditService.log({
       actor: userId,
@@ -199,19 +200,247 @@ export const authService = {
     return { qrCode: qrCodeDataUrl, secret };
   },
 
+  async checkEmailUniqueness(primaryEmail: string, backupEmail?: string | null, excludeUserId?: string) {
+    const pConflict = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(
+        excludeUserId
+          ? and(eq(users.email, primaryEmail), ne(users.id, excludeUserId))
+          : eq(users.email, primaryEmail)
+      )
+      .limit(1);
+    if (pConflict.length > 0) {
+      throw new Error(`Email ${primaryEmail} is already in use as a primary email.`);
+    }
+
+    const pAsBConflict = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(
+        excludeUserId
+          ? and(eq(users.backupEmail, primaryEmail), ne(users.id, excludeUserId))
+          : eq(users.backupEmail, primaryEmail)
+      )
+      .limit(1);
+    if (pAsBConflict.length > 0) {
+      throw new Error(`Email ${primaryEmail} is already in use as a backup email.`);
+    }
+
+    if (backupEmail) {
+      if (primaryEmail.toLowerCase() === backupEmail.toLowerCase()) {
+        throw new Error("Backup email must be different from primary email.");
+      }
+
+      const bAsPConflict = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(
+          excludeUserId
+            ? and(eq(users.email, backupEmail), ne(users.id, excludeUserId))
+            : eq(users.email, backupEmail)
+        )
+        .limit(1);
+      if (bAsPConflict.length > 0) {
+        throw new Error(`Backup email ${backupEmail} is already in use as a primary email.`);
+      }
+
+      const bConflict = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(
+          excludeUserId
+            ? and(eq(users.backupEmail, backupEmail), ne(users.id, excludeUserId))
+            : eq(users.backupEmail, backupEmail)
+        )
+        .limit(1);
+      if (bConflict.length > 0) {
+        throw new Error(`Backup email ${backupEmail} is already in use as a backup email.`);
+      }
+    }
+  },
+
   async confirm2FA(userId: string, totpCode: string, req?: Request) {
-    const client = await clientModel.findById(userId);
-    if (!client.two_fa_secret) throw new Error("2FA not initialized");
+    const userRows = await db
+      .select({ totpSecret: users.totpSecret })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    const user = userRows[0];
+    if (!user?.totpSecret) throw new Error("2FA not initialized");
 
     const isValid = authenticator.verify({
       token: totpCode,
-      secret: client.two_fa_secret,
+      secret: user.totpSecret,
     });
 
     if (!isValid) throw new Error("Invalid TOTP code");
 
-    const before = { two_fa_enabled: client.two_fa_enabled };
-    await clientModel.update(userId, { two_fa_enabled: true });
+    await auditService.log({
+      actor: userId,
+      actor_role: "client",
+      action: "auth.2fa_setup_confirmed",
+      entity: userId,
+      clientId: userId,
+      req,
+    });
+
+    return { verified: true };
+  },
+
+  async generateAndStoreRecoveryCodes(userId: string): Promise<string[]> {
+    const rawCodes: string[] = [];
+    const hashedCodesData: { id: string; userId: string; codeHash: string; createdAt: Date }[] = [];
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+    for (let i = 0; i < 8; i++) {
+      let part1 = "";
+      let part2 = "";
+      let part3 = "";
+      for (let j = 0; j < 4; j++) {
+        part1 += chars.charAt(Math.floor(Math.random() * chars.length));
+        part2 += chars.charAt(Math.floor(Math.random() * chars.length));
+        part3 += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      const rawCode = `${part1}-${part2}-${part3}`;
+      rawCodes.push(rawCode);
+      const codeHash = await bcrypt.hash(rawCode, 10);
+      hashedCodesData.push({
+        id: crypto.randomUUID(),
+        userId,
+        codeHash,
+        createdAt: new Date(),
+      });
+    }
+
+    // Wipe any existing recovery codes for this user
+    await db.delete(recoveryCodes).where(eq(recoveryCodes.userId, userId));
+
+    // Insert newly generated codes
+    for (const codeData of hashedCodesData) {
+      await db.insert(recoveryCodes).values(codeData);
+    }
+
+    return rawCodes;
+  },
+
+  async sendBackupEmailOTP(userId: string, backupEmail: string, req?: Request) {
+    const userRows = await db
+      .select({ email: users.email })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    const user = userRows[0];
+    if (!user) throw new Error("User not found");
+
+    // Enforce email uniqueness
+    await authService.checkEmailUniqueness(user.email, backupEmail, userId);
+
+    // Save backup email temporarily (unverified)
+    await db
+      .update(users)
+      .set({ backupEmail, backupEmailVerifiedAt: null })
+      .where(eq(users.id, userId));
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+
+    // Wipe existing OTPs for this backup email
+    await db.delete(emailVerifications).where(eq(emailVerifications.email, backupEmail));
+
+    // Insert OTP record
+    await db.insert(emailVerifications).values({
+      id: crypto.randomUUID(),
+      email: backupEmail,
+      otp,
+      expiresAt,
+      createdAt: new Date(),
+    });
+
+    // Send email
+    const html = `
+      <div style="font-family:sans-serif;max-width:500px;margin:20px auto;border:1px solid #e2e8f0;border-radius:8px;padding:24px;">
+        <h2 style="color:#1d4ed8;margin-top:0;">Verify your Backup Email</h2>
+        <p>You requested to set this address as your VScanMail account recovery backup email.</p>
+        <p>Use the verification code below to complete the setup. This code is valid for 15 minutes.</p>
+        <div style="background:#f1f5f9;font-size:32px;font-weight:bold;letter-spacing:4px;padding:12px;text-align:center;border-radius:4px;margin:20px 0;">
+          ${otp}
+        </div>
+        <p style="color:#64748b;font-size:12px;">If you did not initiate this request, you can safely ignore this email.</p>
+      </div>
+    `;
+
+    await sendEmail({
+      to: backupEmail,
+      subject: "VScanMail — Verify your recovery backup email",
+      html,
+    });
+
+    await auditService.log({
+      actor: userId,
+      actor_role: "client",
+      action: "auth.backup_email_verification_started",
+      entity: userId,
+      clientId: userId,
+      after: { backupEmail },
+      req,
+    });
+
+    return { success: true };
+  },
+
+  async verifyBackupEmailOTP(userId: string, otp: string, req?: Request) {
+    const userRows = await db
+      .select({ backupEmail: users.backupEmail })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    const user = userRows[0];
+    if (!user || !user.backupEmail) throw new Error("Backup email not set");
+
+    const verifications = await db
+      .select()
+      .from(emailVerifications)
+      .where(
+        and(
+          eq(emailVerifications.email, user.backupEmail),
+          eq(emailVerifications.otp, otp),
+          gt(emailVerifications.expiresAt, new Date())
+        )
+      )
+      .limit(1);
+
+    if (verifications.length === 0) {
+      throw new Error("Invalid or expired OTP code.");
+    }
+
+    // Mark verified
+    await db
+      .update(users)
+      .set({ backupEmailVerifiedAt: new Date() })
+      .where(eq(users.id, userId));
+
+    // Delete OTP
+    await db.delete(emailVerifications).where(eq(emailVerifications.email, user.backupEmail));
+
+    // Generate recovery codes
+    const recoveryPlaintextCodes = await authService.generateAndStoreRecoveryCodes(userId);
+
+    // Finalize 2FA setup
+    await db
+      .update(users)
+      .set({ totpEnabled: true, mfaEnabledAt: sql`NOW()` as any, updatedAt: new Date() })
+      .where(eq(users.id, userId));
+
+    await auditService.log({
+      actor: userId,
+      actor_role: "client",
+      action: "auth.backup_email_verified",
+      entity: userId,
+      clientId: userId,
+      after: { backupEmail: user.backupEmail },
+      req,
+    });
 
     await auditService.log({
       actor: userId,
@@ -219,33 +448,278 @@ export const authService = {
       action: "auth.2fa_enabled",
       entity: userId,
       clientId: userId,
-      before,
-      after: { two_fa_enabled: true },
+      after: { totp_enabled: true },
       req,
     });
 
-    return { enabled: true };
+    return { success: true, codes: recoveryPlaintextCodes };
+  },
+
+  async skipBackupEmail(userId: string, req?: Request) {
+    // Clear backup email if any was in progress
+    await db
+      .update(users)
+      .set({ backupEmail: null, backupEmailVerifiedAt: null })
+      .where(eq(users.id, userId));
+
+    // Generate recovery codes
+    const recoveryPlaintextCodes = await authService.generateAndStoreRecoveryCodes(userId);
+
+    // Finalize 2FA setup
+    await db
+      .update(users)
+      .set({ totpEnabled: true, mfaEnabledAt: sql`NOW()` as any, updatedAt: new Date() })
+      .where(eq(users.id, userId));
+
+    await auditService.log({
+      actor: userId,
+      actor_role: "client",
+      action: "auth.backup_email_skipped",
+      entity: userId,
+      clientId: userId,
+      req,
+    });
+
+    await auditService.log({
+      actor: userId,
+      actor_role: "client",
+      action: "auth.2fa_enabled",
+      entity: userId,
+      clientId: userId,
+      after: { totp_enabled: true },
+      req,
+    });
+
+    return { success: true, codes: recoveryPlaintextCodes };
+  },
+
+  async sendRecoveryEmailOTP(primaryEmail: string, req?: Request) {
+    const userRows = await db
+      .select({ id: users.id, backupEmail: users.backupEmail, backupEmailVerifiedAt: users.backupEmailVerifiedAt })
+      .from(users)
+      .where(eq(users.email, primaryEmail))
+      .limit(1);
+    const user = userRows[0];
+    if (!user) throw new Error("Account not found.");
+    if (!user.backupEmail || !user.backupEmailVerifiedAt) {
+      throw new Error("Backup email recovery is not configured for this account.");
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+
+    // Wipe existing OTPs for this backup email
+    await db.delete(emailVerifications).where(eq(emailVerifications.email, user.backupEmail));
+
+    // Insert OTP record
+    await db.insert(emailVerifications).values({
+      id: crypto.randomUUID(),
+      email: user.backupEmail,
+      otp,
+      expiresAt,
+      createdAt: new Date(),
+    });
+
+    // Send email
+    const html = `
+      <div style="font-family:sans-serif;max-width:500px;margin:20px auto;border:1px solid #e2e8f0;border-radius:8px;padding:24px;">
+        <h2 style="color:#1d4ed8;margin-top:0;">Account Recovery Verification Code</h2>
+        <p>You requested to recover access to your VScanMail account using this backup email.</p>
+        <p>Use the recovery code below to disable 2FA and log in. This code is valid for 15 minutes.</p>
+        <div style="background:#eff6ff;border:2px dashed #93c5fd;color:#1d4ed8;font-size:32px;font-weight:bold;letter-spacing:4px;padding:12px;text-align:center;border-radius:4px;margin:20px 0;">
+          ${otp}
+        </div>
+        <p style="color:#64748b;font-size:12px;">If you did not initiate this request, please contact support immediately.</p>
+      </div>
+    `;
+
+    await sendEmail({
+      to: user.backupEmail,
+      subject: "VScanMail — Account recovery verification code",
+      html,
+    });
+
+    await auditService.log({
+      actor: user.id,
+      actor_role: "client",
+      action: "auth.recovery_otp_sent",
+      entity: user.id,
+      clientId: user.id,
+      req,
+    });
+
+    return { success: true };
+  },
+
+  async recoverAccountWithBackupEmail(primaryEmail: string, otp: string, req?: Request) {
+    const userRows = await db
+      .select({ id: users.id, backupEmail: users.backupEmail, backupEmailVerifiedAt: users.backupEmailVerifiedAt })
+      .from(users)
+      .where(eq(users.email, primaryEmail))
+      .limit(1);
+    const user = userRows[0];
+    if (!user) throw new Error("Account not found.");
+    if (!user.backupEmail || !user.backupEmailVerifiedAt) {
+      throw new Error("Backup email recovery is not configured for this account.");
+    }
+
+    const verifications = await db
+      .select()
+      .from(emailVerifications)
+      .where(
+        and(
+          eq(emailVerifications.email, user.backupEmail),
+          eq(emailVerifications.otp, otp),
+          gt(emailVerifications.expiresAt, new Date())
+        )
+      )
+      .limit(1);
+
+    if (verifications.length === 0) {
+      throw new Error("Invalid or expired OTP code.");
+    }
+
+    // Reset 2FA
+    await db
+      .update(users)
+      .set({ totpEnabled: false, totpSecret: null, mfaEnabledAt: null, updatedAt: new Date() })
+      .where(eq(users.id, user.id));
+
+    // Clean up OTP and existing recovery codes
+    await db.delete(emailVerifications).where(eq(emailVerifications.email, user.backupEmail));
+    await db.delete(recoveryCodes).where(eq(recoveryCodes.userId, user.id));
+
+    // Log audit
+    await auditService.log({
+      actor: user.id,
+      actor_role: "client",
+      action: "auth.recovery_used_backup_email",
+      entity: user.id,
+      clientId: user.id,
+      req,
+    });
+
+    // Send security alert to primary email
+    const html = `
+      <div style="font-family:sans-serif;max-width:500px;margin:20px auto;border:1px solid #fecaca;border-radius:8px;padding:24px;border-top:4px solid #ef4444;">
+        <h2 style="color:#ef4444;margin-top:0;">Security Alert: 2FA Disabled</h2>
+        <p>Hello,</p>
+        <p>This is an automated notification that **Two-Factor Authentication (2FA)** has been disabled on your VScanMail account using your **Backup Recovery Email**.</p>
+        <p>You can now log in using only your password. Please log in immediately and reconfigure 2FA to keep your account secure.</p>
+        <div style="background:#fef2f2;padding:12px;border-radius:4px;color:#991b1b;margin:20px 0;font-size:13px;">
+          <strong>If you did not initiate this recovery:</strong> please contact support immediately to lock your account.
+        </div>
+      </div>
+    `;
+
+    await sendEmail({
+      to: primaryEmail,
+      subject: "VScanMail Security Alert — 2FA Disabled",
+      html,
+    });
+
+    return { success: true };
+  },
+
+  async recoverAccountWithRecoveryCode(primaryEmail: string, code: string, req?: Request) {
+    const userRows = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, primaryEmail))
+      .limit(1);
+    const user = userRows[0];
+    if (!user) throw new Error("Account not found.");
+
+    const codes = await db
+      .select()
+      .from(recoveryCodes)
+      .where(and(eq(recoveryCodes.userId, user.id), eq(recoveryCodes.used, false)));
+
+    let matchedCode: any = null;
+    for (const activeCode of codes) {
+      const match = await bcrypt.compare(code, activeCode.codeHash);
+      if (match) {
+        matchedCode = activeCode;
+        break;
+      }
+    }
+
+    if (!matchedCode) {
+      throw new Error("Invalid or already used recovery code.");
+    }
+
+    // Mark recovery code as used
+    await db
+      .update(recoveryCodes)
+      .set({ used: true, usedAt: new Date() })
+      .where(eq(recoveryCodes.id, matchedCode.id));
+
+    // Reset 2FA
+    await db
+      .update(users)
+      .set({ totpEnabled: false, totpSecret: null, mfaEnabledAt: null, updatedAt: new Date() })
+      .where(eq(users.id, user.id));
+
+    // Wipe other recovery codes (forcing regeneration next time they set up 2FA)
+    await db.delete(recoveryCodes).where(eq(recoveryCodes.userId, user.id));
+
+    // Log audit
+    await auditService.log({
+      actor: user.id,
+      actor_role: "client",
+      action: "auth.recovery_used_recovery_code",
+      entity: user.id,
+      clientId: user.id,
+      req,
+    });
+
+    // Send security alert to primary email
+    const html = `
+      <div style="font-family:sans-serif;max-width:500px;margin:20px auto;border:1px solid #fecaca;border-radius:8px;padding:24px;border-top:4px solid #ef4444;">
+        <h2 style="color:#ef4444;margin-top:0;">Security Alert: 2FA Disabled</h2>
+        <p>Hello,</p>
+        <p>This is an automated notification that **Two-Factor Authentication (2FA)** has been disabled on your VScanMail account using a **Recovery Code**.</p>
+        <p>You can now log in using only your password. Please log in immediately and reconfigure 2FA to keep your account secure.</p>
+        <div style="background:#fef2f2;padding:12px;border-radius:4px;color:#991b1b;margin:20px 0;font-size:13px;">
+          <strong>If you did not initiate this recovery:</strong> please contact support immediately to lock your account.
+        </div>
+      </div>
+    `;
+
+    await sendEmail({
+      to: primaryEmail,
+      subject: "VScanMail Security Alert — 2FA Disabled",
+      html,
+    });
+
+    return { success: true };
   },
 
   async verify2FA(userId: string, totpCode: string) {
-    const client = await clientModel.findById(userId);
-    if (!client.two_fa_enabled || !client.two_fa_secret) return true;
+    const userRows = await db
+      .select({ totpEnabled: users.totpEnabled, totpSecret: users.totpSecret })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    const user = userRows[0];
+    if (!user?.totpEnabled || !user.totpSecret) return true;
 
     return authenticator.verify({
       token: totpCode,
-      secret: client.two_fa_secret,
+      secret: user.totpSecret,
     });
   },
 
   async forgotPassword(email: string, req?: Request) {
-    // Always return success — never reveal whether the email exists.
     const userRows = await db
       .select({ id: users.id, isActive: users.isActive })
       .from(users)
       .where(eq(users.email, email))
       .limit(1);
 
-    if (!userRows[0] || !userRows[0].isActive) return { ok: true };
+    if (!userRows[0] || !userRows[0].isActive) {
+      throw new Error("No account exists for this email address. Please enter the email address registered in our system.");
+    }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes

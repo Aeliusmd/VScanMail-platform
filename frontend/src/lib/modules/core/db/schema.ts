@@ -51,12 +51,18 @@ export const users = mysqlTable(
     loginAlertsEnabled: boolean("login_alerts_enabled").notNull().default(true),
     sessionTimeout: varchar("session_timeout", { length: 8 }).notNull().default("30"),
     lastLoginAt: datetime("last_login_at", { mode: "date" }),
+    backupEmail: varchar("backup_email", { length: 255 }),
+    backupEmailVerifiedAt: datetime("backup_email_verified_at", { mode: "date" }),
+    totpSecret: varchar("totp_secret", { length: 255 }),
+    totpEnabled: boolean("totp_enabled").notNull().default(false),
+    mfaEnabledAt: datetime("mfa_enabled_at", { mode: "date" }),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: datetime("created_at", { mode: "date" }).notNull(),
     updatedAt: datetime("updated_at", { mode: "date" }).notNull(),
   },
   (t) => ({
     emailUq: uniqueIndex("users_email_uq").on(t.email),
+    backupEmailUq: uniqueIndex("users_backup_email_uq").on(t.backupEmail),
   })
 );
 
@@ -106,6 +112,21 @@ export const passwordResets = mysqlTable(
   (t) => ({
     tokenUq: uniqueIndex("pr_token_uq").on(t.token),
     userIdx: index("pr_user_idx").on(t.userId),
+  })
+);
+
+export const recoveryCodes = mysqlTable(
+  "recovery_codes",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    userId: varchar("user_id", { length: 36 }).notNull(),
+    codeHash: varchar("code_hash", { length: 255 }).notNull(),
+    used: boolean("used").notNull().default(false),
+    createdAt: datetime("created_at", { mode: "date" }).notNull(),
+    usedAt: datetime("used_at", { mode: "date" }),
+  },
+  (t) => ({
+    userIdx: index("rc_user_idx").on(t.userId),
   })
 );
 

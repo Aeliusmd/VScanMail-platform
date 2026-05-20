@@ -11,9 +11,8 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["10.103.0.91", "10.103.0.*", "*.10.103.0.*"],
-  webpack: (config) => {
-    config.resolve.symlinks = false;
-    return config;
+  experimental: {
+    optimizePackageImports: ["@iconify/react", "react-icons"],
   },
   async redirects() {
     return [

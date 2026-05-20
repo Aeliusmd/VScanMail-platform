@@ -52,7 +52,9 @@ export function OrgContextProvider({ children }: { children: React.ReactNode }) 
 
         if (me.role !== "client" || !me.clientId) {
           router.replace("/login");
+          return;
         }
+
       } catch {
         if (cancelled) return;
         router.replace("/login");
@@ -88,4 +90,3 @@ export function useOrgContext() {
   if (!ctx) throw new Error("useOrgContext must be used within OrgContextProvider");
   return ctx;
 }
-

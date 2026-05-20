@@ -10,7 +10,13 @@ export async function GET(req: NextRequest) {
     const result = await authService.setup2FA(user.id, req);
     return NextResponse.json(result);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 401 });
+    // Only return 401 for auth failures (withAuth throws a Response with status 401).
+    // Other errors (e.g. DB) must return 500 so apiClient does not auto-redirect to /login.
+    const status = error instanceof Response ? error.status : 500;
+    const message = error instanceof Response
+      ? (await error.json().catch(() => ({}))).error ?? "Unauthorized"
+      : (error?.message ?? "Internal server error");
+    return NextResponse.json({ error: message }, { status });
   }
 }
 

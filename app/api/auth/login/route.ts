@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { loginSchema } from "@/lib/modules/auth/auth.schema";
-import { authService } from "@/lib/modules/auth/auth.service";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/modules/core/db/mysql";
 import { users, profiles, clients } from "@/lib/modules/core/db/schema";
 import { eq } from "drizzle-orm";
-import { signAccessToken } from "@/lib/modules/auth/jwt";
+import { signAccessToken, signMfaTempToken } from "@/lib/modules/auth/jwt";
 import { subscriptionModel } from "@/lib/modules/billing/subscription.model";
 import { stripe } from "@/lib/modules/billing/stripe.config";
 import { rateLimit } from "@/lib/modules/core/middleware/rate-limit";
@@ -64,7 +63,7 @@ export async function POST(req: NextRequest) {
   let body: any = null;
   try {
     body = await req.json();
-    const { email, password, totpCode } = loginSchema.parse(body);
+    const { email, password } = loginSchema.parse(body);
     const ip =
       req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       req.headers.get("x-real-ip") ||
@@ -78,7 +77,13 @@ export async function POST(req: NextRequest) {
     }
 
     const userRows = await db
-      .select()
+      .select({
+        id: users.id,
+        email: users.email,
+        passwordHash: users.passwordHash,
+        emailVerifiedAt: users.emailVerifiedAt,
+        totpEnabled: users.totpEnabled,
+      })
       .from(users)
       .where(eq(users.email, email))
       .limit(1);
@@ -112,17 +117,6 @@ export async function POST(req: NextRequest) {
         .where(eq(clients.id, user.id))
         .limit(1);
       clientId = clientRows[0]?.id;
-    }
-
-    // 3. Verify client 2FA if enabled. Omitting totpCode must not bypass MFA.
-    if (clientId) {
-      const valid2fa = await authService.verify2FA(clientId, totpCode || "");
-      if (!valid2fa) {
-        return NextResponse.json(
-          { error: totpCode ? "Invalid 2FA code" : "2FA code required" },
-          { status: 401 }
-        );
-      }
     }
 
     if (clientId) {
@@ -173,12 +167,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    if (user.totpEnabled) {
+      const tempToken = await signMfaTempToken({ sub: user.id, email: user.email });
+      return NextResponse.json({ requiresMfa: true, tempToken });
+    }
+
     const access_token = await signAccessToken({ sub: user.id, email: user.email });
 
-    // Update last login timestamp
-    await db.update(users)
-      .set({ lastLoginAt: new Date() })
-      .where(eq(users.id, user.id));
+    // Update last login timestamp (fire-and-forget — column may not be migrated yet)
+    db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id)).catch(() => {});
 
     // Log successful login
     await auditService.log({

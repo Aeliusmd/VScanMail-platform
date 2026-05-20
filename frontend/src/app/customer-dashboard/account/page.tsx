@@ -490,7 +490,7 @@ export default function CustomerAccountPage() {
                   <div className="border-t border-gray-100 pt-6 space-y-4">
                     <h3 className="text-sm font-semibold text-gray-700">Security Options</h3>
                     {[
-                      { key: 'twoFactor' as const, label: 'Two-Factor Authentication', desc: 'Require a verification code on login' },
+                      { key: 'twoFactor' as const, label: 'Google Authenticator', desc: 'Require a Google Authenticator code on login' },
                       { key: 'loginAlerts' as const, label: 'Login Alerts', desc: 'Get notified of new sign-ins to your account' },
                     ].map(({ key, label, desc }) => (
                       <div key={key} className="flex flex-col gap-3 rounded-xl bg-gray-50 p-4 sm:flex-row sm:items-center sm:justify-between">

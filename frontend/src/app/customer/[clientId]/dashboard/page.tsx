@@ -47,6 +47,18 @@ function formatUsd(amount: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 }
 
+function isTwoFASetupRequired(error: unknown) {
+  const status = typeof error === "object" && error !== null && "status" in error ? Number(error.status) : null;
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "object" && error !== null && "message" in error
+        ? String(error.message)
+        : "";
+
+  return status === 403 && message.toLowerCase().includes("2fa");
+}
+
 export default function CustomerDashboard() {
   const org = useOrgContext();
   const baseHref = org.clientId ? `/customer/${org.clientId}` : "/customer";
@@ -69,7 +81,10 @@ export default function CustomerDashboard() {
 
   useEffect(() => {
     if (org.loading) return;
-    if (!org.clientId) return;
+    if (!org.clientId) {
+      setLoading(false);
+      return;
+    }
 
     let cancelled = false;
 
@@ -454,4 +469,3 @@ export default function CustomerDashboard() {
     </div>
   );
 }
-

@@ -1,4 +1,0 @@
-# This file goes in your C:\vscanmail-backups repo as .gitignore
-*
-!.gitignore
-!*.sql

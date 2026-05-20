@@ -17,6 +17,13 @@ const nextConfig = {
   },
   experimental: {
     serverActions: { bodySizeLimit: "10mb" },
+    optimizePackageImports: [
+      "@aws-sdk/client-s3",
+      "@aws-sdk/client-textract",
+      "@aws-sdk/s3-request-presigner",
+      "openai",
+      "stripe",
+    ],
   },
   async headers() {
     const frontendOrigin = process.env.FRONTEND_ORIGIN || "http://localhost:3000";

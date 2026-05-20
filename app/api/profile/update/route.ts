@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { withAuth } from "@/lib/modules/auth/auth.middleware";
+import { authService } from "@/lib/modules/auth/auth.service";
 import { db } from "@/lib/modules/core/db/mysql";
 import { profiles, users } from "@/lib/modules/core/db/schema";
 import { eq } from "drizzle-orm";
@@ -10,6 +11,7 @@ const profileSchema = z.object({
   firstName: z.string().min(1).max(100),
   lastName: z.string().min(1).max(100),
   email: z.string().email(),
+  backupEmail: z.string().email().optional().nullable(),
   phone: z.string().optional(),
   bio: z.string().max(500).optional(),
   language: z.string().min(2).max(10),
@@ -25,11 +27,26 @@ export async function POST(req: NextRequest) {
     const before = beforeRows[0] ?? null;
     if (!before) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
+    const emailChanged = input.email.toLowerCase() !== before.email.toLowerCase();
+    if (emailChanged) {
+      return NextResponse.json(
+        { error: "Please verify your authenticator and new email address before changing your email." },
+        { status: 403 }
+      );
+    }
+
+    // Validate email uniqueness (primary + backup)
+    await authService.checkEmailUniqueness(input.email, input.backupEmail, actor.id);
+
     const roleRows = await db
       .select({ role: profiles.role, clientId: profiles.clientId })
       .from(profiles)
       .where(eq(profiles.userId, actor.id))
       .limit(1);
+
+    const backupEmail = input.backupEmail === undefined ? before.backupEmail : input.backupEmail || null;
+    const backupEmailChanged = backupEmail !== before.backupEmail;
+    const backupEmailVerifiedAt = backupEmailChanged ? null : before.backupEmailVerifiedAt;
 
     await db
       .update(users)
@@ -37,6 +54,8 @@ export async function POST(req: NextRequest) {
         firstName: input.firstName,
         lastName: input.lastName,
         email: input.email,
+        backupEmail,
+        backupEmailVerifiedAt,
         phone: input.phone,
         bio: input.bio,
         language: input.language,

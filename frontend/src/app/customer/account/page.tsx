@@ -1,11 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   FALLBACK_ACCOUNT,
+  confirmEmailChange,
   fetchCustomerAccount,
   saveCustomerAccount,
+  sendEmailChangeOtp,
+  verifyEmailChangeAuthenticator,
 } from "@/lib/customerAccount";
 import {
   FALLBACK_BILLING,
@@ -209,6 +212,7 @@ function toUpgradePlans(plans: ApiBillingPlan[]): UpgradePlanCard[] {
 
 function CustomerAccountPageContent() {
   const org = useOrgContext();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const companyId = org.clientId ?? "demo";
   const refreshClient = org.refreshClient;
@@ -245,6 +249,7 @@ function CustomerAccountPageContent() {
   const [bankFormError, setBankFormError] = useState("");
 
   const [notifs, setNotifs] = useState(FALLBACK_ACCOUNT.notifications);
+  const [security, setSecurity] = useState(FALLBACK_ACCOUNT.security);
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>();
   const avatarFileInputRef = useRef<HTMLInputElement>(null);
   const [passwordForm, setPasswordForm] = useState({
@@ -253,6 +258,13 @@ function CustomerAccountPageContent() {
     confirmPassword: "",
   });
   const [passwordError, setPasswordError] = useState("");
+  const [emailChangeOpen, setEmailChangeOpen] = useState(false);
+  const [emailChangeStep, setEmailChangeStep] = useState<1 | 2 | 3>(1);
+  const [emailChangeToken, setEmailChangeToken] = useState("");
+  const [emailChangeTotp, setEmailChangeTotp] = useState("");
+  const [emailChangeEmail, setEmailChangeEmail] = useState("");
+  const [emailChangeOtp, setEmailChangeOtp] = useState("");
+  const [emailChangeError, setEmailChangeError] = useState("");
 
   const [billing, setBilling] = useState<CustomerBillingResponse>(() => structuredClone(FALLBACK_BILLING));
   const [usage, setUsage] = useState<UsageSummary | null>(null);
@@ -282,6 +294,7 @@ function CustomerAccountPageContent() {
         companyName: org.companyName || data.profile.companyName,
         email: org.client?.email || data.profile.email,
       });
+      setSecurity(data.security);
       setNotifs(data.notifications);
       setAvatarUrl(data.avatarUrl);
     } catch (e) {
@@ -291,6 +304,7 @@ function CustomerAccountPageContent() {
         companyName: org.companyName || FALLBACK_ACCOUNT.profile.companyName,
         email: org.client?.email || FALLBACK_ACCOUNT.profile.email,
       });
+      setSecurity(FALLBACK_ACCOUNT.security);
       setNotifs(FALLBACK_ACCOUNT.notifications);
       setAvatarUrl(undefined);
     }
@@ -829,6 +843,78 @@ function CustomerAccountPageContent() {
     }
   };
 
+  const startMfaSetup = () => {
+    router.push("/setup-2fa");
+  };
+
+  const openEmailChange = () => {
+    setEmailChangeStep(1);
+    setEmailChangeToken("");
+    setEmailChangeTotp("");
+    setEmailChangeEmail("");
+    setEmailChangeOtp("");
+    setEmailChangeError("");
+    setEmailChangeOpen(true);
+  };
+
+  const verifyEmailChangeTotp = async () => {
+    setEmailChangeError("");
+    setSaving(true);
+    try {
+      const res = await verifyEmailChangeAuthenticator(emailChangeTotp);
+      setEmailChangeToken(res.emailChangeToken);
+      setEmailChangeStep(2);
+    } catch (err) {
+      setEmailChangeError(err instanceof Error ? err.message : "Failed to verify Google Authenticator");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const sendNewEmailOtp = async () => {
+    setEmailChangeError("");
+    setSaving(true);
+    try {
+      await sendEmailChangeOtp(emailChangeToken, emailChangeEmail);
+      setEmailChangeStep(3);
+      showToast("success", "Verification code sent to your new email.");
+    } catch (err) {
+      setEmailChangeError(err instanceof Error ? err.message : "Failed to send verification code");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const confirmNewEmail = async () => {
+    setEmailChangeError("");
+    setSaving(true);
+    try {
+      const res = await confirmEmailChange(emailChangeToken, emailChangeEmail, emailChangeOtp);
+      setProfile((p) => ({ ...p, email: res.email }));
+      setProfileDirty(false);
+      setEmailChangeOpen(false);
+      await refreshClient();
+      showToast("success", "Email address changed successfully.");
+    } catch (err) {
+      setEmailChangeError(err instanceof Error ? err.message : "Failed to change email");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const disableMfa = async () => {
+    setSaving(true);
+    try {
+      const data = await saveCustomerAccount({ security: { twoFactor: false } });
+      setSecurity(data.security);
+      showSuccess("Google Authenticator disabled.");
+    } catch (err) {
+      showToast("error", err instanceof Error ? err.message : "Failed to disable Google Authenticator");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const avatarSrc = resolveAvatarUrl(avatarUrl);
 
   useEffect(() => {
@@ -1006,8 +1092,21 @@ function CustomerAccountPageContent() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">Email Address</label>
-                      <input type="email" value={profile.email} onChange={e => { setProfile(p => ({ ...p, email: e.target.value })); setProfileDirty(true); }}
-                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
+                      <div className="flex gap-2">
+                        <input
+                          type="email"
+                          value={profile.email}
+                          readOnly
+                          className="w-full px-3 py-2.5 border border-gray-200 rounded-lg bg-gray-50 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={openEmailChange}
+                          className="shrink-0 rounded-lg border border-[#0A3D8F]/20 px-4 py-2.5 text-sm font-medium text-[#0A3D8F] hover:bg-blue-50"
+                        >
+                          Change
+                        </button>
+                      </div>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">Phone Number</label>
@@ -1092,6 +1191,43 @@ function CustomerAccountPageContent() {
                   <p className="mt-0.5 text-sm text-gray-500">Password, session length, and sign-in preferences</p>
                 </div>
                 <div className="p-6 space-y-6">
+                  <div className="rounded-xl border border-gray-200 bg-white p-4">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-900">Google Authenticator</h3>
+                        <p className="mt-1 text-sm text-gray-500">
+                          {security.twoFactor ? "Google Authenticator is enabled for this account." : "Google Authenticator is currently disabled."}
+                        </p>
+                        {security.twoFactor && security.mfaEnabledAt && (
+                          <p className="mt-1 text-xs text-gray-400">
+                            Enabled {new Date(security.mfaEnabledAt).toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+                      {security.twoFactor ? (
+                        <button
+                          type="button"
+                          onClick={() => void disableMfa()}
+                          disabled={saving || accountLoading}
+                          className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <i className="ri-shield-cross-line" />
+                          Disable
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={startMfaSetup}
+                          disabled={saving || accountLoading}
+                          className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0A3D8F] px-4 py-2 text-sm font-medium text-white hover:bg-[#083170] disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <i className="ri-shield-keyhole-line" />
+                          Enable Google Authenticator
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
                   <div>
                     <h3 className="mb-4 text-sm font-semibold text-gray-700">Change password</h3>
                     <div className="space-y-3">
@@ -2129,6 +2265,107 @@ function CustomerAccountPageContent() {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {emailChangeOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
+                  <div className="flex items-center justify-between border-b border-gray-200 p-5">
+                    <div>
+                      <h2 className="text-lg font-bold text-gray-900">Change Email Address</h2>
+                      <p className="mt-0.5 text-sm text-gray-500">Step {emailChangeStep} of 3</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEmailChangeOpen(false)}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-gray-100"
+                    >
+                      <i className="ri-close-line text-lg text-gray-500" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-4 p-5">
+                    {emailChangeError && (
+                      <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+                        {emailChangeError}
+                      </div>
+                    )}
+
+                    {emailChangeStep === 1 && (
+                      <div className="space-y-4">
+                        <div>
+                          <label className="mb-1.5 block text-sm font-medium text-gray-700">Google Authenticator Code</label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={6}
+                            value={emailChangeTotp}
+                            onChange={(e) => setEmailChangeTotp(e.target.value.replace(/\D/g, ""))}
+                            placeholder="6-digit code"
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-center font-mono text-lg tracking-widest text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void verifyEmailChangeTotp()}
+                          disabled={saving || emailChangeTotp.length !== 6}
+                          className="w-full rounded-lg bg-[#0A3D8F] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#083170] disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Verify Google Authenticator
+                        </button>
+                      </div>
+                    )}
+
+                    {emailChangeStep === 2 && (
+                      <div className="space-y-4">
+                        <div>
+                          <label className="mb-1.5 block text-sm font-medium text-gray-700">New Email Address</label>
+                          <input
+                            type="email"
+                            value={emailChangeEmail}
+                            onChange={(e) => setEmailChangeEmail(e.target.value)}
+                            placeholder="new@example.com"
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void sendNewEmailOtp()}
+                          disabled={saving || !emailChangeEmail}
+                          className="w-full rounded-lg bg-[#0A3D8F] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#083170] disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Send OTP
+                        </button>
+                      </div>
+                    )}
+
+                    {emailChangeStep === 3 && (
+                      <div className="space-y-4">
+                        <div>
+                          <label className="mb-1.5 block text-sm font-medium text-gray-700">Email OTP</label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={6}
+                            value={emailChangeOtp}
+                            onChange={(e) => setEmailChangeOtp(e.target.value.replace(/\D/g, ""))}
+                            placeholder="6-digit code"
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-center font-mono text-lg tracking-widest text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void confirmNewEmail()}
+                          disabled={saving || emailChangeOtp.length !== 6}
+                          className="w-full rounded-lg bg-[#0A3D8F] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#083170] disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Change Email
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 

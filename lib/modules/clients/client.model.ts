@@ -155,6 +155,8 @@ export const clientModel = {
     if (data.status !== undefined) patch.status = data.status.toLowerCase() as any;
     if (data.two_fa_enabled !== undefined) patch.twoFaEnabled = Boolean(data.two_fa_enabled);
     if (data.twoFaEnabled !== undefined) patch.twoFaEnabled = Boolean(data.twoFaEnabled);
+    if (data.two_fa_secret !== undefined) patch.twoFaSecret = data.two_fa_secret;
+    if (data.twoFaSecret !== undefined) patch.twoFaSecret = data.twoFaSecret;
 
     if (data.notes !== undefined) patch.notes = data.notes || null;
     if (data.suspended_reason !== undefined) patch.suspendedReason = data.suspended_reason || null;

@@ -44,6 +44,18 @@ function pickAccent(n: AdminNotification): NotificationAccent {
   return "neutral";
 }
 
+function isTwoFASetupRequired(error: unknown) {
+  const status = typeof error === "object" && error !== null && "status" in error ? Number(error.status) : null;
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "object" && error !== null && "message" in error
+        ? String(error.message)
+        : "";
+
+  return status === 403 && message.toLowerCase().includes("2fa");
+}
+
 export default function CustomerNav() {
   const org = useOrgContext();
   const pathname = usePathname();
@@ -93,6 +105,11 @@ export default function CustomerNav() {
 
   const loadNotifications = useCallback(async () => {
     if (signingOutRef.current) return;
+    if (org.loading || !org.clientId) {
+      setNotifications([]);
+      setNotificationsLoading(false);
+      return;
+    }
 
     try {
       setNotificationsLoading(true);
@@ -107,7 +124,7 @@ export default function CustomerNav() {
     } finally {
       if (mountedRef.current && !signingOutRef.current) setNotificationsLoading(false);
     }
-  }, []);
+  }, [org.clientId, org.loading]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -145,6 +162,7 @@ export default function CustomerNav() {
       try {
         await customerNotificationsApi.markRead(n.id);
       } catch (error) {
+        if (isTwoFASetupRequired(error)) return;
         console.error("Failed to mark customer notification as read:", error);
       }
 
@@ -162,6 +180,7 @@ export default function CustomerNav() {
       await customerNotificationsApi.markAllRead();
       await loadNotifications();
     } catch (error) {
+      if (isTwoFASetupRequired(error)) return;
       console.error("Failed to mark all customer notifications as read:", error);
     }
   }, [loadNotifications]);
