@@ -70,9 +70,17 @@ if (-not $SkipBuild) {
     # pm2 kill exits 1 when no daemon is running — that is expected on a clean machine.
     Write-Host "Killing PM2 daemon to release node_modules locks..."
     $prevEap = $ErrorActionPreference
+    $prevNative = $null
+    if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -Scope Global -ErrorAction SilentlyContinue) {
+        $prevNative = $global:PSNativeCommandUseErrorActionPreference
+        $global:PSNativeCommandUseErrorActionPreference = $false
+    }
     $ErrorActionPreference = "Continue"
     & npx --yes pm2 kill 2>&1 | Out-Null
     $ErrorActionPreference = $prevEap
+    if ($null -ne $prevNative) {
+        $global:PSNativeCommandUseErrorActionPreference = $prevNative
+    }
 
     # Give Windows time to flush kernel handles on memory-mapped native DLLs
     Start-Sleep -Seconds 6
