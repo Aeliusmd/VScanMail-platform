@@ -19,7 +19,7 @@ export async function signAccessToken(payload: AccessTokenPayload) {
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(payload.sub)
     .setIssuedAt()
-    .setExpirationTime("15m")
+    .setExpirationTime("2h")
     .sign(getSecret());
 }
 

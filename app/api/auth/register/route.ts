@@ -9,6 +9,24 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
+
+    const captchaToken = body?.captchaToken;
+    if (!captchaToken || typeof captchaToken !== "string") {
+      return NextResponse.json({ error: "CAPTCHA verification required." }, { status: 400 });
+    }
+    const verifyRes = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        secret: process.env.TURNSTILE_SECRET_KEY,
+        response: captchaToken,
+      }),
+    });
+    const verifyData = await verifyRes.json();
+    if (!verifyData.success) {
+      return NextResponse.json({ error: "CAPTCHA verification failed. Please try again." }, { status: 400 });
+    }
+
     const input = registerSchema.parse(body);
     const result = await authService.register(input, req);
 

@@ -1,7 +1,7 @@
-export const INACTIVITY_LIMIT_MS = 60 * 60 * 1000; // 60 minutes
-export const WARN_BEFORE_MS = 5 * 60 * 1000; // warn at 55 minutes
+export const SESSION_DURATION_MS = 2 * 60 * 60 * 1000; // 2 hours
+export const WARN_BEFORE_MS = 5 * 60 * 1000; // warn 5 minutes before expiry
 
-const LAST_ACTIVITY_KEY = "vscanmail_last_activity";
+const SESSION_START_KEY = "vscanmail_session_start";
 const CHANNEL_NAME = "vscanmail_session";
 
 type Callback = () => void;
@@ -17,24 +17,21 @@ let onWarnCb: Callback | null = null;
 let channel: BroadcastChannel | null = null;
 let onChannelMessage: ((e: MessageEvent) => void) | null = null;
 
-type ActivityEventName = "mousemove" | "mousedown" | "keydown" | "touchstart" | "scroll";
-const ACTIVITY_EVENTS: ActivityEventName[] = ["mousemove", "mousedown", "keydown", "touchstart", "scroll"];
-
 function nowIso() {
   return new Date().toISOString();
 }
 
-function readLastActivityMs(): number {
+function readSessionStartMs(): number {
   if (typeof window === "undefined") return Date.now();
-  const raw = window.localStorage.getItem(LAST_ACTIVITY_KEY);
+  const raw = window.localStorage.getItem(SESSION_START_KEY);
   if (!raw) return Date.now();
   const ms = Date.parse(raw);
   return Number.isNaN(ms) ? Date.now() : ms;
 }
 
-function writeLastActivityNow() {
+function writeSessionStartNow() {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(LAST_ACTIVITY_KEY, nowIso());
+  window.localStorage.setItem(SESSION_START_KEY, nowIso());
 }
 
 function fireWarnOnce() {
@@ -60,24 +57,17 @@ function fireExpireOnce({ broadcast }: { broadcast: boolean }) {
 
 function tick() {
   if (typeof window === "undefined") return;
-  const last = readLastActivityMs();
-  const elapsed = Date.now() - last;
+  const sessionStartMs = readSessionStartMs();
+  const elapsed = Date.now() - sessionStartMs;
 
-  if (elapsed >= INACTIVITY_LIMIT_MS) {
+  if (elapsed >= SESSION_DURATION_MS) {
     fireExpireOnce({ broadcast: true });
     return;
   }
 
-  if (elapsed >= INACTIVITY_LIMIT_MS - WARN_BEFORE_MS) {
+  if (elapsed >= SESSION_DURATION_MS - WARN_BEFORE_MS) {
     fireWarnOnce();
   }
-}
-
-export function resetSessionTimer(): void {
-  if (typeof window === "undefined") return;
-  if (!started) return;
-  writeLastActivityNow();
-  warned = false;
 }
 
 export function stopSessionTimer(): void {
@@ -86,10 +76,6 @@ export function stopSessionTimer(): void {
   if (intervalId) {
     window.clearInterval(intervalId);
     intervalId = null;
-  }
-
-  for (const evt of ACTIVITY_EVENTS) {
-    window.removeEventListener(evt, resetSessionTimer as EventListener);
   }
 
   if (channel && onChannelMessage) {
@@ -103,7 +89,7 @@ export function stopSessionTimer(): void {
   channel = null;
   onChannelMessage = null;
 
-  window.localStorage.removeItem(LAST_ACTIVITY_KEY);
+  window.localStorage.removeItem(SESSION_START_KEY);
 
   started = false;
   warned = false;
@@ -127,11 +113,7 @@ export function startSessionTimer(onExpire: Callback, onWarn: Callback): void {
   onExpireCb = onExpire;
   onWarnCb = onWarn;
 
-  writeLastActivityNow();
-
-  for (const evt of ACTIVITY_EVENTS) {
-    window.addEventListener(evt, resetSessionTimer as EventListener, { passive: true });
-  }
+  writeSessionStartNow();
 
   channel = new BroadcastChannel(CHANNEL_NAME);
   onChannelMessage = (e: MessageEvent) => {
@@ -144,4 +126,3 @@ export function startSessionTimer(onExpire: Callback, onWarn: Callback): void {
 
   intervalId = window.setInterval(tick, 30_000);
 }
-

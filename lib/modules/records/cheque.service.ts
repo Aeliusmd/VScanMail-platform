@@ -33,6 +33,32 @@ export const chequeService = {
       client.company_name
     );
 
+    // Use the second content scan URL as the cheque back (if admin scanned both sides).
+    // Do NOT use envelope_back_url — that is the back of the physical envelope (postal
+    // markings, barcodes) which would confuse the AI into thinking stamps = returned cheque.
+    let backBase64: string | undefined;
+    const chequeScans: string[] = Array.isArray(mailItem.content_scan_urls)
+      ? mailItem.content_scan_urls.filter(Boolean)
+      : [];
+    const backScanUrl = chequeScans[1]; // index 0 = front (already passed as imageBase64)
+    if (backScanUrl) {
+      try {
+        const backRes = await fetch(backScanUrl);
+        if (backRes.ok) {
+          const backBuffer = Buffer.from(await backRes.arrayBuffer());
+          backBase64 = backBuffer.toString("base64");
+        }
+      } catch {
+        // back scan is optional
+      }
+    }
+
+    const typeClassification = await aiService.classifyChequeType(imageBase64, backBase64);
+    const aiRawResult = {
+      ...validation,
+      type_classification: typeClassification,
+    };
+
     // 4. Store cheque record
     const cheque = await chequeModel.create({
       mail_item_id: mailItemId,
@@ -54,7 +80,8 @@ export const chequeService = {
         (extracted.alteration_signs || []).length > 0,
       crossing_present: extracted.crossing_present,
       ai_confidence: validation.confidence,
-      ai_raw_result: validation,
+      ai_raw_result: aiRawResult,
+      cheque_type: typeClassification.type,
       client_decision: "pending",
       status: validation.status as any,
     }, actorId, req);
@@ -69,7 +96,7 @@ export const chequeService = {
     // 6. Notify client
     await notificationService.sendChequeAlert(client.id, cheque, validation);
 
-    return { cheque, validation };
+    return { cheque, validation, typeClassification };
   },
 
   /**

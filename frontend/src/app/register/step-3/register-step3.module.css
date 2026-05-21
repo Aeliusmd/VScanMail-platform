@@ -513,8 +513,13 @@
   white-space: nowrap;
 }
 
-.submitButton:hover {
+.submitButton:hover:not(:disabled) {
   opacity: 0.9;
+}
+
+.submitButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* ─── Sign In Link ──────────────────────────────────────────── */

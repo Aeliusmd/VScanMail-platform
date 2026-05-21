@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const securityHeaders = [
-  { key: "Content-Security-Policy", value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; img-src 'self' data: blob: https: http://localhost:3000 http://localhost:3010 http://127.0.0.1:3000 http://127.0.0.1:3010 http://10.103.0.91:3000 http://10.103.0.91:3010; font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com; connect-src 'self' https: http://localhost:3000 http://localhost:3010 http://127.0.0.1:3000 http://127.0.0.1:3010 http://10.103.0.91:3000 http://10.103.0.91:3010; frame-src https://js.stripe.com https://hooks.stripe.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" },
+  { key: "Content-Security-Policy", value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; img-src 'self' data: blob: https: http://localhost:3000 http://localhost:3010 http://127.0.0.1:3000 http://127.0.0.1:3010 http://10.103.0.91:3000 http://10.103.0.91:3010; font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com; connect-src 'self' https: http://localhost:3000 http://localhost:3010 http://127.0.0.1:3000 http://127.0.0.1:3010 http://10.103.0.91:3000 http://10.103.0.91:3010; frame-src https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" },
   { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains; preload" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
@@ -16,11 +16,6 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
-      {
-        source: "/customer/dashboard",
-        destination: "/customer",
-        permanent: true,
-      },
       {
         source: "/dashboard",
         destination: "/admin",
@@ -63,7 +58,7 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/customer-dashboard",
-        destination: "/customer",
+        destination: "/customer/dashboard",
         permanent: true,
       },
       {

@@ -16,6 +16,20 @@ type DepositSlipExtractResult = {
   ocr_text: string;
 };
 
+export type ChequeTypeResult = {
+  type: "original" | "returned" | "unknown";
+  confidence: number;
+  indicators: string[];
+  reasoning: string;
+};
+
+const DEFAULT_CHEQUE_TYPE_RESULT: ChequeTypeResult = {
+  type: "unknown",
+  confidence: 0,
+  indicators: [],
+  reasoning: "Classification unavailable",
+};
+
 /**
  * Accepts a full data URL (data:image/jpeg;base64,...) or a raw base64 string.
  * Returns a properly formed data URL that OpenAI Vision can accept.
@@ -248,6 +262,91 @@ export const aiService = {
       checks,
       extracted,
     };
+  },
+
+  async classifyChequeType(frontBase64: string, backBase64?: string): Promise<ChequeTypeResult> {
+    try {
+      const imageContent: Array<
+        | { type: "text"; text: string }
+        | { type: "image_url"; image_url: { url: string } }
+      > = [
+        {
+          type: "text",
+          text: `You are a banking document examiner. Classify this cheque image as 'original' or 'returned'. Return valid JSON only.
+
+CLASSIFICATION RULES:
+- Classify as "returned" ONLY if you can clearly see physical return evidence: rubber/ink stamps reading RETURNED, NSF, NON-SUFFICIENT FUNDS, R/D, REFER TO DRAWER, REFER TO MAKER, ACCOUNT CLOSED, PAYMENT STOPPED, FROZEN ACCOUNT; or numeric return codes (R01-R33); or multiple bank clearing-house stamps; or perforations through the cheque body; or coloured return-reason stickers.
+- Classify as "original" if the cheque appears clean, unprocessed, and shows none of the above return indicators. A standard cheque with normal bank printing, payee name, amount, date, and signature is an original cheque.
+- Only use "unknown" if the image quality is completely unreadable or the document is clearly not a cheque at all.
+
+Return ONLY valid JSON:
+{
+  "type": "original" | "returned" | "unknown",
+  "confidence": 0.0-1.0,
+  "indicators": ["list only physical evidence you can actually see, empty array if none"],
+  "reasoning": "one sentence explanation of your classification decision"
+}`,
+        },
+        {
+          type: "image_url",
+          image_url: { url: normalizeImageUrl(frontBase64) },
+        },
+      ];
+
+      if (backBase64) {
+        imageContent.push({
+          type: "image_url",
+          image_url: { url: normalizeImageUrl(backBase64) },
+        });
+      }
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        max_tokens: 600,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a banking document examiner specializing in cheque verification. Always respond with valid JSON.",
+          },
+          {
+            role: "user",
+            content: imageContent,
+          },
+        ],
+        response_format: { type: "json_object" },
+      });
+
+      const text = response.choices[0]?.message?.content || "{}";
+      const data = JSON.parse(text);
+      const rawType = String(data.type || "").toLowerCase();
+      let type: ChequeTypeResult["type"] =
+        rawType === "original" || rawType === "returned" || rawType === "unknown"
+          ? rawType
+          : "unknown";
+
+      const confidence = typeof data.confidence === "number" ? data.confidence : 0;
+      const indicators: string[] = Array.isArray(data.indicators)
+        ? data.indicators.map((item: unknown) => String(item))
+        : [];
+
+      // GPT-4o sometimes returns "unknown" as a conservative default even when it
+      // clearly sees a clean cheque with no return evidence. Override: if the model
+      // has ≥ 70% confidence AND found zero return indicators, the cheque is original.
+      if (type === "unknown" && confidence >= 0.7 && indicators.length === 0) {
+        type = "original";
+      }
+
+      return {
+        type,
+        confidence,
+        indicators,
+        reasoning: typeof data.reasoning === "string" ? data.reasoning : "",
+      };
+    } catch (err) {
+      console.error("[classifyChequeType] AI classification failed:", err instanceof Error ? err.message : err);
+      return { ...DEFAULT_CHEQUE_TYPE_RESULT };
+    }
   },
 
   /**

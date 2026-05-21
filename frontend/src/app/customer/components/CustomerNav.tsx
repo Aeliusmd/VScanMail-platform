@@ -76,7 +76,7 @@ export default function CustomerNav() {
   const email = org.client?.email || "";
   const clientId = org.clientId;
   const avatarUrl = org.avatarUrl;
-  const baseHref = clientId ? `/customer/${clientId}` : "/customer";
+  const baseHref = "/customer";
 
   const navLinks = [
     { label: "Dashboard", href: `${baseHref}/dashboard`, icon: "ri-dashboard-line" },
@@ -188,7 +188,7 @@ export default function CustomerNav() {
   const handleSignOut = useCallback(() => {
     signingOutRef.current = true;
     closePanels();
-    window.localStorage.removeItem("vscanmail_last_activity");
+    window.localStorage.removeItem("vscanmail_session_start");
     void fetch("/api/auth/logout", {
       method: "POST",
       credentials: "include",

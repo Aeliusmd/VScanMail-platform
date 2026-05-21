@@ -1,6 +1,12 @@
 import { auditService } from "../audit/audit.service";
 import { db, sql } from "@/lib/modules/core/db/mysql";
-import { ensureClientTableArchiveColumns, getClientTableName } from "@/lib/modules/core/db/dynamic-table";
+import {
+  ensureClientTableArchiveColumns,
+  ensureClientTableDeliveryColumns,
+  ensureClientTableDepositColumns,
+  ensureClientTableChequeTypeColumn,
+  getClientTableName,
+} from "@/lib/modules/core/db/dynamic-table";
 import { clients } from "@/lib/modules/core/db/schema";
 import { eq } from "drizzle-orm";
 
@@ -117,6 +123,16 @@ function rowToMailItem(row: any, clientId: string): MailItem {
   };
 }
 
+const MAIL_ITEM_COLS = [
+  "id", "irn", "record_type", "envelope_front_url", "envelope_back_url", "content_scan_urls",
+  "tamper_detected", "tamper_annotations", "ocr_text", "ai_summary", "ai_actions", "ai_risk_level",
+  "retention_until", "scanned_by", "scanned_at", "mail_status", "is_archived", "archived_at", "created_at",
+  "cheque_amount_figures", "cheque_amount_words", "cheque_amounts_match", "cheque_date_on_cheque",
+  "cheque_date_valid", "cheque_beneficiary", "cheque_beneficiary_match", "cheque_signature_present",
+  "cheque_alteration_detected", "cheque_crossing_present", "cheque_ai_confidence",
+  "cheque_ai_raw_result", "cheque_decision", "cheque_decided_by", "cheque_decided_at", "cheque_status",
+].map((c) => `\`${c}\``).join(", ");
+
 async function locateRecordById(id: string) {
   const allClientsRaw = await db.select({ id: clients.id, tableName: clients.tableName }).from(clients);
   if (!allClientsRaw.length) return null;
@@ -128,11 +144,15 @@ async function locateRecordById(id: string) {
   const allClients = allClientsRaw.filter((c) => existingTableNames.has(c.tableName));
   if (!allClients.length) return null;
 
-  const queries = allClients.map(c => 
-    sql`SELECT *, ${c.id} AS _client_id FROM ${sql.raw(`\`${c.tableName}\``)} WHERE id = ${id}`
+  // Ensure archive columns exist on older tables; explicit column list keeps UNION ALL
+  // safe regardless of other columns added to newer tables (cheque_type, delivery, deposit).
+  await Promise.all(allClients.map((c) => ensureClientTableArchiveColumns(c.tableName)));
+
+  const queries = allClients.map((c) =>
+    sql`SELECT ${sql.raw(MAIL_ITEM_COLS)}, ${c.id} AS _client_id FROM ${sql.raw(`\`${c.tableName}\``)} WHERE id = ${id}`
   );
   const unionQuery = sql.join(queries, sql` UNION ALL `);
-  
+
   const [rows] = await db.execute(unionQuery) as any;
   return rows[0] || null;
 }
@@ -502,11 +522,13 @@ export const mailItemModel = {
     const allClients = await db.select({ id: clients.id, tableName: clients.tableName }).from(clients);
     if (!allClients.length) return [];
 
-    const queries = allClients.map(c => 
-      sql`SELECT *, ${c.id} AS _client_id FROM ${sql.raw(`\`${c.tableName}\``)} WHERE mail_status = 'delivered' AND retention_until <= ${new Date(beforeDate)}`
+    await Promise.all(allClients.map((c) => ensureClientTableArchiveColumns(c.tableName)));
+
+    const queries = allClients.map((c) =>
+      sql`SELECT ${sql.raw(MAIL_ITEM_COLS)}, ${c.id} AS _client_id FROM ${sql.raw(`\`${c.tableName}\``)} WHERE mail_status = 'delivered' AND retention_until <= ${new Date(beforeDate)}`
     );
     const unionQuery = sql.join(queries, sql` UNION ALL `);
-    
+
     const [rows] = await db.execute(unionQuery) as any;
     return rows.map((r: any) => rowToMailItem(r, r._client_id));
   },

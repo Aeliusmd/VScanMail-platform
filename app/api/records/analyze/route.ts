@@ -99,9 +99,21 @@ export async function POST(req: NextRequest) {
     const suggestedClient = await aiService.identifyClient(ocrTextForIdentification, allClients);
 
     // 4. If cheque, perform validation against suggested client (if any)
+    let typeClassification = null;
     if (docType === "cheque" && suggestedClient) {
       const validation = await aiService.validateCheque(aiResults, suggestedClient.company_name);
-      aiResults = { ...aiResults, validation };
+      typeClassification = await aiService.classifyChequeType(content, back);
+      aiResults = {
+        ...aiResults,
+        validation,
+        type_classification: typeClassification,
+      };
+    } else if (docType === "cheque" && content) {
+      typeClassification = await aiService.classifyChequeType(content, back);
+      aiResults = {
+        ...aiResults,
+        type_classification: typeClassification,
+      };
     }
 
     return NextResponse.json({
@@ -110,6 +122,7 @@ export async function POST(req: NextRequest) {
         docType,
         tampering,
         aiResults,
+        typeClassification,
         ocrText: ocrTextForIdentification,
         urls: {
           front: frontUrl,

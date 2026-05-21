@@ -43,6 +43,7 @@ export async function createClientTable(tableName: string) {
       \`cheque_crossing_present\`     BOOLEAN       NULL,
       \`cheque_ai_confidence\`        DECIMAL(6,4)  NULL,
       \`cheque_ai_raw_result\`        JSON          NULL,
+      \`cheque_type\`                 VARCHAR(20)   NULL DEFAULT 'unknown',
 
       \`cheque_decision\`             ENUM('pending','approved','rejected') NULL,
       \`cheque_decided_by\`           VARCHAR(36)   NULL,
@@ -350,6 +351,42 @@ export async function ensureClientTableDepositColumns(tableName: string): Promis
   }
 
   await tryEnforceTypes();
+}
+
+export async function ensureClientTableChequeTypeColumn(tableName: string): Promise<void> {
+  const columnDefs: Array<{ name: string; sql: string }> = [
+    { name: "cheque_type", sql: "`cheque_type` VARCHAR(20) NULL DEFAULT 'unknown'" },
+  ];
+
+  try {
+    const alterSql = `ALTER TABLE \`${tableName}\`\n  ${columnDefs
+      .map((c) => `ADD COLUMN IF NOT EXISTS ${c.sql}`)
+      .join(",\n  ")}`;
+    await db.execute(sql.raw(alterSql));
+    return;
+  } catch {
+    // Older MySQL versions may not support ADD COLUMN IF NOT EXISTS.
+  }
+
+  const columnNamesList = columnDefs.map((c) => `'${escapeSqlString(c.name)}'`).join(", ");
+  const [existingRows] = (await db.execute(
+    sql.raw(
+      `SELECT COLUMN_NAME AS name
+       FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = '${escapeSqlString(tableName)}'
+         AND COLUMN_NAME IN (${columnNamesList})`
+    )
+  )) as any;
+
+  const existing = new Set<string>((existingRows as any[]).map((r) => String(r.name)));
+  const missing = columnDefs.filter((c) => !existing.has(c.name));
+  if (!missing.length) return;
+
+  const alterSql = `ALTER TABLE \`${tableName}\`\n  ${missing
+    .map((c) => `ADD COLUMN ${c.sql}`)
+    .join(",\n  ")}`;
+  await db.execute(sql.raw(alterSql));
 }
 
 export async function dropClientTable(tableName: string) {

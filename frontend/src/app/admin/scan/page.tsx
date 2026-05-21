@@ -570,6 +570,50 @@ export default function AdminScanPage() {
                                 ))}
                              </div>
                           </div>
+
+                          {(() => {
+                            const typeClassification =
+                              analysisResult.typeClassification ||
+                              analysisResult.aiResults?.type_classification;
+                            if (!typeClassification) return null;
+                            const type = typeClassification.type || "unknown";
+                            const confidencePct = Math.round((typeClassification.confidence || 0) * 100);
+                            const badgeClass =
+                              type === "original"
+                                ? "bg-green-600 text-white"
+                                : type === "returned"
+                                  ? "bg-amber-600 text-white"
+                                  : "bg-slate-400 text-white";
+                            const badgeLabel =
+                              type === "original"
+                                ? "Original Cheque"
+                                : type === "returned"
+                                  ? "Returned Cheque"
+                                  : "Unknown";
+                            return (
+                              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                <div className="flex items-center justify-between gap-2 mb-2">
+                                  <p className="text-[10px] text-slate-600 font-bold uppercase">Cheque Type</p>
+                                  <span className="text-[10px] font-bold text-slate-500">{confidencePct}% confidence</span>
+                                </div>
+                                <span className={`inline-flex text-[10px] font-bold px-2 py-0.5 rounded uppercase ${badgeClass}`}>
+                                  {badgeLabel}
+                                </span>
+                                {type === "returned" && typeClassification.indicators?.length > 0 && (
+                                  <div className="flex flex-wrap gap-1.5 mt-2">
+                                    {typeClassification.indicators.map((indicator: string, i: number) => (
+                                      <span
+                                        key={i}
+                                        className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200"
+                                      >
+                                        {indicator}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                        </div>
                     ) : (
                        <div className="space-y-4">

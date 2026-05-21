@@ -36,14 +36,13 @@ function LoginForm() {
     const result = await authApi.completeRegistrationCheckout(checkoutSessionId, checkoutEmail);
 
     if (result.active && result.autoLoggedIn && result.user) {
-      localStorage.setItem("vscanmail_last_activity", new Date().toISOString());
       const role = result.user.role;
       if (role === "super_admin") {
         router.replace("/superadmin/dashboard");
       } else if (role === "admin") {
         router.replace("/admin");
       } else {
-        router.replace(result.user.clientId ? `/customer/${result.user.clientId}/dashboard` : "/customer");
+        router.replace("/customer/dashboard");
       }
       return true;
     }
@@ -120,7 +119,6 @@ function LoginForm() {
         return;
       }
 
-      localStorage.setItem("vscanmail_last_activity", new Date().toISOString());
       if (!response.user) throw new Error("Login failed");
       const role = response.user.role;
       if (role === "super_admin") {
@@ -129,7 +127,7 @@ function LoginForm() {
         router.push("/admin");
       } else {
         // Customer (client)
-        router.push("/customer");
+        router.push("/customer/dashboard");
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Invalid credentials. Please try again.";
@@ -138,12 +136,7 @@ function LoginForm() {
         err.status === 402 &&
         err.details?.code === "payment_overdue"
       ) {
-        const clientId = typeof err.details?.clientId === "string" ? err.details.clientId : null;
-        setPaymentUpdateHref(
-          clientId
-            ? `/customer/${clientId}/account?tab=billing`
-            : "/customer/account?tab=billing"
-        );
+        setPaymentUpdateHref("/customer/account?tab=billing");
       }
       
       if (err instanceof ApiError && err.status === 401 && (message.toLowerCase().includes("2fa") || message.toLowerCase().includes("code"))) {

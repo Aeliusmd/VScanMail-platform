@@ -2,6 +2,7 @@ import { auditService } from "../audit/audit.service";
 import { db, sql } from "@/lib/modules/core/db/mysql";
 import {
   ensureClientTableArchiveColumns,
+  ensureClientTableChequeTypeColumn,
   ensureClientTableDeliveryColumns,
   ensureClientTableDepositColumns,
   getClientTableName,
@@ -24,6 +25,7 @@ export type Cheque = {
   crossing_present: boolean;
   ai_confidence: number;
   ai_raw_result: any;
+  cheque_type?: "original" | "returned" | "unknown";
   client_decision: "pending" | "approved" | "rejected";
   decided_by: string | null;
   decided_at: string | null;
@@ -84,6 +86,7 @@ function rowToCheque(row: any, clientId: string): Cheque {
     crossing_present: Boolean(row.cheque_crossing_present),
     ai_confidence: Number(row.cheque_ai_confidence || 0),
     ai_raw_result: parseJsonSafe(row.cheque_ai_raw_result, {}),
+    cheque_type: (row.cheque_type || "unknown") as Cheque["cheque_type"],
     client_decision: row.cheque_decision || "pending",
     decided_by: row.cheque_decided_by || null,
     decided_at: row.cheque_decided_at ? new Date(row.cheque_decided_at).toISOString() : null,
@@ -116,11 +119,32 @@ async function locateChequeById(id: string) {
   const allClients = allClientsRaw.filter((c) => existingTableNames.has(c.tableName));
   if (!allClients.length) return null;
 
-  const queries = allClients.map(c => 
-    sql`SELECT *, ${c.id} AS _client_id FROM ${sql.raw(`\`${c.tableName}\``)} WHERE id = ${id} AND record_type = 'cheque'`
+  // Ensure all tables have the same column set before UNION ALL — SELECT * fails when tables
+  // have different column counts (e.g. after cheque_type or delivery columns were added to newer tables only).
+  await Promise.all(
+    allClients.map(async (c) => {
+      await ensureClientTableDeliveryColumns(c.tableName);
+      await ensureClientTableDepositColumns(c.tableName);
+      await ensureClientTableChequeTypeColumn(c.tableName);
+    })
+  );
+
+  // Explicit column list keeps UNION ALL safe when future columns are added to createClientTable.
+  const cols = [
+    "id", "envelope_front_url", "envelope_back_url", "content_scan_urls", "record_type",
+    "cheque_amount_figures", "cheque_amount_words", "cheque_amounts_match", "cheque_date_on_cheque",
+    "cheque_date_valid", "cheque_beneficiary", "cheque_beneficiary_match", "cheque_signature_present",
+    "cheque_alteration_detected", "cheque_crossing_present", "cheque_ai_confidence",
+    "cheque_ai_raw_result", "cheque_type", "cheque_decision", "cheque_decided_by",
+    "cheque_decided_at", "cheque_status", "deposit_requested_at", "deposit_marked_deposited_at",
+    "delivery_status", "delivery_requested_at", "created_at",
+  ].map((c) => `\`${c}\``).join(", ");
+
+  const queries = allClients.map((c) =>
+    sql`SELECT ${sql.raw(cols)}, ${c.id} AS _client_id FROM ${sql.raw(`\`${c.tableName}\``)} WHERE id = ${id} AND record_type = 'cheque'`
   );
   const unionQuery = sql.join(queries, sql` UNION ALL `);
-  
+
   const [rows] = await db.execute(unionQuery) as any;
   return rows[0] || null;
 }
@@ -145,6 +169,7 @@ export const chequeModel = {
         if (archived !== undefined) await ensureClientTableArchiveColumns(c.tableName);
         await ensureClientTableDeliveryColumns(c.tableName);
         await ensureClientTableDepositColumns(c.tableName);
+        await ensureClientTableChequeTypeColumn(c.tableName);
       })
     );
 
@@ -164,7 +189,7 @@ export const chequeModel = {
     const whereStr = `WHERE ${conditionParts.join(' AND ')}`;
 
     // Column list matches rowToCheque dependencies + id, record_type, created_at
-    const columnList = `id, record_type, cheque_amount_figures, cheque_amount_words, cheque_amounts_match, cheque_date_on_cheque, cheque_date_valid, cheque_beneficiary, cheque_beneficiary_match, cheque_signature_present, cheque_alteration_detected, cheque_crossing_present, cheque_ai_confidence, cheque_ai_raw_result, cheque_decision, cheque_decided_by, cheque_decided_at, cheque_status, deposit_requested_at, deposit_marked_deposited_at, delivery_status, delivery_requested_at, created_at`;
+    const columnList = `id, record_type, cheque_amount_figures, cheque_amount_words, cheque_amounts_match, cheque_date_on_cheque, cheque_date_valid, cheque_beneficiary, cheque_beneficiary_match, cheque_signature_present, cheque_alteration_detected, cheque_crossing_present, cheque_ai_confidence, cheque_ai_raw_result, cheque_type, cheque_decision, cheque_decided_by, cheque_decided_at, cheque_status, deposit_requested_at, deposit_marked_deposited_at, delivery_status, delivery_requested_at, created_at`;
 
     const unionParts = allClients.map(c => 
       `SELECT ${columnList}, '${c.id}' AS _client_id FROM \`${c.tableName}\` ${whereStr}`
@@ -203,6 +228,7 @@ export const chequeModel = {
     const clientId = row._client_id;
     const before = rowToCheque(row, clientId);
     const tableName = await getClientTableName(clientId);
+    await ensureClientTableChequeTypeColumn(tableName);
 
     const updates = [];
     if (data.amount_figures !== undefined) updates.push(sql`cheque_amount_figures = ${data.amount_figures}`);
@@ -217,6 +243,7 @@ export const chequeModel = {
     if (data.crossing_present !== undefined) updates.push(sql`cheque_crossing_present = ${data.crossing_present ? 1 : 0}`);
     if (data.ai_confidence !== undefined) updates.push(sql`cheque_ai_confidence = ${data.ai_confidence}`);
     if (data.ai_raw_result !== undefined) updates.push(sql`cheque_ai_raw_result = ${JSON.stringify(data.ai_raw_result)}`);
+    if (data.cheque_type !== undefined) updates.push(sql`cheque_type = ${data.cheque_type}`);
     if (data.client_decision !== undefined) updates.push(sql`cheque_decision = ${data.client_decision}`);
     if (data.decided_by !== undefined) updates.push(sql`cheque_decided_by = ${data.decided_by}`);
     if (data.decided_at !== undefined) updates.push(sql`cheque_decided_at = ${new Date(data.decided_at!)}`);
@@ -264,6 +291,7 @@ export const chequeModel = {
     if (archived !== undefined) await ensureClientTableArchiveColumns(tableName);
     await ensureClientTableDeliveryColumns(tableName);
     await ensureClientTableDepositColumns(tableName);
+    await ensureClientTableChequeTypeColumn(tableName);
     const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const archiveClause =
       archived === undefined

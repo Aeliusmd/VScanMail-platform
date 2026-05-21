@@ -1,6 +1,6 @@
 import { db, sql } from "@/lib/modules/core/db/mysql";
 import { clients } from "@/lib/modules/core/db/schema";
-import { ensureClientTableDepositColumns } from "@/lib/modules/core/db/dynamic-table";
+import { ensureClientTableDepositColumns, ensureClientTableChequeTypeColumn } from "@/lib/modules/core/db/dynamic-table";
 
 export type DepositDecision = "pending" | "approved" | "rejected";
 
@@ -57,6 +57,23 @@ export type DepositRow = {
   aiSummary: string | null;
 };
 
+const DEPOSIT_CHEQUE_COLS = [
+  "id", "record_type", "envelope_front_url", "envelope_back_url", "content_scan_urls",
+  "ai_summary", "created_at",
+  "cheque_amount_figures", "cheque_amount_words", "cheque_amounts_match", "cheque_date_on_cheque",
+  "cheque_date_valid", "cheque_beneficiary", "cheque_beneficiary_match", "cheque_signature_present",
+  "cheque_alteration_detected", "cheque_crossing_present", "cheque_ai_confidence",
+  "cheque_ai_raw_result", "cheque_type", "cheque_decision", "cheque_decided_by",
+  "cheque_decided_at", "cheque_status",
+  "deposit_requested_at", "deposit_requested_by",
+  "deposit_destination_bank_account_id", "deposit_destination_bank_name",
+  "deposit_destination_bank_nickname", "deposit_destination_bank_last4",
+  "deposit_decision", "deposit_decided_by", "deposit_decided_at", "deposit_reject_reason",
+  "deposit_marked_deposited_at", "deposit_marked_deposited_by",
+  "deposit_slip_url", "deposit_slip_uploaded_at", "deposit_slip_uploaded_by", "deposit_slip_ai_result",
+  "delivery_status", "delivery_requested_at",
+].map((c) => `\`${c}\``).join(", ");
+
 async function locateChequeById(id: string) {
   const allClientsRaw = await db.select({ id: clients.id, tableName: clients.tableName }).from(clients);
   if (!allClientsRaw.length) return null;
@@ -65,13 +82,19 @@ async function locateChequeById(id: string) {
   const allClients = allClientsRaw.filter((c) => existingTableNames.has(c.tableName));
   if (!allClients.length) return null;
 
-  await Promise.all(allClients.map((c) => ensureClientTableDepositColumns(c.tableName)));
+  // Both ensures required: deposit columns and cheque_type were added to newer tables only;
+  // explicit column list keeps UNION ALL safe against future schema drift.
+  await Promise.all(
+    allClients.map(async (c) => {
+      await ensureClientTableDepositColumns(c.tableName);
+      await ensureClientTableChequeTypeColumn(c.tableName);
+    })
+  );
 
-  const queries = allClients.map(
-    (c) =>
-      sql`SELECT *, ${c.id} AS _client_id, ${c.tableName} AS _table_name FROM ${sql.raw(
-        `\`${c.tableName}\``
-      )} WHERE id = ${id} AND record_type = 'cheque'`
+  const queries = allClients.map((c) =>
+    sql`SELECT ${sql.raw(DEPOSIT_CHEQUE_COLS)}, ${c.id} AS _client_id, ${c.tableName} AS _table_name FROM ${sql.raw(
+      `\`${c.tableName}\``
+    )} WHERE id = ${id} AND record_type = 'cheque'`
   );
   const unionQuery = sql.join(queries, sql` UNION ALL `);
 

@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { HiArrowLeft, HiCheck, HiShieldCheck, HiInformationCircle } from "react-icons/hi2";
 import { HiOutlineEye, HiOutlineEyeSlash } from "react-icons/hi2";
+import { Turnstile } from "@marsidev/react-turnstile";
 import styles from "./register-step3.module.css";
 
 const passwordRequirements = [
@@ -34,6 +35,7 @@ export default function RegisterStep3() {
   const [isLoading, setIsLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   useEffect(() => {
     const step1Data = localStorage.getItem("registerStep1");
@@ -110,6 +112,7 @@ export default function RegisterStep3() {
         password: formData.password,
         planType: "subscription" as const,
         ...(planTier ? { planTier } : {}),
+        captchaToken,
       };
 
       const response = await fetch("/api/auth/register", {
@@ -294,6 +297,14 @@ export default function RegisterStep3() {
               {errors.agreeTerms && <p className={styles.errorText}>{errors.agreeTerms}</p>}
             </div>
 
+            <Turnstile
+              siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+              onSuccess={(token) => setCaptchaToken(token)}
+              onError={() => setCaptchaToken(null)}
+              onExpire={() => setCaptchaToken(null)}
+              options={{ theme: "light" }}
+            />
+
             <div className={styles.buttonRow}>
               <button 
                 type="button" 
@@ -306,7 +317,7 @@ export default function RegisterStep3() {
               <button 
                 type="submit" 
                 className={styles.submitButton}
-                disabled={isLoading}
+                disabled={isLoading || !captchaToken}
               >
                 {isLoading ? (
                   <>Registering...</>

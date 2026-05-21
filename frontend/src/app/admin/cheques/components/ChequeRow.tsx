@@ -24,6 +24,7 @@ export interface UiCheque {
   time: string;
   email?: string;
   raw?: any;
+  chequeType?: "original" | "returned" | "unknown";
 }
 
 interface ChequeRowProps {
@@ -45,6 +46,24 @@ const statusStyles: Record<string, string> = {
   Pending: 'bg-orange-100 text-orange-600',
   Inactive: 'bg-gray-100 text-gray-600',
 };
+
+function ChequeTypeBadge({ type }: { type?: "original" | "returned" | "unknown" }) {
+  if (!type || type === "unknown") {
+    return <span className="text-xs text-slate-400">—</span>;
+  }
+  if (type === "original") {
+    return (
+      <span className="text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap border border-green-600 text-green-700 bg-white">
+        Original
+      </span>
+    );
+  }
+  return (
+    <span className="text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap bg-red-600 text-white">
+      Returned
+    </span>
+  );
+}
 
 export default function ChequeRow({ cheque, selected, onSelect, onOpen, showArchiveMeta = false, showUnarchive = false, onUnarchive }: ChequeRowProps) {
   const [starred, setStarred] = useState(cheque.starred);
@@ -109,6 +128,11 @@ export default function ChequeRow({ cheque, selected, onSelect, onOpen, showArch
         <span className={`text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${statusStyles[cheque.status]}`}>
           {cheque.status}
         </span>
+      </div>
+
+      {/* Cheque type */}
+      <div className="w-auto sm:w-[90px] flex-shrink-0 mr-2 mt-2 sm:mt-0">
+        <ChequeTypeBadge type={cheque.chequeType} />
       </div>
 
       {/* Bank + cheque number */}

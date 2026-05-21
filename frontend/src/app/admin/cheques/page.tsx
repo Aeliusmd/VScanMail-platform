@@ -76,6 +76,14 @@ function AllChequesPageContent() {
     return h % max;
   };
 
+  const resolveChequeType = (c: ApiCheque): "original" | "returned" | "unknown" | undefined => {
+    const fromColumn = c.cheque_type || c.chequeType;
+    if (fromColumn) return fromColumn;
+    const fromRaw = c.ai_raw_result?.type_classification?.type || c.typeClassification?.type;
+    if (fromRaw === "original" || fromRaw === "returned" || fromRaw === "unknown") return fromRaw;
+    return undefined;
+  };
+
   const toUiCheque = (c: ApiCheque): UiCheque => {
     const company = c.company_name || 'Unknown Company';
     const bankName = c.ai_raw_result?.bank_name || c.ai_raw_result?.bankName || 'Bank';
@@ -106,6 +114,7 @@ function AllChequesPageContent() {
       time: formatRelativeTime(c.created_at),
       email: undefined,
       raw: c,
+      chequeType: resolveChequeType(c),
     };
   };
 

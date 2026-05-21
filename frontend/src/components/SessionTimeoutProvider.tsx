@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import { resetSessionTimer, startSessionTimer, stopSessionTimer } from "@/lib/session-timeout";
+import { startSessionTimer, stopSessionTimer } from "@/lib/session-timeout";
 
 export default function SessionTimeoutProvider({ children }: { children: ReactNode }) {
   const [showWarning, setShowWarning] = useState(false);
@@ -18,7 +18,6 @@ export default function SessionTimeoutProvider({ children }: { children: ReactNo
     };
 
     const handleExpire = () => {
-      window.localStorage.removeItem("vscanmail_last_activity");
       void fetch("/api/auth/logout", {
         method: "POST",
         credentials: "include",
@@ -44,20 +43,19 @@ export default function SessionTimeoutProvider({ children }: { children: ReactNo
             <div className="text-orange-500 text-3xl mb-3">⚠️</div>
             <h2 className="text-xl font-bold text-slate-900 mb-2">Session Expiring Soon</h2>
             <p className="text-slate-600 text-sm mb-6">
-              You've been inactive for 55 minutes. Your session will expire in 5 minutes.
+              Your 2-hour session will expire in 5 minutes. Please save your work before being logged out.
             </p>
             <button
               type="button"
               className="bg-[#0A3D8F] text-white px-6 py-3 rounded-full font-semibold w-full"
               onClick={() => {
-                resetSessionTimer();
                 setShowWarning(false);
               }}
             >
-              Stay Logged In
+              OK, I understand
             </button>
             <p className="text-slate-500 text-xs mt-4">
-              You will be automatically logged out due to inactivity.
+              You will be automatically logged out after your 2-hour session expires.
             </p>
           </div>
         </div>

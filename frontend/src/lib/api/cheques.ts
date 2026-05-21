@@ -21,6 +21,14 @@ export interface Cheque {
   status: ChequeStatus;
   ai_confidence: number;
   ai_raw_result: any;
+  cheque_type?: "original" | "returned" | "unknown";
+  chequeType?: "original" | "returned" | "unknown";
+  typeClassification?: {
+    type: string;
+    confidence: number;
+    indicators: string[];
+    reasoning: string;
+  };
   decided_by: string | null;
   decided_at: string | null;
   deposit_batch_id: string | null;

@@ -11,7 +11,7 @@ export default function CustomerResolverPage() {
     authApi
       .me()
       .then((m) => {
-        if (m.role === "client" && m.clientId) router.replace(`/customer/${m.clientId}/dashboard`);
+        if (m.role === "client" && m.clientId) router.replace("/customer/dashboard");
         else if (m.role === "admin") router.replace("/admin");
         else if (m.role === "super_admin") router.replace("/superadmin/dashboard");
         else router.replace("/login");
