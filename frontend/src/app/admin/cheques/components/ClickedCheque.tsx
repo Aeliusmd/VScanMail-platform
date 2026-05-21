@@ -259,7 +259,7 @@ export default function ClickedCheque({ cheque, onClose }: ClickedChequeProps) {
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
             <button
               onClick={async () => {
                 try {
@@ -274,23 +274,8 @@ export default function ClickedCheque({ cheque, onClose }: ClickedChequeProps) {
               Resend Email
             </button>
             <button
-              onClick={async () => {
-                try {
-                  const result = await chequeApi.download(cheque.id);
-                  const url = (result as any)?.url as string | undefined;
-                  if (url) window.open(url, "_blank", "noopener,noreferrer");
-                } catch {
-                  // swallow — UI already has notifications elsewhere
-                }
-              }}
-              className="w-full sm:flex-1 h-11 rounded-lg border border-[#CBD5E1] hover:bg-[#F8FAFC] text-[#475569] text-sm font-semibold flex items-center justify-center gap-2 transition cursor-pointer"
-            >
-              <Icon icon="ri:download-line" className="text-sm" />
-              Download
-            </button>
-            <button
               onClick={onClose}
-              className="w-full sm:w-20 h-11 rounded-lg bg-[#E2E8F0] hover:bg-[#CBD5E1] text-[#475569] text-sm font-semibold transition cursor-pointer"
+              className="w-full sm:w-auto sm:min-w-[6.5rem] h-11 px-5 rounded-lg bg-[#E2E8F0] hover:bg-[#CBD5E1] text-[#475569] text-sm font-semibold transition cursor-pointer"
             >
               Close
             </button>

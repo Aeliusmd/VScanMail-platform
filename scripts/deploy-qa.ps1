@@ -66,9 +66,13 @@ if (-not $SkipBuild) {
     Write-Step "Stopping apps on ports 3010 and 3001 (avoids EPERM on node_modules)"
     Stop-PortListeners -Ports @(3010, 3001)
 
-    # Kill PM2 daemon so it releases file handles on native .node binaries before npm ci
+    # Kill PM2 daemon so it releases file handles on native .node binaries before npm ci.
+    # pm2 kill exits 1 when no daemon is running — that is expected on a clean machine.
     Write-Host "Killing PM2 daemon to release node_modules locks..."
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
     & npx --yes pm2 kill 2>&1 | Out-Null
+    $ErrorActionPreference = $prevEap
 
     # Give Windows time to flush kernel handles on memory-mapped native DLLs
     Start-Sleep -Seconds 6
