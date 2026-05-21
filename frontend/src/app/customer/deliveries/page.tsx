@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { deliveriesApi, type DeliveryDto } from "@/lib/api/deliveries";
 
@@ -55,7 +55,7 @@ function sourceMeta(sourceType: DeliveryDto["sourceType"]): { label: string; cla
   return { label: "Mail", className: "bg-slate-100 text-slate-700" };
 }
 
-export default function CustomerDeliveryRequestsPage() {
+function CustomerDeliveryRequestsContent() {
   const searchParams = useSearchParams();
   const highlightId = searchParams.get("highlight");
   const [loading, setLoading] = useState(true);
@@ -351,5 +351,13 @@ export default function CustomerDeliveryRequestsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function CustomerDeliveryRequestsPage() {
+  return (
+    <Suspense>
+      <CustomerDeliveryRequestsContent />
+    </Suspense>
   );
 }
