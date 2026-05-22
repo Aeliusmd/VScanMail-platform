@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authApi } from "../../lib/api/auth";
@@ -13,7 +13,7 @@ import {
   HiInformationCircle,
 } from "react-icons/hi2";
 
-export default function Setup2FAPage() {
+function Setup2FAContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo") || "/customer/account";
@@ -614,5 +614,24 @@ export default function Setup2FAPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+export default function Setup2FAPage() {
+  return (
+    <Suspense
+      fallback={
+        <div
+          style={{
+            width: "100%",
+            minHeight: "100vh",
+            backgroundColor: "#BAD9F5",
+          }}
+          aria-hidden
+        />
+      }
+    >
+      <Setup2FAContent />
+    </Suspense>
   );
 }
