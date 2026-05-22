@@ -114,8 +114,7 @@ export async function POST(req: NextRequest) {
 
     const clientUserId = await resolveClientUserId(clientId);
     if (clientUserId) {
-      const notifTargetUrl =
-        docType === "cheque" ? `/customer/${clientId}/cheques` : `/customer/${clientId}/mails`;
+      const notifTargetUrl = docType === "cheque" ? `/customer/cheques` : `/customer/mails`;
       const docLabel = String(docType || "document");
       await auditService.log({
         actor: user.id,

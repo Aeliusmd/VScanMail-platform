@@ -343,7 +343,7 @@ export const depositService = {
           req: params.req,
           notifRecipientId: clientUser.userId,
           notifTitle: params.decision === "approved" ? "Deposit request approved" : "Deposit request rejected",
-          notifTargetUrl: `/customer/${clientId}/deposits`,
+          notifTargetUrl: `/customer/deposits`,
         });
 
         for (const toEmail of recipients) {
@@ -434,7 +434,7 @@ export const depositService = {
           req: params.req,
           notifRecipientId: clientUser.userId,
           notifTitle: "Your cheque has been deposited",
-          notifTargetUrl: `/customer/${clientId}/deposits`,
+          notifTargetUrl: `/customer/deposits`,
         });
 
         for (const toEmail of recipients) {

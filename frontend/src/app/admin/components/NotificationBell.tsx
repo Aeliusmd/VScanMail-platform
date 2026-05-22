@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useRouter } from "next/navigation";
 import { notificationsApi, type AdminNotification } from "@/lib/api/notifications";
+import { resolveNotificationTargetUrl } from "@/lib/notificationTargetUrl";
 
 export default function NotificationBell() {
   const router = useRouter();
@@ -75,8 +76,9 @@ export default function NotificationBell() {
 
     setShowNotifications(false);
 
-    if (notification.notifTargetUrl) {
-      router.push(notification.notifTargetUrl);
+    const targetUrl = resolveNotificationTargetUrl(notification.notifTargetUrl);
+    if (targetUrl) {
+      router.push(targetUrl);
     }
   };
 

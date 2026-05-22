@@ -344,7 +344,7 @@ export const deliveryService = {
         req: params.req,
         notifRecipientId: clientUser.userId,
         notifTitle: params.decision === "approved" ? "Delivery approved" : "Delivery rejected",
-        notifTargetUrl: `/customer/${clientId}/deliveries`,
+        notifTargetUrl: `/customer/deliveries`,
       });
 
       for (const toEmail of recipients) {
@@ -426,7 +426,7 @@ export const deliveryService = {
           req: params.req,
           notifRecipientId: clientUser.userId,
           notifTitle: "Your delivery is on its way",
-          notifTargetUrl: `/customer/${clientId}/deliveries`,
+          notifTargetUrl: `/customer/deliveries`,
         });
 
         for (const toEmail of recipients) {
@@ -551,7 +551,7 @@ export const deliveryService = {
           req: params.req,
           notifRecipientId: clientUser.userId,
           notifTitle: "Delivery completed",
-          notifTargetUrl: `/customer/${clientId}/deliveries`,
+          notifTargetUrl: `/customer/deliveries`,
         });
 
         for (const toEmail of recipients) {

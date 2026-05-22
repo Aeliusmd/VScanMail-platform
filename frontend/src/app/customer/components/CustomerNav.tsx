@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useOrgContext } from "./OrgContext";
 import { customerNotificationsApi, type AdminNotification } from "@/lib/api/notifications";
+import { resolveNotificationTargetUrl } from "@/lib/notificationTargetUrl";
 
 type NotificationAccent = "primary" | "success" | "amber" | "neutral";
 
@@ -167,8 +168,9 @@ export default function CustomerNav() {
       }
 
       setShowNotifications(false);
-      if (n.notifTargetUrl) {
-        router.push(n.notifTargetUrl);
+      const targetUrl = resolveNotificationTargetUrl(n.notifTargetUrl);
+      if (targetUrl) {
+        router.push(targetUrl);
       }
     },
     [router]
