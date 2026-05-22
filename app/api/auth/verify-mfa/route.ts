@@ -50,7 +50,11 @@ export async function POST(req: NextRequest) {
       clientId = clientRows[0]?.id;
     }
 
-    const accessToken = await signAccessToken({ sub: user.id, email: user.email });
+    const accessToken = await signAccessToken({
+      sub: user.id,
+      email: user.email,
+      mfaVerifiedAt: Math.floor(Date.now() / 1000),
+    });
     db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id)).catch(() => {});
 
     await auditService.log({

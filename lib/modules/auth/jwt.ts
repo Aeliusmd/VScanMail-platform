@@ -3,6 +3,10 @@ import { SignJWT, jwtVerify } from "jose";
 export type AccessTokenPayload = {
   sub: string; // user id
   email: string;
+  /** Unix seconds — set when the user completes TOTP at login. */
+  mfaVerifiedAt?: number;
+  /** Unix seconds — set when the user verifies TOTP for an email change step-up. */
+  emailChangeVerifiedAt?: number;
 };
 
 export type MfaTempTokenPayload = AccessTokenPayload;
@@ -15,7 +19,14 @@ function getSecret() {
 }
 
 export async function signAccessToken(payload: AccessTokenPayload) {
-  return await new SignJWT({ email: payload.email })
+  const claims: Record<string, unknown> = { email: payload.email };
+  if (payload.mfaVerifiedAt != null) {
+    claims.mfaVerifiedAt = payload.mfaVerifiedAt;
+  }
+  if (payload.emailChangeVerifiedAt != null) {
+    claims.emailChangeVerifiedAt = payload.emailChangeVerifiedAt;
+  }
+  return await new SignJWT(claims)
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(payload.sub)
     .setIssuedAt()
@@ -37,7 +48,7 @@ export async function signEmailChangeToken(payload: EmailChangeTokenPayload) {
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(payload.sub)
     .setIssuedAt()
-    .setExpirationTime("10m")
+    .setExpirationTime("5m")
     .sign(getSecret());
 }
 
@@ -52,7 +63,12 @@ export async function verifyAccessToken(token: string) {
   if (typeof sub !== "string") throw new Error("Invalid token subject");
   if (typeof email !== "string") throw new Error("Invalid token payload");
 
-  return { sub, email };
+  const mfaVerifiedAt =
+    typeof payload.mfaVerifiedAt === "number" ? payload.mfaVerifiedAt : undefined;
+  const emailChangeVerifiedAt =
+    typeof payload.emailChangeVerifiedAt === "number" ? payload.emailChangeVerifiedAt : undefined;
+
+  return { sub, email, mfaVerifiedAt, emailChangeVerifiedAt };
 }
 
 export async function verifyMfaTempToken(token: string) {

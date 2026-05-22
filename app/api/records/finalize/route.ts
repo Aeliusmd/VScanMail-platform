@@ -34,8 +34,28 @@ export async function POST(req: NextRequest) {
       urls, 
       tampering, 
       aiResults, 
-      ocrText 
+      ocrText,
+      cheque_status,
     } = body;
+
+    const adminChequeStatus =
+      cheque_status === "valid" || cheque_status === "returned" ? cheque_status : undefined;
+
+    let storedAiResults = aiResults;
+    if (docType === "cheque" && aiResults) {
+      const typeClassification = aiResults.type_classification ?? { type: "unknown" };
+      const finalType =
+        adminChequeStatus === "returned"
+          ? "returned"
+          : adminChequeStatus === "valid"
+            ? "original"
+            : typeClassification.type;
+      storedAiResults = {
+        ...aiResults,
+        type_classification: { ...typeClassification, type: finalType },
+        admin_cheque_status: adminChequeStatus ?? null,
+      };
+    }
 
     console.info("[records.finalize] request", {
       actorId: user.id,
@@ -65,9 +85,9 @@ export async function POST(req: NextRequest) {
       tamper_detected: tampering.tamper_detected,
       tamper_annotations: tampering,
       ocr_text: ocrText || "",
-      ai_summary: aiResults.summary || (docType === 'cheque' ? `Cheque processing for ${aiResults.payee_name || 'unknown'}` : ""),
-      ai_actions: aiResults.actions || [],
-      ai_risk_level: aiResults.risk_level || (tampering.risk_level as any) || "low",
+      ai_summary: storedAiResults.summary || (docType === 'cheque' ? `Cheque processing for ${storedAiResults.payee_name || 'unknown'}` : ""),
+      ai_actions: storedAiResults.actions || [],
+      ai_risk_level: storedAiResults.risk_level || (tampering.risk_level as any) || "low",
       scanned_by: user.id,
       scanned_at: new Date().toISOString(),
       status: "received",
@@ -75,19 +95,20 @@ export async function POST(req: NextRequest) {
 
       // Cheque specific mapping
       ...(docType === 'cheque' ? {
-        cheque_amount_figures: aiResults.amount_figures,
-        cheque_amount_words: aiResults.amount_words,
-        cheque_amounts_match: aiResults.validation?.checks?.find((c: any) => c.check === 'amount_match')?.passed,
-        cheque_date_on_cheque: aiResults.date,
-        cheque_date_valid: aiResults.validation?.checks?.find((c: any) => c.check === 'date_accuracy')?.passed,
-        cheque_beneficiary: aiResults.payee_name,
-        cheque_beneficiary_match: aiResults.validation?.checks?.find((c: any) => c.check === 'beneficiary_match')?.confidence,
-        cheque_signature_present: aiResults.signature_present,
-        cheque_alteration_detected: aiResults.validation?.checks?.find((c: any) => c.check === 'alteration_detection')?.passed === false,
-        cheque_crossing_present: aiResults.crossing_present,
-        cheque_ai_confidence: aiResults.validation?.confidence,
-        cheque_ai_raw_result: aiResults,
-        cheque_status: aiResults.validation?.status || 'validated'
+        cheque_amount_figures: storedAiResults.amount_figures,
+        cheque_amount_words: storedAiResults.amount_words,
+        cheque_amounts_match: storedAiResults.validation?.checks?.find((c: any) => c.check === 'amount_match')?.passed,
+        cheque_date_on_cheque: storedAiResults.date,
+        cheque_date_valid: storedAiResults.validation?.checks?.find((c: any) => c.check === 'date_accuracy')?.passed,
+        cheque_beneficiary: storedAiResults.payee_name,
+        cheque_beneficiary_match: storedAiResults.validation?.checks?.find((c: any) => c.check === 'beneficiary_match')?.confidence,
+        cheque_signature_present: storedAiResults.signature_present,
+        cheque_alteration_detected: storedAiResults.validation?.checks?.find((c: any) => c.check === 'alteration_detection')?.passed === false,
+        cheque_crossing_present: storedAiResults.crossing_present,
+        cheque_ai_confidence: storedAiResults.validation?.confidence,
+        cheque_ai_raw_result: storedAiResults,
+        cheque_type: storedAiResults.type_classification?.type || "unknown",
+        cheque_status: storedAiResults.validation?.status || 'validated'
       } : {})
     }, user.id, req);
 
@@ -112,7 +133,7 @@ export async function POST(req: NextRequest) {
 
     if (docType === "cheque") {
       notificationService
-        .sendChequeAlert(clientId, record, aiResults?.validation)
+        .sendChequeAlert(clientId, record, storedAiResults?.validation ?? aiResults?.validation)
         .catch((err) => console.error("[finalize] cheque email failed:", err));
     } else {
       notificationService

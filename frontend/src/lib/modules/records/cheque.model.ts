@@ -54,6 +54,18 @@ function parseJsonSafe(value: any, fallback: any = null): any {
   }
 }
 
+function resolveChequeTypeFromRow(row: any): Cheque["cheque_type"] {
+  const ai = parseJsonSafe(row.cheque_ai_raw_result, {});
+  const adminStatus = ai?.admin_cheque_status;
+  if (adminStatus === "valid") return "original";
+  if (adminStatus === "returned") return "returned";
+  const col = row.cheque_type;
+  if (col === "original" || col === "returned") return col;
+  const tcType = ai?.type_classification?.type;
+  if (tcType === "original" || tcType === "returned") return tcType;
+  return "unknown";
+}
+
 function rowToCheque(row: any, clientId: string): Cheque {
   const deliveryStatus = (row.delivery_status ?? "") as string;
   const chequeStatus = (row.cheque_status || "validated") as Cheque["status"];
@@ -86,7 +98,7 @@ function rowToCheque(row: any, clientId: string): Cheque {
     crossing_present: Boolean(row.cheque_crossing_present),
     ai_confidence: Number(row.cheque_ai_confidence || 0),
     ai_raw_result: parseJsonSafe(row.cheque_ai_raw_result, {}),
-    cheque_type: (row.cheque_type || "unknown") as Cheque["cheque_type"],
+    cheque_type: resolveChequeTypeFromRow(row),
     client_decision: row.cheque_decision || "pending",
     decided_by: row.cheque_decided_by || null,
     decided_at: row.cheque_decided_at ? new Date(row.cheque_decided_at).toISOString() : null,

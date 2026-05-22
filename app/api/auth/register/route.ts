@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { registerSchema } from "@/lib/modules/auth/auth.schema";
 import { authService } from "@/lib/modules/auth/auth.service";
+import { verifyTurnstileToken } from "@/lib/modules/auth/turnstile";
 
 import { auditService } from "@/lib/modules/audit/audit.service";
 
@@ -10,21 +11,11 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    const captchaToken = body?.captchaToken;
-    if (!captchaToken || typeof captchaToken !== "string") {
-      return NextResponse.json({ error: "CAPTCHA verification required." }, { status: 400 });
-    }
-    const verifyRes = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        secret: process.env.TURNSTILE_SECRET_KEY,
-        response: captchaToken,
-      }),
-    });
-    const verifyData = await verifyRes.json();
-    if (!verifyData.success) {
-      return NextResponse.json({ error: "CAPTCHA verification failed. Please try again." }, { status: 400 });
+    if (!(await verifyTurnstileToken(body?.captchaToken))) {
+      return NextResponse.json(
+        { error: body?.captchaToken ? "CAPTCHA verification failed. Please try again." : "CAPTCHA verification required." },
+        { status: 400 }
+      );
     }
 
     const input = registerSchema.parse(body);

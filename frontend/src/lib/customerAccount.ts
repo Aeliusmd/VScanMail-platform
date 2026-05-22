@@ -98,7 +98,35 @@ export async function saveCustomerAccount(
   });
 }
 
-export async function verifyEmailChangeAuthenticator(totpCode: string): Promise<{ emailChangeToken: string }> {
+export type EmailChangeStartResponse =
+  | { status: "2fa_required"; message: string }
+  | {
+      status: "cooldown";
+      message: string;
+      availableAt: string;
+    }
+  | {
+      status: "ready";
+      requiresTotp: true;
+      nextStep: 1;
+    }
+  | {
+      status: "ready";
+      requiresTotp: false;
+      emailChangeToken: string;
+      nextStep: 2;
+      stepUpExpiresAt?: string;
+    };
+
+export async function startEmailChange(): Promise<EmailChangeStartResponse> {
+  return apiClient<EmailChangeStartResponse>("/api/profile/email-change/start", {
+    method: "POST",
+  });
+}
+
+export async function verifyEmailChangeAuthenticator(
+  totpCode: string
+): Promise<{ emailChangeToken: string; stepUpExpiresAt?: string }> {
   return apiClient<{ emailChangeToken: string }>("/api/profile/email-change/verify-authenticator", {
     method: "POST",
     body: JSON.stringify({ totpCode }),

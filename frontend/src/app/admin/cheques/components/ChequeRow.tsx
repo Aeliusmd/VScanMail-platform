@@ -54,7 +54,7 @@ function ChequeTypeBadge({ type }: { type?: "original" | "returned" | "unknown" 
   if (type === "original") {
     return (
       <span className="text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap border border-green-600 text-green-700 bg-white">
-        Original
+        Valid
       </span>
     );
   }

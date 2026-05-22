@@ -9,6 +9,8 @@ import { deliveryAddressesApi, type DeliveryAddress } from "@/lib/api/delivery-a
 import { depositsApi } from "@/lib/api/deposits";
 import { deliveriesApi } from "@/lib/api/deliveries";
 import { isUspsMailingAddress } from "@/lib/usps-delivery-address";
+import { resolveChequeType, type ChequeTypeKind } from "@/lib/resolve-cheque-type";
+import { isChequeDateWithinValidityWindow } from "@/lib/cheque-date-validity";
 
 type ChequeStatus = "Pending" | "Deposit Requested" | "Pickup Requested" | "Deposited" | "Picked Up";
 
@@ -29,6 +31,7 @@ interface Cheque {
   tag: string;
   tagColor: string;
   aiSummary: string;
+  chequeKind: ChequeTypeKind;
   depositRequestedAt?: string | null;
   depositMarkedDepositedAt?: string | null;
   deliveryStatus?: ApiCheque["delivery_status"];
@@ -135,6 +138,12 @@ export default function CustomerChequesPage() {
                   ? "bg-slate-100 text-slate-600"
                   : "bg-[#0A3D8F]/10 text-[#0A3D8F]";
 
+          const chequeKind = resolveChequeType({
+            chequeType: c.cheque_type || c.chequeType,
+            aiRawResult: c.ai_raw_result,
+            typeClassification: c.typeClassification || c.ai_raw_result?.type_classification,
+          });
+
           return {
             id: c.id,
             mailItemId: c.mail_item_id,
@@ -155,6 +164,7 @@ export default function CustomerChequesPage() {
             tag,
             tagColor,
             aiSummary: c.ai_raw_result ? JSON.stringify(c.ai_raw_result) : "",
+            chequeKind,
             depositRequestedAt: c.deposit_requested_at ?? null,
             depositMarkedDepositedAt: c.deposit_marked_deposited_at ?? null,
             deliveryStatus: c.delivery_status ?? null,
@@ -651,6 +661,15 @@ export default function CustomerChequesPage() {
                       <span className={`inline-flex w-fit shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${cheque.tagColor}`}>
                         {cheque.tag}
                       </span>
+                      {cheque.chequeKind === "original" ? (
+                        <span className="inline-flex w-fit shrink-0 text-xs px-2 py-0.5 rounded-full font-medium border border-emerald-600 text-emerald-700 bg-white">
+                          Valid
+                        </span>
+                      ) : cheque.chequeKind === "returned" ? (
+                        <span className="inline-flex w-fit shrink-0 text-xs px-2 py-0.5 rounded-full font-medium bg-red-600 text-white">
+                          Returned
+                        </span>
+                      ) : null}
                       <span className={`text-sm sm:truncate ${!cheque.read ? "font-bold text-slate-900" : "text-slate-700"}`}>
                         {cheque.bank} – #{cheque.chequeNo}
                       </span>
@@ -934,43 +953,84 @@ export default function CustomerChequesPage() {
                 const findCheck = (key: string) =>
                   checksArr.find((c) => c?.check === key || c?.id === key || c?.name === key);
 
-                const getPassed = (key: string): boolean | null => {
-                  const c = findCheck(key);
-                  if (!c) return null;
-                  if (typeof c.passed === "boolean") return c.passed;
-                  if (typeof c.pass === "boolean") return c.pass;
+                const getPassed = (keys: string | string[]): boolean | null => {
+                  const keyList = Array.isArray(keys) ? keys : [keys];
+                  for (const key of keyList) {
+                    const c = findCheck(key);
+                    if (!c) continue;
+                    if (typeof c.passed === "boolean") return c.passed;
+                    if (typeof c.pass === "boolean") return c.pass;
+                  }
                   return null;
                 };
 
-                const beneficiary = raw?.cheque_beneficiary || (selectedChequeFull as any)?.beneficiary || "—";
-                const amountFigures = raw?.cheque_amount_figures || (selectedChequeFull as any)?.amount_figures || "—";
-                const amountWordsMatch = getPassed("amount_match");
-                const dateOnCheque = raw?.cheque_date_on_cheque || (selectedChequeFull as any)?.date_on_cheque || "—";
-                const dateValidRaw =
-                  typeof raw?.cheque_date_valid === "boolean"
-                    ? raw.cheque_date_valid
-                    : typeof (selectedChequeFull as any)?.cheque_date_valid === "boolean"
-                      ? (selectedChequeFull as any).cheque_date_valid
-                      : getPassed("date_valid");
-                const dateValid = typeof dateValidRaw === "boolean" ? dateValidRaw : null;
-                const signaturePresentRaw =
-                  typeof raw?.cheque_signature_present === "boolean"
-                    ? raw.cheque_signature_present
-                    : getPassed("signature_present");
+                const full = selectedChequeFull as ApiCheque & {
+                  date_valid?: boolean;
+                  amounts_match?: boolean;
+                  signature_present?: boolean;
+                  alteration_detected?: boolean;
+                  beneficiary_match_score?: number;
+                };
+
+                const beneficiary = raw?.payee_name || full?.beneficiary || "—";
+                const amountFigures = full?.amount_figures ?? raw?.amount_figures ?? "—";
+                const amountWordsMatch =
+                  typeof full?.amounts_match === "boolean"
+                    ? full.amounts_match
+                    : getPassed("amount_match");
+                const dateOnCheque = full?.date_on_cheque || raw?.date || "—";
+
+                let dateValid: boolean | null =
+                  typeof full?.date_valid === "boolean"
+                    ? full.date_valid
+                    : getPassed(["date_accuracy", "date_valid"]);
+                if (dateValid === null) {
+                  dateValid = isChequeDateWithinValidityWindow(String(dateOnCheque));
+                }
+
+                const beneficiaryMatch =
+                  typeof full?.beneficiary_match_score === "number"
+                    ? full.beneficiary_match_score > 80
+                    : getPassed("beneficiary_match");
+
                 const signaturePresent =
-                  typeof signaturePresentRaw === "boolean" ? signaturePresentRaw : null;
-                const alterationDetectedRaw =
-                  typeof raw?.cheque_alteration_detected === "boolean" ? raw.cheque_alteration_detected : null;
+                  typeof full?.signature_present === "boolean"
+                    ? full.signature_present
+                    : getPassed("signature_present");
+
                 const alterationSafe =
-                  typeof alterationDetectedRaw === "boolean" ? !alterationDetectedRaw : null;
+                  typeof full?.alteration_detected === "boolean"
+                    ? !full.alteration_detected
+                    : getPassed("alteration_detection");
+
+                const hasAmountFigures =
+                  amountFigures !== "—" &&
+                  amountFigures !== null &&
+                  amountFigures !== undefined &&
+                  String(amountFigures).trim() !== "";
 
                 const items: Array<{ label: string; value: string; passed: boolean | null }> = [
-                  { label: "Beneficiary", value: String(beneficiary), passed: null },
-                  { label: "Amount (Figures)", value: String(amountFigures), passed: null },
-                  { label: "Amount Words Match", value: amountWordsMatch === null ? "—" : amountWordsMatch ? "Match" : "Mismatch", passed: amountWordsMatch },
+                  {
+                    label: "Beneficiary",
+                    value: String(beneficiary),
+                    passed: beneficiaryMatch,
+                  },
+                  {
+                    label: "Amount (Figures)",
+                    value: String(amountFigures),
+                    passed: hasAmountFigures ? true : false,
+                  },
+                  {
+                    label: "Amount Words Match",
+                    value: amountWordsMatch === null ? "—" : amountWordsMatch ? "Match" : "Mismatch",
+                    passed: amountWordsMatch,
+                  },
                   {
                     label: "Date",
-                    value: dateValid === null ? String(dateOnCheque) : `${String(dateOnCheque)} • ${dateValid ? "Valid" : "Invalid"}`,
+                    value:
+                      dateValid === null
+                        ? String(dateOnCheque)
+                        : `${String(dateOnCheque)} • ${dateValid ? "Valid" : "Invalid"}`,
                     passed: dateValid,
                   },
                   {
@@ -1050,21 +1110,17 @@ export default function CustomerChequesPage() {
                     const typeClassification =
                       (full as any)?.typeClassification ||
                       (full as any)?.ai_raw_result?.type_classification;
-                    const rawType = full?.cheque_type || "unknown";
-                    const chequeType: "original" | "returned" | "unknown" =
-                      rawType === "returned"
-                        ? "returned"
-                        : rawType === "original"
-                          ? "original"
-                          : typeClassification?.confidence >= 0.7 && !typeClassification?.indicators?.length
-                            ? "original"
-                            : "unknown";
+                    const chequeType = resolveChequeType({
+                      chequeType: full?.cheque_type || full?.chequeType,
+                      aiRawResult: full?.ai_raw_result,
+                      typeClassification,
+                    });
                     return (
                       <>
                         <div className="flex flex-wrap items-center gap-2 mb-2">
                           {chequeType === "original" ? (
                             <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full border border-emerald-500 text-emerald-700 bg-white">
-                              <i className="ri-file-check-line"></i> Original Cheque
+                              <i className="ri-file-check-line"></i> Valid Cheque
                             </span>
                           ) : chequeType === "returned" ? (
                             <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-red-600 text-white">

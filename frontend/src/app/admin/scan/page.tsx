@@ -130,8 +130,19 @@ export default function AdminScanPage() {
   const [clients, setClients] = useState<any[]>([]);
   const [confirmedClientId, setConfirmedClientId] = useState<string>('');
   const [manualDocType, setManualDocType] = useState<'letter' | 'cheque'>('letter');
+  const [chequeStatus, setChequeStatus] = useState<'valid' | 'returned'>('valid');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (phase !== 'complete' || !analysisResult || analysisResult.docType !== 'cheque') return;
+    const typeClassification =
+      analysisResult.typeClassification || analysisResult.aiResults?.type_classification;
+    const aiType = typeClassification?.type;
+    if (aiType === 'returned') setChequeStatus('returned');
+    else if (aiType === 'original') setChequeStatus('valid');
+    else setChequeStatus('valid');
+  }, [phase, analysisResult]);
 
   // Fetch all clients for the override dropdown
   // in the useEffect that loads clients
@@ -231,7 +242,8 @@ export default function AdminScanPage() {
           urls: analysisResult.urls,
           tampering: analysisResult.tampering,
           aiResults: analysisResult.aiResults,
-          ocrText: analysisResult.ocrText
+          ocrText: analysisResult.ocrText,
+          ...(analysisResult.docType === 'cheque' ? { cheque_status: chequeStatus } : {}),
         }),
       });
 
@@ -255,6 +267,7 @@ export default function AdminScanPage() {
     setIsSkipped(false);
     setAnalysisResult(null);
     setConfirmedClientId('');
+    setChequeStatus('valid');
   };
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -586,7 +599,7 @@ export default function AdminScanPage() {
                                   : "bg-slate-400 text-white";
                             const badgeLabel =
                               type === "original"
-                                ? "Original Cheque"
+                                ? "Valid Cheque"
                                 : type === "returned"
                                   ? "Returned Cheque"
                                   : "Unknown";
@@ -633,6 +646,22 @@ export default function AdminScanPage() {
                        </div>
                     )}
                  </div>
+
+                 {analysisResult.docType === 'cheque' && (
+                   <div className="p-5 bg-white border border-slate-200 rounded-2xl shadow-sm">
+                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">
+                       Cheque Status
+                     </label>
+                     <select
+                       className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-700 focus:outline-none focus:border-[#0A3D8F] shadow-sm"
+                       value={chequeStatus}
+                       onChange={(e) => setChequeStatus(e.target.value as 'valid' | 'returned')}
+                     >
+                       <option value="valid">Valid</option>
+                       <option value="returned">Returned</option>
+                     </select>
+                   </div>
+                 )}
 
                  {/* 3. Organization Confirmation */}
                  <div className="p-5 bg-[#0A3D8F]/5 border border-[#0A3D8F]/20 rounded-2xl">

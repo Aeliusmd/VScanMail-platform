@@ -6,6 +6,7 @@ import { chequeApi } from '@/lib/api/cheques';
 import { mailApi, type MailItem } from '@/lib/api/mail';
 import { useEffect, useMemo, useState } from 'react';
 import { ImageLightbox } from '../../components/ImageLightbox';
+import { resolveChequeType } from '@/lib/resolve-cheque-type';
 
 interface ClickedChequeProps {
   cheque: UiCheque;
@@ -67,23 +68,14 @@ export default function ClickedCheque({ cheque, onClose }: ClickedChequeProps) {
     cheque.raw?.typeClassification ||
     cheque.raw?.ai_raw_result?.type_classification;
 
-  const rawChequeType: string =
-    cheque.chequeType ||
-    typeClassification?.type ||
-    cheque.raw?.cheque_type ||
-    cheque.raw?.chequeType ||
-    "unknown";
-
-  // GPT-4o sometimes returns "unknown" conservatively even for clean cheques.
-  // If confidence is high and no return indicators were found, treat it as original.
-  const chequeType: "original" | "returned" | "unknown" =
-    rawChequeType === "returned"
-      ? "returned"
-      : rawChequeType === "original"
-        ? "original"
-        : typeClassification?.confidence >= 0.7 && !typeClassification?.indicators?.length
-          ? "original"
-          : "unknown";
+  const chequeType = resolveChequeType({
+    chequeType:
+      cheque.chequeType ||
+      cheque.raw?.cheque_type ||
+      cheque.raw?.chequeType,
+    aiRawResult: cheque.raw?.ai_raw_result,
+    typeClassification,
+  });
 
   const scanLabel = `CHQ-${cheque.id.slice(0, 8)} • ${cheque.chequeNumber} • ${cheque.time}`;
 
@@ -222,7 +214,7 @@ export default function ClickedCheque({ cheque, onClose }: ClickedChequeProps) {
               <div className="flex flex-wrap items-center gap-2 mb-2">
                 {chequeType === "original" ? (
                   <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border border-green-600 text-green-700 bg-white">
-                    <Icon icon="ri:file-check-line" className="text-sm" /> Original Cheque
+                    <Icon icon="ri:file-check-line" className="text-sm" /> Valid Cheque
                   </span>
                 ) : chequeType === "returned" ? (
                   <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-red-600 text-white">

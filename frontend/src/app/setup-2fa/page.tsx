@@ -2,27 +2,25 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { authApi } from "../../lib/api/auth";
 import {
   HiOutlineShieldCheck,
   HiOutlineClipboardDocument,
   HiOutlineCheck,
   HiOutlineArrowRight,
-  HiOutlineEnvelope,
   HiOutlineArrowDownTray,
   HiInformationCircle,
 } from "react-icons/hi2";
 
 export default function Setup2FAPage() {
   const router = useRouter();
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const searchParams = useSearchParams();
+  const returnTo = searchParams.get("returnTo") || "/customer/account";
+  const [step, setStep] = useState<1 | 2>(1);
   const [qrCode, setQrCode] = useState("");
   const [secret, setSecret] = useState("");
   const [totpCode, setTotpCode] = useState("");
-  const [backupEmail, setBackupEmail] = useState("");
-  const [emailOtp, setEmailOtp] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -56,60 +54,15 @@ export default function Setup2FAPage() {
     setError("");
     try {
       await authApi.confirm2FA(totpCode);
-      setSuccess("Google Authenticator linked successfully!");
-      setTimeout(() => { setSuccess(""); setStep(2); }, 1000);
-    } catch (err: any) {
-      setError(err.message || "Invalid Google Authenticator code. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSendBackupOtp = async () => {
-    if (!backupEmail) { setError("Please enter a backup email address."); return; }
-    setLoading(true);
-    setError("");
-    setSuccess("");
-    try {
-      await authApi.sendBackupOTP(backupEmail);
-      setOtpSent(true);
-      setSuccess(`Verification code sent to ${backupEmail}`);
-    } catch (err: any) {
-      setError(err.message || "Failed to send verification code.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyBackupOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!emailOtp || emailOtp.length !== 6) {
-      setError("Please enter the 6-digit code sent to your email.");
-      return;
-    }
-    setLoading(true);
-    setError("");
-    try {
-      const res = await authApi.verifyBackupOTP(emailOtp);
-      setRecoveryCodes(res.codes);
-      setSuccess("Backup email verified successfully!");
-      setTimeout(() => { setSuccess(""); setStep(3); }, 1000);
-    } catch (err: any) {
-      setError(err.message || "Invalid code. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSkipBackupEmail = async () => {
-    setLoading(true);
-    setError("");
-    try {
       const res = await authApi.skipBackupEmail();
       setRecoveryCodes(res.codes);
-      setTimeout(() => { setSuccess(""); setStep(3); }, 400);
+      setSuccess("2-Factor Authentication enabled successfully!");
+      setTimeout(() => {
+        setSuccess("");
+        setStep(2);
+      }, 800);
     } catch (err: any) {
-      setError(err.message || "Failed to continue.");
+      setError(err.message || "Invalid Google Authenticator code. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -137,9 +90,9 @@ export default function Setup2FAPage() {
     document.body.removeChild(el);
   };
 
-  const stepLabel = step === 1 ? "Link Google Authenticator" : step === 2 ? "Backup Recovery" : "Save Codes";
-  const stepPercent = step === 1 ? "33%" : step === 2 ? "66%" : "100%";
-  const stepProgressWidth = step === 1 ? "33.33%" : step === 2 ? "66.66%" : "100%";
+  const stepLabel = step === 1 ? "Link Authenticator" : "Save Recovery Codes";
+  const stepPercent = step === 1 ? "50%" : "100%";
+  const stepProgressWidth = step === 1 ? "50%" : "100%";
 
   return (
     <div
@@ -197,7 +150,7 @@ export default function Setup2FAPage() {
               padding: "0 8px",
             }}
           >
-            Set up Google Authenticator to protect your digital mailroom
+            Set up 2-Factor Authentication to protect your digital mailroom
           </p>
           <Image
             src="/images/signup.png"
@@ -245,7 +198,7 @@ export default function Setup2FAPage() {
           <div style={{ marginBottom: 24 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
               <span style={{ fontSize: 13, fontWeight: 500, color: "#374151" }}>
-                Step {step} of 3 — {stepLabel}
+                Step {step} of 2 — {stepLabel}
               </span>
               <span style={{ fontSize: 13, fontWeight: 500, color: "#374151" }}>{stepPercent}</span>
             </div>
@@ -320,7 +273,7 @@ export default function Setup2FAPage() {
                   Link Google Authenticator
                 </h2>
                 <p style={{ fontSize: 14, color: "#6B7280", margin: 0 }}>
-                  Scan the QR code with Google Authenticator, then enter the 6-digit code to confirm.
+                  Scan the QR code with Google Authenticator, then enter the 6-digit code to enable 2-Factor Authentication.
                 </p>
               </div>
 
@@ -343,7 +296,7 @@ export default function Setup2FAPage() {
                     Why add this?
                   </p>
                   <p style={{ fontSize: 13, color: "#1D4ED8", margin: 0, lineHeight: "18px" }}>
-                    Google Authenticator adds a 6-digit code check to help protect your mailroom account if your password is compromised.
+                    2-Factor Authentication adds a 6-digit code check to help protect your mailroom account if your password is compromised.
                   </p>
                 </div>
               </div>
@@ -485,183 +438,8 @@ export default function Setup2FAPage() {
             </div>
           )}
 
-          {/* ── STEP 2: Backup Email ── */}
+          {/* ── STEP 2: Recovery Codes ── */}
           {step === 2 && (
-            <div>
-              <div style={{ marginBottom: 20 }}>
-                <h2 style={{ fontSize: 24, fontWeight: 700, color: "#111827", margin: "0 0 4px" }}>
-                  Set Up Account Recovery
-                </h2>
-                <p style={{ fontSize: 14, color: "#6B7280", margin: 0 }}>
-                  Add a backup recovery email so you can regain access if you lose access to Google Authenticator.
-                </p>
-              </div>
-
-              {/* Option A */}
-              <div
-                style={{
-                  border: "1px solid #BFDBFE",
-                  borderRadius: 10,
-                  padding: "16px",
-                  marginBottom: 12,
-                  background: "#EFF6FF",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                  <HiOutlineEnvelope style={{ fontSize: 18, color: "#0A3D8F" }} />
-                  <span style={{ fontSize: 13, fontWeight: 600, color: "#0A3D8F" }}>
-                    Option A — Add a Backup Recovery Email
-                  </span>
-                </div>
-
-                <div style={{ marginBottom: 10 }}>
-                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: "#374151", marginBottom: 6 }}>
-                    Backup Email Address
-                  </label>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <input
-                      type="email"
-                      value={backupEmail}
-                      onChange={(e) => setBackupEmail(e.target.value)}
-                      placeholder="backup@example.com"
-                      disabled={loading || otpSent}
-                      style={{
-                        flex: 1,
-                        height: 44,
-                        padding: "10px 12px",
-                        background: "#FFFFFF",
-                        border: "1px solid #D1D5DB",
-                        borderRadius: 8,
-                        fontSize: 14,
-                        color: "#111827",
-                        outline: "none",
-                        boxSizing: "border-box",
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={handleSendBackupOtp}
-                      disabled={loading || !backupEmail}
-                      style={{
-                        flexShrink: 0,
-                        height: 44,
-                        padding: "0 16px",
-                        background: "#0A3D8F",
-                        color: "#FFFFFF",
-                        border: "none",
-                        borderRadius: 8,
-                        fontSize: 13,
-                        fontWeight: 500,
-                        cursor: loading || !backupEmail ? "not-allowed" : "pointer",
-                        opacity: loading || !backupEmail ? 0.6 : 1,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {otpSent ? "Resend" : "Send Code"}
-                    </button>
-                  </div>
-                </div>
-
-                {otpSent && (
-                  <form onSubmit={handleVerifyBackupOtp}>
-                    <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: "#374151", marginBottom: 6 }}>
-                      Enter the 6-digit code sent to your email
-                    </label>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={6}
-                        value={emailOtp}
-                        onChange={(e) => setEmailOtp(e.target.value.replace(/\D/g, ""))}
-                        placeholder="6-digit code"
-                        disabled={loading}
-                        style={{
-                          flex: 1,
-                          height: 44,
-                          padding: "10px 12px",
-                          background: "#FFFFFF",
-                          border: "1px solid #D1D5DB",
-                          borderRadius: 8,
-                          fontSize: 18,
-                          fontWeight: 600,
-                          letterSpacing: "0.15em",
-                          color: "#111827",
-                          textAlign: "center",
-                          outline: "none",
-                          boxSizing: "border-box",
-                          fontFamily: "monospace",
-                        }}
-                      />
-                      <button
-                        type="submit"
-                        disabled={loading || emailOtp.length !== 6}
-                        style={{
-                          flexShrink: 0,
-                          height: 44,
-                          padding: "0 16px",
-                          background: "#0A3D8F",
-                          color: "#FFFFFF",
-                          border: "none",
-                          borderRadius: 8,
-                          fontSize: 13,
-                          fontWeight: 500,
-                          cursor: loading || emailOtp.length !== 6 ? "not-allowed" : "pointer",
-                          opacity: loading || emailOtp.length !== 6 ? 0.6 : 1,
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        Verify Email
-                      </button>
-                    </div>
-                  </form>
-                )}
-              </div>
-
-              {/* Option B: Skip */}
-              <div
-                style={{
-                  border: "1px solid #E5E7EB",
-                  borderRadius: 10,
-                  padding: "16px",
-                  background: "#F9FAFB",
-                }}
-              >
-                <p style={{ fontSize: 13, fontWeight: 600, color: "#374151", margin: "0 0 6px" }}>
-                  Option B — Skip and use recovery codes only
-                </p>
-                <p style={{ fontSize: 13, color: "#6B7280", margin: "0 0 12px", lineHeight: "18px" }}>
-                  You can skip this step and rely on one-time recovery codes instead. Recovery codes are shown in the next step.
-                </p>
-                <button
-                  type="button"
-                  onClick={handleSkipBackupEmail}
-                  disabled={loading}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    height: 40,
-                    padding: "0 16px",
-                    background: "#FFFFFF",
-                    color: "#374151",
-                    border: "1px solid #D1D5DB",
-                    borderRadius: 8,
-                    fontSize: 13,
-                    fontWeight: 500,
-                    cursor: loading ? "not-allowed" : "pointer",
-                    opacity: loading ? 0.6 : 1,
-                  }}
-                >
-                  Skip — Generate Recovery Codes
-                  <HiOutlineArrowRight style={{ fontSize: 16 }} />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* ── STEP 3: Recovery Codes ── */}
-          {step === 3 && (
             <div>
               <div style={{ marginBottom: 20 }}>
                 <h2 style={{ fontSize: 24, fontWeight: 700, color: "#111827", margin: "0 0 4px" }}>
@@ -802,7 +580,7 @@ export default function Setup2FAPage() {
 
               <button
                 type="button"
-                onClick={() => router.replace("/customer")}
+                onClick={() => router.replace(returnTo.startsWith("/customer") ? returnTo : "/customer/account")}
                 disabled={!codesSaved || loading}
                 style={{
                   display: "flex",

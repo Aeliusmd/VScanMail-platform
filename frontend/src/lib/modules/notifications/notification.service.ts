@@ -348,6 +348,17 @@ export const notificationService = {
     const statusColor = isValidated ? "#166534" : "#991b1b";
     const statusBg = isValidated ? "#dcfce7" : "#fee2e2";
 
+    const rawChequeType =
+      cheque.cheque_type ??
+      validation?.type_classification?.type ??
+      cheque.cheque_ai_raw_result?.type_classification?.type;
+    const chequeStatusLabel =
+      rawChequeType === "returned"
+        ? "Returned"
+        : rawChequeType === "original"
+          ? "Valid"
+          : null;
+
     const html = wrapInTemplate(`
       <h1 style="font-size: 20px; color: #0f172a; margin-top: 0;">Cheque Processing Complete</h1>
       <p style="color: #64748b; font-size: 15px;">A new cheque has been ingested and verified by VScan AI. It is now awaiting your final approval.</p>
@@ -358,6 +369,14 @@ export const notificationService = {
             <td class="label">Amount</td>
             <td class="value" style="font-size: 18px;">$${Number(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
           </tr>
+          ${
+            chequeStatusLabel
+              ? `<tr>
+            <td class="label">Cheque Status</td>
+            <td class="value">${chequeStatusLabel}</td>
+          </tr>`
+              : ""
+          }
           <tr>
             <td class="label">Payee</td>
             <td class="value">${payee || "N/A"}</td>

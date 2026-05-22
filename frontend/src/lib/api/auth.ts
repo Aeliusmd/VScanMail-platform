@@ -153,9 +153,12 @@ export const authApi = {
     method: "POST",
     body: JSON.stringify({ backupEmail }),
   }),
-  verifyBackupOTP: (otp: string) => apiClient<{ success: boolean; codes: string[] }>("/api/auth/verify-backup-otp", {
+  verifyBackupOTP: (otp: string) => apiClient<{ success: boolean; codes?: string[] }>("/api/auth/verify-backup-otp", {
     method: "POST",
     body: JSON.stringify({ otp }),
+  }),
+  removeBackupEmail: () => apiClient<{ success: boolean }>("/api/auth/remove-backup-email", {
+    method: "POST",
   }),
   skipBackupEmail: () => apiClient<{ success: boolean; codes: string[] }>("/api/auth/skip-backup-email", {
     method: "POST",

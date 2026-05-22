@@ -13,6 +13,7 @@ import { chequeApi, type Cheque as ApiCheque } from '@/lib/api/cheques';
 import OrganizationPicker from '../components/OrganizationPicker';
 import NotificationBell from '../components/NotificationBell';
 import { formatRelativeTime } from '@/lib/format-relative-time';
+import { resolveChequeType } from '@/lib/resolve-cheque-type';
 
 type TabType = 'All' | 'Pending Deposit' | 'Deposited' | 'Rejected' | 'On Hold';
 type ChequeItem = UiCheque & { archived?: boolean; archiveBox?: string };
@@ -76,12 +77,13 @@ function AllChequesPageContent() {
     return h % max;
   };
 
-  const resolveChequeType = (c: ApiCheque): "original" | "returned" | "unknown" | undefined => {
-    const fromColumn = c.cheque_type || c.chequeType;
-    if (fromColumn) return fromColumn;
-    const fromRaw = c.ai_raw_result?.type_classification?.type || c.typeClassification?.type;
-    if (fromRaw === "original" || fromRaw === "returned" || fromRaw === "unknown") return fromRaw;
-    return undefined;
+  const resolveChequeTypeFromApi = (c: ApiCheque): "original" | "returned" | "unknown" | undefined => {
+    const type = resolveChequeType({
+      chequeType: c.cheque_type || c.chequeType,
+      aiRawResult: c.ai_raw_result,
+      typeClassification: c.typeClassification || c.ai_raw_result?.type_classification,
+    });
+    return type === "unknown" ? undefined : type;
   };
 
   const toUiCheque = (c: ApiCheque): UiCheque => {
@@ -114,7 +116,7 @@ function AllChequesPageContent() {
       time: formatRelativeTime(c.created_at),
       email: undefined,
       raw: c,
-      chequeType: resolveChequeType(c),
+      chequeType: resolveChequeTypeFromApi(c),
     };
   };
 

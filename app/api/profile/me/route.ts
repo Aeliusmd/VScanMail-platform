@@ -18,6 +18,8 @@ export async function GET(req: NextRequest) {
         avatarUrl: users.avatarUrl,
         bio: users.bio,
         language: users.language,
+        backupEmail: users.backupEmail,
+        backupEmailVerifiedAt: users.backupEmailVerifiedAt,
       })
       .from(users)
       .where(eq(users.id, actor.id))

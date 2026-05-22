@@ -8,6 +8,12 @@ import { signAccessToken, signMfaTempToken } from "@/lib/modules/auth/jwt";
 import { subscriptionModel } from "@/lib/modules/billing/subscription.model";
 import { stripe } from "@/lib/modules/billing/stripe.config";
 import { rateLimit } from "@/lib/modules/core/middleware/rate-limit";
+import {
+  clearLoginLockout,
+  formatLoginLockoutMessage,
+  getLoginLockoutStatus,
+  recordLoginFailure,
+} from "@/lib/modules/auth/login-lockout";
 import crypto from "crypto";
 
 import { auditService } from "@/lib/modules/audit/audit.service";
@@ -69,6 +75,19 @@ export async function POST(req: NextRequest) {
       req.headers.get("x-real-ip") ||
       "unknown";
     const emailKey = email.toLowerCase();
+
+    const lockStatus = await getLoginLockoutStatus(emailKey);
+    if (lockStatus.locked) {
+      return NextResponse.json(
+        {
+          error: formatLoginLockoutMessage(lockStatus.retryAfterSeconds),
+          code: "account_locked",
+          retryAfterSeconds: lockStatus.retryAfterSeconds,
+        },
+        { status: 429 }
+      );
+    }
+
     if (
       !(await rateLimit(`login:ip:${ip}`, 30, 15 * 60_000)) ||
       !(await rateLimit(`login:email:${emailKey}`, 8, 15 * 60_000))
@@ -88,10 +107,41 @@ export async function POST(req: NextRequest) {
       .where(eq(users.email, email))
       .limit(1);
     user = userRows[0];
-    if (!user) throw new Error("Invalid email or password");
+    const invalidCredentials =
+      !user || !(await bcrypt.compare(password, user.passwordHash));
 
-    const ok = await bcrypt.compare(password, user.passwordHash);
-    if (!ok) throw new Error("Invalid email or password");
+    if (invalidCredentials) {
+      const afterFailure = await recordLoginFailure(emailKey);
+      try {
+        const attemptedEmail = emailKey;
+        const emailHash = crypto.createHash("sha256").update(attemptedEmail).digest("hex");
+        await auditService.log({
+          actor: "system",
+          actor_role: "admin",
+          action: "auth.login_failed",
+          entity: user?.id || emailHash.slice(0, 36),
+          after: { reason: "invalid_login", emailHash },
+          req,
+        });
+      } catch (logError) {
+        console.error("[LOGIN_AUTH_LOG_FAILURE]", logError);
+      }
+
+      if (afterFailure.locked) {
+        return NextResponse.json(
+          {
+            error: formatLoginLockoutMessage(afterFailure.retryAfterSeconds),
+            code: "account_locked",
+            retryAfterSeconds: afterFailure.retryAfterSeconds,
+          },
+          { status: 429 }
+        );
+      }
+
+      return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
+    }
+
+    await clearLoginLockout(emailKey);
 
     if (!user.emailVerifiedAt) {
       return NextResponse.json(

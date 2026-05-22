@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { verifyTurnstileToken } from "@/lib/modules/auth/turnstile";
 import { rateLimit } from "@/lib/modules/core/middleware/rate-limit";
 import { sendEmail } from "@/lib/modules/notifications/email.client";
 
@@ -13,6 +14,14 @@ function escapeHtml(s: unknown): string {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
+    const captchaToken = body?.captchaToken;
+    if (!captchaToken || typeof captchaToken !== "string") {
+      return NextResponse.json({ error: "CAPTCHA verification required." }, { status: 400 });
+    }
+    if (!(await verifyTurnstileToken(captchaToken))) {
+      return NextResponse.json({ error: "CAPTCHA verification failed. Please try again." }, { status: 400 });
+    }
+
     const name = String(body?.name ?? "").trim();
     const email = String(body?.email ?? "").trim();
     const company = String(body?.company ?? "").trim();

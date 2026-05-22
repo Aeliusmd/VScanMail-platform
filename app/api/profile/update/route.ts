@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
+import { z, ZodError } from "zod";
 import { withAuth } from "@/lib/modules/auth/auth.middleware";
 import { authService } from "@/lib/modules/auth/auth.service";
 import { db } from "@/lib/modules/core/db/mysql";
@@ -77,6 +77,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   } catch (error: any) {
     if (error instanceof Response) return error as any;
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        { error: error.issues.map((issue) => issue.message).join(" ") },
+        { status: 400 }
+      );
+    }
     return NextResponse.json({ error: error.message || "Failed to update profile" }, { status: 400 });
   }
 }

@@ -389,9 +389,38 @@ export const authService = {
     return { success: true };
   },
 
-  async verifyBackupEmailOTP(userId: string, otp: string, req?: Request) {
+  async clearBackupEmail(userId: string, req?: Request) {
     const userRows = await db
       .select({ backupEmail: users.backupEmail })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    const user = userRows[0];
+    if (!user?.backupEmail) return { success: true };
+
+    await db
+      .update(users)
+      .set({ backupEmail: null, backupEmailVerifiedAt: null, updatedAt: new Date() })
+      .where(eq(users.id, userId));
+
+    await db.delete(emailVerifications).where(eq(emailVerifications.email, user.backupEmail));
+
+    await auditService.log({
+      actor: userId,
+      actor_role: "client",
+      action: "auth.backup_email_removed",
+      entity: userId,
+      clientId: userId,
+      before: { backupEmail: user.backupEmail },
+      req,
+    });
+
+    return { success: true };
+  },
+
+  async verifyBackupEmailOTP(userId: string, otp: string, req?: Request) {
+    const userRows = await db
+      .select({ backupEmail: users.backupEmail, totpEnabled: users.totpEnabled })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);
@@ -423,15 +452,6 @@ export const authService = {
     // Delete OTP
     await db.delete(emailVerifications).where(eq(emailVerifications.email, user.backupEmail));
 
-    // Generate recovery codes
-    const recoveryPlaintextCodes = await authService.generateAndStoreRecoveryCodes(userId);
-
-    // Finalize 2FA setup
-    await db
-      .update(users)
-      .set({ totpEnabled: true, mfaEnabledAt: sql`NOW()` as any, updatedAt: new Date() })
-      .where(eq(users.id, userId));
-
     await auditService.log({
       actor: userId,
       actor_role: "client",
@@ -441,6 +461,18 @@ export const authService = {
       after: { backupEmail: user.backupEmail },
       req,
     });
+
+    if (user.totpEnabled) {
+      return { success: true };
+    }
+
+    // Initial 2FA setup: generate recovery codes and enable TOTP
+    const recoveryPlaintextCodes = await authService.generateAndStoreRecoveryCodes(userId);
+
+    await db
+      .update(users)
+      .set({ totpEnabled: true, mfaEnabledAt: sql`NOW()` as any, updatedAt: new Date() })
+      .where(eq(users.id, userId));
 
     await auditService.log({
       actor: userId,

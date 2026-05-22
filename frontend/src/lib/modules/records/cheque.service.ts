@@ -10,7 +10,13 @@ export const chequeService = {
   /**
    * Process a cheque: extract fields, run 6-point validation, store results.
    */
-  async processAndValidate(mailItemId: string, imageBase64: string, actorId: string, req?: Request) {
+  async processAndValidate(
+    mailItemId: string,
+    imageBase64: string,
+    actorId: string,
+    req?: Request,
+    adminChequeStatus?: "valid" | "returned"
+  ) {
 
     const mailItem = await mailItemModel.findById(mailItemId);
     const client = await clientModel.findById(mailItem.client_id);
@@ -54,9 +60,16 @@ export const chequeService = {
     }
 
     const typeClassification = await aiService.classifyChequeType(imageBase64, backBase64);
+    const finalType =
+      adminChequeStatus === "returned"
+        ? "returned"
+        : adminChequeStatus === "valid"
+          ? "original"
+          : typeClassification.type;
     const aiRawResult = {
       ...validation,
       type_classification: typeClassification,
+      admin_cheque_status: adminChequeStatus ?? null,
     };
 
     // 4. Store cheque record
@@ -81,7 +94,7 @@ export const chequeService = {
       crossing_present: extracted.crossing_present,
       ai_confidence: validation.confidence,
       ai_raw_result: aiRawResult,
-      cheque_type: typeClassification.type,
+      cheque_type: finalType,
       client_decision: "pending",
       status: validation.status as any,
     }, actorId, req);

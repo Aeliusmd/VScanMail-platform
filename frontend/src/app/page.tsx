@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Turnstile } from "@marsidev/react-turnstile";
 import styles from "./page.module.css";
 
 type BillingPlan = {
@@ -46,6 +47,7 @@ function LandingPage() {
   const [contactSending, setContactSending] = useState(false);
   const [contactSent, setContactSent] = useState(false);
   const [contactError, setContactError] = useState("");
+  const [contactCaptchaToken, setContactCaptchaToken] = useState<string | null>(null);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 40);
@@ -66,6 +68,7 @@ function LandingPage() {
   const openContact = () => {
     setContactSent(false);
     setContactError("");
+    setContactCaptchaToken(null);
     setContactForm({ name: "", email: "", company: "", message: "" });
     setContactOpen(true);
   };
@@ -78,13 +81,15 @@ function LandingPage() {
       const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(contactForm),
+        body: JSON.stringify({ ...contactForm, captchaToken: contactCaptchaToken }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to send");
       setContactSent(true);
+      setContactCaptchaToken(null);
     } catch (err: any) {
       setContactError(err.message || "Something went wrong. Please try again.");
+      setContactCaptchaToken(null);
     } finally {
       setContactSending(false);
     }
@@ -821,9 +826,19 @@ function LandingPage() {
                     />
                   </div>
 
+                  <div className="flex justify-center">
+                    <Turnstile
+                      siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+                      onSuccess={(token) => setContactCaptchaToken(token)}
+                      onError={() => setContactCaptchaToken(null)}
+                      onExpire={() => setContactCaptchaToken(null)}
+                      options={{ theme: "light" }}
+                    />
+                  </div>
+
                   <button
                     type="submit"
-                    disabled={contactSending}
+                    disabled={contactSending || !contactCaptchaToken}
                     className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors text-sm disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
                   >
                     {contactSending ? (

@@ -45,6 +45,7 @@ export type MailItem = {
   cheque_crossing_present?: boolean | null;
   cheque_ai_confidence?: number | null;
   cheque_ai_raw_result?: any | null;
+  cheque_type?: "original" | "returned" | "unknown" | null;
   cheque_decision?: "pending" | "approved" | "rejected" | null;
   cheque_decided_by?: string | null;
   cheque_decided_at?: string | null;
@@ -161,6 +162,7 @@ export const mailItemModel = {
   async create(data: Partial<MailItem>, actorId?: string, req?: Request) {
     if (!data.client_id) throw new Error("client_id is required");
     const tableName = await getClientTableName(data.client_id);
+    await ensureClientTableChequeTypeColumn(tableName);
     
     const id = data.id || crypto.randomUUID();
     const created = data.created_at ? new Date(data.created_at) : new Date();
@@ -173,7 +175,7 @@ export const mailItemModel = {
         cheque_amount_figures, cheque_amount_words, cheque_amounts_match, cheque_date_on_cheque,
         cheque_date_valid, cheque_beneficiary, cheque_beneficiary_match, cheque_signature_present,
         cheque_alteration_detected, cheque_crossing_present, cheque_ai_confidence, cheque_ai_raw_result,
-        cheque_decision, cheque_decided_by, cheque_decided_at, cheque_status
+        cheque_type, cheque_decision, cheque_decided_by, cheque_decided_at, cheque_status
       ) VALUES (
         ${id}, 
         ${data.irn || ""}, 
@@ -204,6 +206,7 @@ export const mailItemModel = {
         ${data.cheque_crossing_present !== undefined ? (data.cheque_crossing_present ? 1 : 0) : null},
         ${data.cheque_ai_confidence ?? null},
         ${data.cheque_ai_raw_result ? JSON.stringify(data.cheque_ai_raw_result) : null},
+        ${data.cheque_type ?? null},
         ${data.cheque_decision ?? null},
         ${data.cheque_decided_by ?? null},
         ${data.cheque_decided_at ? toSqlDatetime(data.cheque_decided_at) : null},

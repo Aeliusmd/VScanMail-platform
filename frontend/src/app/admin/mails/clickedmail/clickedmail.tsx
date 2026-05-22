@@ -3,6 +3,8 @@ import { Icon } from '@iconify/react';
 import styles from './clickedmail.module.css';
 import { apiClient } from '@/lib/api-client';
 import { ImageLightbox } from '../../components/ImageLightbox';
+import { resolveChequeType } from '@/lib/resolve-cheque-type';
+import { isChequeDateWithinValidityWindow } from '@/lib/cheque-date-validity';
 
 interface ClickedMailProps {
   mail: any;
@@ -87,11 +89,38 @@ export default function ClickedMail({ mail, onClose }: ClickedMailProps) {
     ].filter(Boolean);
   }, [raw]);
 
-  const aiResults = typeof raw.ai_results === 'string' 
-    ? JSON.parse(raw.ai_results) 
-    : raw.ai_results || {};
+  const aiResults = (() => {
+    const fromCheque =
+      typeof raw.cheque_ai_raw_result === 'string'
+        ? (() => {
+            try {
+              return JSON.parse(raw.cheque_ai_raw_result);
+            } catch {
+              return {};
+            }
+          })()
+        : raw.cheque_ai_raw_result || {};
+    const fromLegacy =
+      typeof raw.ai_results === 'string'
+        ? (() => {
+            try {
+              return JSON.parse(raw.ai_results);
+            } catch {
+              return {};
+            }
+          })()
+        : raw.ai_results || {};
+    return { ...fromLegacy, ...fromCheque };
+  })();
 
-  const isCheque = raw.type === 'cheque';
+  const isCheque = raw.type === 'cheque' || raw.record_type === 'cheque';
+  const chequeType = isCheque
+    ? resolveChequeType({
+        chequeType: raw.cheque_type,
+        aiRawResult: aiResults,
+        typeClassification: aiResults.type_classification,
+      })
+    : 'unknown';
   const riskLevel = raw.ai_risk_level || 'none';
 
   const prevImage = (e: React.MouseEvent) => {
@@ -201,6 +230,30 @@ export default function ClickedMail({ mail, onClose }: ClickedMailProps) {
             </div>
           </div>
 
+          {/* Cheque status (admin selection at scan) */}
+          {isCheque && (
+            <div className={styles.detailsGrid}>
+              <div className={`${styles.detailCard} col-span-2`}>
+                <p className={`${styles.detailLabel} ${styles.labelPrimary}`}>Cheque Status</p>
+                <div className="mt-2">
+                  {chequeType === 'original' ? (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full border border-emerald-600 text-emerald-700 bg-white">
+                      <Icon icon="ri:file-check-line" /> Valid Cheque
+                    </span>
+                  ) : chequeType === 'returned' ? (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-red-600 text-white">
+                      <Icon icon="ri:arrow-go-back-line" /> Returned Cheque
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full bg-slate-200 text-slate-600">
+                      <Icon icon="ri:question-line" /> Not classified
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Recipient & Sender */}
           <div className={styles.detailsGrid}>
             <div className={styles.detailCard}>
@@ -226,38 +279,79 @@ export default function ClickedMail({ mail, onClose }: ClickedMailProps) {
           </div>
 
           {/* Cheque Validation Grid (Only for Cheques) */}
-          {isCheque && (
+          {isCheque && (() => {
+            const findCheckPassed = (key: string): boolean | null => {
+              const c = aiResults.validation?.checks?.find((check: any) => check?.check === key);
+              return typeof c?.passed === "boolean" ? c.passed : null;
+            };
+
+            const dateStr = raw.cheque_date_on_cheque || aiResults.date;
+            const dateStatus = (() => {
+              if (raw.cheque_date_valid !== null && raw.cheque_date_valid !== undefined) {
+                return Boolean(raw.cheque_date_valid);
+              }
+              const fromCheck = findCheckPassed("date_accuracy");
+              if (fromCheck !== null) return fromCheck;
+              return isChequeDateWithinValidityWindow(dateStr) ?? false;
+            })();
+
+            const amountMatchRaw =
+              raw.cheque_amounts_match !== null && raw.cheque_amounts_match !== undefined
+                ? Boolean(raw.cheque_amounts_match)
+                : findCheckPassed("amount_match");
+            const amountMatchStatus = amountMatchRaw ?? false;
+
+            const beneficiaryStatus = (() => {
+              if (raw.cheque_beneficiary_match !== null && raw.cheque_beneficiary_match !== undefined) {
+                return Number(raw.cheque_beneficiary_match) > 80;
+              }
+              return findCheckPassed("beneficiary_match") ?? false;
+            })();
+
+            const signatureStatus = Boolean(
+              raw.cheque_signature_present ?? aiResults.signature_present ?? findCheckPassed("signature_present")
+            );
+
+            const alterationStatus = (() => {
+              if (raw.cheque_alteration_detected !== null && raw.cheque_alteration_detected !== undefined) {
+                return !raw.cheque_alteration_detected;
+              }
+              const fromCheck = findCheckPassed("alteration_detection");
+              return fromCheck ?? true;
+            })();
+
+            return (
             <div className={styles.validationGrid}>
               {[
                 { 
                   label: 'Beneficiary', 
                   value: raw.cheque_beneficiary || aiResults.payee_name, 
-                  status: raw.cheque_beneficiary_match !== null ? (raw.cheque_beneficiary_match > 80) : !!(raw.cheque_beneficiary || aiResults.payee_name) 
+                  status: beneficiaryStatus,
                 },
                 { 
                   label: 'Amount (Figures)', 
                   value: raw.cheque_amount_figures !== null ? `$${Number(raw.cheque_amount_figures).toLocaleString()}` : (aiResults.amount_figures ? `$${aiResults.amount_figures.toLocaleString()}` : 'N/A'), 
-                  status: !!(raw.cheque_amount_figures !== null || aiResults.amount_figures) 
+                  status: !!(raw.cheque_amount_figures ?? aiResults.amount_figures),
                 },
                 { 
                   label: 'Date', 
-                  value: raw.cheque_date_on_cheque || aiResults.date, 
-                  status: raw.cheque_date_valid !== null ? !!raw.cheque_date_valid : !!(raw.cheque_date_on_cheque || aiResults.date) 
+                  value: dateStr,
+                  status: dateStatus,
                 },
                 { 
                   label: 'Signature', 
-                  value: (raw.cheque_signature_present ?? aiResults.signature_present) ? 'Detected' : 'Missing', 
-                  status: !!(raw.cheque_signature_present ?? aiResults.signature_present) 
+                  value: signatureStatus ? 'Detected' : 'Missing', 
+                  status: signatureStatus,
                 },
                 { 
                   label: 'Amount Match', 
-                  value: (raw.cheque_amounts_match ?? aiResults.validation?.checks?.find((c:any) => c.check === 'amount_match')?.passed) ? 'Match' : 'Mismatch', 
-                  status: !!(raw.cheque_amounts_match ?? aiResults.validation?.checks?.find((c:any) => c.check === 'amount_match')?.passed) 
+                  value: amountMatchStatus ? 'Match' : 'Mismatch', 
+                  status: amountMatchStatus,
                 },
                 { 
                   label: 'Alteration Check', 
-                  value: (raw.cheque_alteration_detected ?? false) ? 'Detected' : 'Clean', 
-                  status: !(raw.cheque_alteration_detected ?? false) 
+                  value: alterationStatus ? 'Clean' : 'Detected', 
+                  status: alterationStatus,
                 },
               ].map((check, idx) => (
                 <div key={idx} className={styles.validationItem}>
@@ -272,7 +366,8 @@ export default function ClickedMail({ mail, onClose }: ClickedMailProps) {
                 </div>
               ))}
             </div>
-          )}
+            );
+          })()}
 
           {/* AI Summary */}
           <div className={styles.aiSummaryBox}>
