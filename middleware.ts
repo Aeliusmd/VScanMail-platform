@@ -30,7 +30,7 @@ export async function middleware(req: NextRequest) {
   }
 
   // --- Skip non-API, non-protected routes ---
-  const protectedPrefixes = ["/api/", "/dashboard", "/admin", "/operator"];
+  const protectedPrefixes = ["/api/", "/dashboard", "/admin", "/operator", "/customer"];
   if (!protectedPrefixes.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
   }
@@ -68,5 +68,6 @@ export const config = {
     "/dashboard/:path*",
     "/admin/:path*",
     "/operator/:path*",
+    "/customer/:path*",
   ],
 };

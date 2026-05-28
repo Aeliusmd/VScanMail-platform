@@ -37,36 +37,38 @@ export function OrgContextProvider({ children }: { children: React.ReactNode }) 
     setAvatarOverride(url);
   }, []);
 
+  const checkSession = useCallback(async (opts?: { silent?: boolean }) => {
+    try {
+      if (!opts?.silent) setLoading(true);
+      const me = await authApi.me();
+      setRole(me.role);
+      setClientId(me.clientId);
+      setClient(me.client);
+      if (me.role !== "client" || !me.clientId) {
+        router.replace("/login");
+      }
+    } catch {
+      router.replace("/login");
+    } finally {
+      if (!opts?.silent) setLoading(false);
+    }
+  }, [router]);
+
   useEffect(() => {
     let cancelled = false;
+    checkSession().then(() => { if (cancelled) return; });
+    return () => { cancelled = true; };
+  }, [checkSession]);
 
-    (async () => {
-      try {
-        setLoading(true);
-        const me = await authApi.me();
-        if (cancelled) return;
-
-        setRole(me.role);
-        setClientId(me.clientId);
-        setClient(me.client);
-
-        if (me.role !== "client" || !me.clientId) {
-          router.replace("/login");
-          return;
-        }
-
-      } catch {
-        if (cancelled) return;
-        router.replace("/login");
-      } finally {
-        if (!cancelled) setLoading(false);
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        checkSession({ silent: true });
       }
-    })();
-
-    return () => {
-      cancelled = true;
     };
-  }, [router]);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [checkSession]);
 
   const value = useMemo<OrgContextValue>(
     () => ({
