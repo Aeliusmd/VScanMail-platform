@@ -53,6 +53,36 @@ function Stop-PortListeners {
     }
 }
 
+function Remove-DirectoryWithRetry {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [int]$Attempts = 6,
+        [int]$DelaySeconds = 5
+    )
+
+    if (-not (Test-Path $Path)) {
+        return
+    }
+
+    for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+        Write-Host "Removing $Path (attempt $attempt/$Attempts)..."
+        $ErrorActionPreference = "Continue"
+        cmd /c "rmdir /s /q `"$Path`""
+        if (Test-Path $Path) {
+            Remove-Item -LiteralPath $Path -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        $ErrorActionPreference = "Stop"
+
+        if (-not (Test-Path $Path)) {
+            return
+        }
+
+        Start-Sleep -Seconds $DelaySeconds
+    }
+
+    throw "Failed to remove $Path. A Node/Next/PM2 process or antivirus scan may still be locking files under it."
+}
+
 Write-Step "Syncing git to origin/$Branch"
 git fetch origin
 git checkout $Branch
@@ -87,9 +117,7 @@ if (-not $SkipBuild) {
 
     # Explicitly remove node_modules before npm ci — avoids EPERM on locked .node files
     Write-Host "Clearing node_modules (root)..."
-    if (Test-Path "node_modules") {
-        cmd /c "rmdir /s /q node_modules"
-    }
+    Remove-DirectoryWithRetry -Path "node_modules"
 
     Write-Step "Installing and building API (root)"
     npm ci
@@ -99,9 +127,7 @@ if (-not $SkipBuild) {
 
     Write-Step "Installing and building UI (frontend)"
     Push-Location (Join-Path $RepoPath "frontend")
-    if (Test-Path "node_modules") {
-        cmd /c "rmdir /s /q node_modules"
-    }
+    Remove-DirectoryWithRetry -Path "node_modules"
     npm ci
     if ($LASTEXITCODE -ne 0) { throw "npm ci failed in frontend" }
     npm run build
