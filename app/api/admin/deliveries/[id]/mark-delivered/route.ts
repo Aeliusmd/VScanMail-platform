@@ -5,7 +5,7 @@ import { rateLimit } from "@/lib/modules/core/middleware/rate-limit";
 import { deliveryService } from "@/lib/modules/records/delivery.service";
 
 const markDeliveredSchema = z.object({
-  proofOfServiceUrl: z.string().trim().url().max(2000),
+  proofOfServiceUrl: z.string().trim().max(2000).optional(),
 });
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       recordId: id,
       actorId: user.id,
       actorRole: user.role as any,
-      proofOfServiceUrl: input.proofOfServiceUrl,
+      proofOfServiceUrl: input.proofOfServiceUrl ?? "",
       req,
     });
     return NextResponse.json(result);

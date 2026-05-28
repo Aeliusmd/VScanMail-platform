@@ -42,10 +42,11 @@ async function chequesListForAdmin(
   const page = Number(searchParams.get("page") || "1") || 1;
   const limit = Number(searchParams.get("limit") || "100") || 100;
   const status = searchParams.get("status") || undefined;
+  const search = searchParams.get("search") || undefined;
   if (clientId) {
-    return chequeModel.listByClient(clientId, page, limit, archived, status);
+    return chequeModel.listByClient(clientId, page, limit, archived, status, undefined, search);
   }
-  return chequeModel.listAllGlobal({ page, limit, status, archived });
+  return chequeModel.listAllGlobal({ page, limit, status, archived, search });
 }
 
 async function chequesListForClient(
@@ -57,6 +58,7 @@ async function chequesListForClient(
   const page = Number(searchParams.get("page") || "1") || 1;
   const limit = Number(searchParams.get("limit") || "100") || 100;
   const status = searchParams.get("status") || undefined;
+  const search = searchParams.get("search") || undefined;
   const hiddenIds = await customerHiddenModel.getHiddenIds(clientId);
-  return chequeModel.listByClient(clientId, page, limit, archived, status, hiddenIds);
+  return chequeModel.listByClient(clientId, page, limit, archived, status, hiddenIds, search);
 }

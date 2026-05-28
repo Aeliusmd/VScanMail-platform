@@ -7,7 +7,7 @@ import { deliveryService } from "@/lib/modules/records/delivery.service";
 const markInTransitSchema = z.object({
   submissionId: z.string().trim().max(64).optional(),
   submissionNumber: z.string().trim().max(64).optional(),
-  trackingNumber: z.string().trim().min(2).max(128),
+  trackingNumber: z.string().trim().max(128).optional(),
 });
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

@@ -346,9 +346,9 @@ export const mailItemModel = {
 
     // Column list as a raw string — Drizzle sql template cannot embed sql fragments as column selectors
     const columnList = `
-      id, irn, record_type, envelope_front_url, envelope_back_url, content_scan_urls, 
-      tamper_detected, tamper_annotations, ai_actions, ocr_text, ai_summary, ai_risk_level, 
-      retention_until, scanned_by, scanned_at, mail_status, created_at,
+      id, irn, record_type, envelope_front_url, envelope_back_url, content_scan_urls,
+      tamper_detected, tamper_annotations, ai_actions, ocr_text, ai_summary, ai_risk_level,
+      retention_until, scanned_by, scanned_at, mail_status, is_archived, archived_at, created_at,
       cheque_amount_figures, cheque_amount_words, cheque_amounts_match, cheque_date_on_cheque,
       cheque_date_valid, cheque_beneficiary, cheque_beneficiary_match, cheque_signature_present,
       cheque_alteration_detected, cheque_crossing_present, cheque_ai_confidence, cheque_ai_raw_result,

@@ -255,10 +255,9 @@ export default function ClickedDelivery({ request, onClose, onUpdated, readOnly 
   // Status-based button permission
   const canApprove = request.status === "pending";
   const canReject = request.status === "pending";
-  const canMarkInTransit = request.status === "approved" && trackingNumber.trim().length >= 2;
+  const canMarkInTransit = request.status === "approved";
   const canMarkDelivered =
-    (request.status === "approved" || request.status === "in_transit") &&
-    proofOfServiceUrl.trim().length > 0;
+    request.status === "approved" || request.status === "in_transit";
 
   const approveDisabledReason = !canApprove
     ? request.status === "approved"
@@ -268,20 +267,14 @@ export default function ClickedDelivery({ request, onClose, onUpdated, readOnly 
 
   const rejectDisabledReason = !canReject
     ? `Cannot reject when status is "${s.label}"`
-    : !rejectReason.trim()
-    ? "Enter a reject reason above"
     : undefined;
 
   const inTransitDisabledReason = !canMarkInTransit
-    ? request.status !== "approved"
-      ? `Must be Approved first (currently "${s.label}")`
-      : "Enter a tracking number above (min 2 chars)"
+    ? `Must be Approved first (currently "${s.label}")`
     : undefined;
 
   const deliveredDisabledReason = !canMarkDelivered
-    ? !["approved", "in_transit"].includes(request.status as string)
-      ? `Must be Approved or In Transit (currently "${s.label}")`
-      : "Enter a proof of service URL above"
+    ? `Must be Approved or In Transit (currently "${s.label}")`
     : undefined;
 
   const activeStep = s.step;
@@ -806,8 +799,8 @@ export default function ClickedDelivery({ request, onClose, onUpdated, readOnly 
 
               {/* Reject */}
               <button
-                disabled={loading || !canReject || !rejectReason.trim()}
-                onClick={() => run(() => deliveriesApi.adminReject(request.id, rejectReason))}
+                disabled={loading || !canReject}
+                onClick={() => run(() => deliveriesApi.adminReject(request.id, rejectReason.trim() || 'No reason specified'))}
                 title={rejectDisabledReason}
                 className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-rose-600 text-white text-sm font-semibold disabled:opacity-50 hover:bg-rose-700 transition disabled:cursor-not-allowed"
               >

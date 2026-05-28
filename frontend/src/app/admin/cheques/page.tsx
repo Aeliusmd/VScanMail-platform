@@ -268,7 +268,9 @@ function AllChequesPageContent() {
       c.company.toLowerCase().includes(q) ||
       c.bankName.toLowerCase().includes(q) ||
       c.chequeNumber.toLowerCase().includes(q) ||
-      c.description.toLowerCase().includes(q);
+      c.description.toLowerCase().includes(q) ||
+      c.id.toLowerCase().includes(q) ||
+      `chq-${c.id.slice(0, 8)}`.includes(q);
 
     return matchTab && matchSearch;
   });

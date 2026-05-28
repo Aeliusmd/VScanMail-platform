@@ -126,6 +126,9 @@ export default function AdminArchivedMailsPage() {
   const [cheques, setCheques] = useState<ArchivedCheque[]>([]);
   const [chequeCheckedIds, setChequeCheckedIds] = useState<Set<string>>(new Set());
   const [chequeAllChecked, setChequeAllChecked] = useState(false);
+  // Server-side search results (null = no active search, use full mails/cheques dataset)
+  const [serverMailResults, setServerMailResults] = useState<ArchivedMail[] | null>(null);
+  const [serverChequeResults, setServerChequeResults] = useState<ArchivedCheque[] | null>(null);
   const mailBoxFilterRef = useRef<HTMLDivElement | null>(null);
   const mailDateFilterRef = useRef<HTMLDivElement | null>(null);
   const chequeBoxFilterRef = useRef<HTMLDivElement | null>(null);
@@ -196,7 +199,7 @@ export default function AdminArchivedMailsPage() {
 
           return {
             id: c.id,
-            serialNumber: c.id.slice(0, 12),
+            serialNumber: c.irn || c.id.slice(0, 12),
             company: c.company_name || 'Unknown Company',
             companyEmail: '',
             payee: c.beneficiary || c.company_name || 'Payee',
@@ -268,6 +271,90 @@ export default function AdminArchivedMailsPage() {
     };
   }, []);
 
+  // Debounced server-side mail search: backend searches by irn LIKE '%q%'
+  useEffect(() => {
+    const term = mailSearch.trim();
+    if (!term) {
+      setServerMailResults(null);
+      return;
+    }
+    const timer = setTimeout(() => {
+      mailApi.list({ archived: true, limit: 100, search: term })
+        .then(mailRes => {
+          const mapped: ArchivedMail[] = mailRes.items.filter(isArchivedMailRecord).map((item: ArchiveApiMailItem) => {
+            const scannedIso = item.scanned_at || item.created_at;
+            return {
+              id: item.id,
+              serialNumber: item.irn || item.id.slice(0, 8),
+              company: item.company_name || 'Unknown Company',
+              companyEmail: '',
+              sender: item.company_name || 'Unknown',
+              subject: `${String(item.type || 'mail').charAt(0).toUpperCase()}${String(item.type || 'mail').slice(1)} - ${item.irn || item.id.slice(0, 8)}`,
+              preview: item.ai_summary || 'No preview available.',
+              scannedAt: toHumanDate(scannedIso),
+              scannedDate: toDateIso(scannedIso),
+              timeShort: toTimeShort(scannedIso),
+              archivedAt: toHumanDate(scannedIso),
+              archiveBox: toBoxFromIso(scannedIso),
+              status: item.status === 'processed' ? 'Processed' : item.status === 'delivered' ? 'Delivered' : 'Pending Delivery',
+              aiSummary: item.ai_summary || '',
+              emailSent: false,
+              thumbnail: item.envelope_front_url || item.envelope_back_url || (item.content_scan_urls?.[0] ?? ''),
+              starred: false,
+              hasAttachment: Array.isArray(item.content_scan_urls) && item.content_scan_urls.length > 0,
+              tag: item.status === 'processed' ? 'Processed' : item.status === 'delivered' ? 'Delivered' : 'Inbox',
+              tagColor: item.status === 'delivered' ? 'bg-green-100 text-[#2F8F3A]' : 'bg-[#0A3D8F]/10 text-[#0A3D8F]',
+            };
+          });
+          setServerMailResults(mapped);
+        })
+        .catch(() => {});
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [mailSearch]);
+
+  // Debounced server-side cheque search: backend searches by irn LIKE '%q%' or beneficiary
+  useEffect(() => {
+    const term = chequeSearch.trim();
+    if (!term) {
+      setServerChequeResults(null);
+      return;
+    }
+    const timer = setTimeout(() => {
+      chequeApi.list({ archived: true, limit: 100, search: term })
+        .then(chequeRes => {
+          const mapped: ArchivedCheque[] = chequeRes.cheques.map((c: ApiCheque) => {
+            const createdIso = c.created_at;
+            const bankName = c.ai_raw_result?.bank_name || c.ai_raw_result?.bankName || 'Bank';
+            const chequeNumber = c.ai_raw_result?.cheque_number || c.ai_raw_result?.chequeNumber || c.ai_raw_result?.number || '—';
+            return {
+              id: c.id,
+              serialNumber: c.irn || c.id.slice(0, 12),
+              company: c.company_name || 'Unknown Company',
+              companyEmail: '',
+              payee: c.beneficiary || c.company_name || 'Payee',
+              amount: new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(Number(c.amount_figures || 0)),
+              bankName,
+              chequeNumber: String(chequeNumber),
+              scannedAt: toHumanDate(createdIso),
+              scannedDate: toDateIso(createdIso),
+              timeShort: toTimeShort(createdIso),
+              archivedAt: toHumanDate(createdIso),
+              archiveBox: toBoxFromIso(createdIso),
+              status: c.client_decision === 'rejected' ? 'Rejected' : c.status === 'flagged' ? 'On Hold' : 'Deposited',
+              aiSummary: c.ai_raw_result?.summary || c.ai_raw_result?.notes || '',
+              thumbnail: '',
+              starred: false,
+              depositToggle: c.status === 'deposited' || c.status === 'cleared',
+            };
+          });
+          setServerChequeResults(mapped);
+        })
+        .catch(() => {});
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [chequeSearch]);
+
   const uniqueMailBoxes = useMemo(
     () => [...new Set(mails.map((m) => m.archiveBox))],
     [mails]
@@ -281,15 +368,19 @@ export default function AdminArchivedMailsPage() {
     [uniqueMailBoxes, uniqueChequeBoxes]
   );
 
-  // Filtered mails
-  const filteredMails = mails.filter(m => {
-    const matchSearch =
+  // Filtered mails: when server search is active use its results (backend already filtered by IRN/text);
+  // otherwise fall back to client-side text filtering on the full mails dataset.
+  const mailBase = serverMailResults ?? mails;
+  const filteredMails = mailBase.filter(m => {
+    const matchSearch = serverMailResults !== null ? true : (
+      !mailSearch.trim() ||
       m.company.toLowerCase().includes(mailSearch.toLowerCase()) ||
       m.sender.toLowerCase().includes(mailSearch.toLowerCase()) ||
       m.subject.toLowerCase().includes(mailSearch.toLowerCase()) ||
       m.id.toLowerCase().includes(mailSearch.toLowerCase()) ||
       m.serialNumber.toLowerCase().includes(mailSearch.toLowerCase()) ||
-      m.archiveBox.toLowerCase().includes(mailSearch.toLowerCase());
+      m.archiveBox.toLowerCase().includes(mailSearch.toLowerCase())
+    );
     const matchStatus = mailStatusFilter === 'All' || m.status === mailStatusFilter;
     const matchBox = mailBoxFilter === 'All' || m.archiveBox === mailBoxFilter;
     const matchDateFrom = !mailDateFrom || m.scannedDate >= mailDateFrom;
@@ -297,16 +388,19 @@ export default function AdminArchivedMailsPage() {
     return matchSearch && matchStatus && matchBox && matchDateFrom && matchDateTo;
   });
 
-  // Filtered cheques
-  const filteredCheques = cheques.filter(c => {
-    const matchSearch =
+  // Filtered cheques: server search results take priority when active (backend filters by IRN/beneficiary)
+  const chequeBase = serverChequeResults ?? cheques;
+  const filteredCheques = chequeBase.filter(c => {
+    const matchSearch = serverChequeResults !== null ? true : (
+      !chequeSearch.trim() ||
       c.company.toLowerCase().includes(chequeSearch.toLowerCase()) ||
       c.payee.toLowerCase().includes(chequeSearch.toLowerCase()) ||
       c.bankName.toLowerCase().includes(chequeSearch.toLowerCase()) ||
       c.chequeNumber.toLowerCase().includes(chequeSearch.toLowerCase()) ||
       c.id.toLowerCase().includes(chequeSearch.toLowerCase()) ||
       c.serialNumber.toLowerCase().includes(chequeSearch.toLowerCase()) ||
-      c.archiveBox.toLowerCase().includes(chequeSearch.toLowerCase());
+      c.archiveBox.toLowerCase().includes(chequeSearch.toLowerCase())
+    );
     const matchStatus = chequeStatusFilter === 'All' || c.status === chequeStatusFilter;
     const matchBox = chequeBoxFilter === 'All' || c.archiveBox === chequeBoxFilter;
     const matchDateFrom = !chequeDateFrom || c.scannedDate >= chequeDateFrom;
@@ -356,7 +450,7 @@ export default function AdminArchivedMailsPage() {
           const chequeNumber = c.ai_raw_result?.cheque_number || c.ai_raw_result?.chequeNumber || c.ai_raw_result?.number || '—';
           return {
             id: c.id,
-            serialNumber: c.id.slice(0, 12),
+            serialNumber: c.irn || c.id.slice(0, 12),
             company: c.company_name || 'Unknown Company',
             companyEmail: '',
             payee: c.beneficiary || c.company_name || 'Payee',
@@ -751,7 +845,7 @@ export default function AdminArchivedMailsPage() {
                   )}
                 </div>
               </div>
-              <span className="text-xs text-slate-500">{filteredMails.length} of {mails.length} mails</span>
+              <span className="text-xs text-slate-500">{filteredMails.length} of {mailBase.length} mails</span>
             </div>
 
             {/* Mail Status Tabs */}
@@ -814,8 +908,10 @@ export default function AdminArchivedMailsPage() {
                         <span className="text-sm truncate text-slate-700">{mail.subject}</span>
                         <span className="text-sm text-slate-400 truncate hidden xl:block">– {mail.preview}</span>
                       </div>
-                      <div className="w-32 flex-shrink-0 mr-4 hidden lg:block">
-                        <span className="text-xs text-slate-400 font-mono">{mail.serialNumber}</span>
+                      <div className="w-36 flex-shrink-0 mr-4 hidden lg:block">
+                        <span className={`text-xs font-mono ${mail.serialNumber.startsWith('IRN-') ? 'text-[#0A3D8F]' : 'text-slate-400'}`}>
+                          {mail.serialNumber || '—'}
+                        </span>
                       </div>
                       <div className="flex items-center space-x-2 mr-4 flex-shrink-0">
                         {mail.hasAttachment && <i className="ri-attachment-2 text-slate-400 text-base"></i>}
@@ -952,7 +1048,7 @@ export default function AdminArchivedMailsPage() {
                   )}
                 </div>
               </div>
-              <span className="text-xs text-slate-500">{filteredCheques.length} of {cheques.length} cheques</span>
+              <span className="text-xs text-slate-500">{filteredCheques.length} of {chequeBase.length} cheques</span>
             </div>
 
             {/* Cheque Status Tabs */}
@@ -1052,8 +1148,12 @@ export default function AdminArchivedMailsPage() {
               </button>
             </div>
             <div className="p-6 space-y-5">
-              <div className="w-full h-52 rounded-xl overflow-hidden border border-slate-200">
-                <img src={selectedMail.thumbnail} alt="Mail document" className="w-full h-full object-cover object-top" />
+              <div className="w-full h-52 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 flex items-center justify-center">
+                {selectedMail.thumbnail ? (
+                  <img src={selectedMail.thumbnail} alt="Mail document" className="w-full h-full object-cover object-top" />
+                ) : (
+                  <i className="ri-mail-line text-slate-300 text-5xl"></i>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 bg-slate-50 rounded-xl">
@@ -1077,9 +1177,11 @@ export default function AdminArchivedMailsPage() {
                   <p className="text-xs text-slate-500 mt-0.5">Archived: {selectedMail.archivedAt}</p>
                 </div>
                 <div className="p-4 bg-slate-50 rounded-xl">
-                  <p className="text-xs text-slate-500 mb-1">Scanned</p>
-                  <p className="text-sm font-semibold text-slate-900">{selectedMail.scannedAt}</p>
-                  <p className="text-xs font-mono text-slate-400 mt-0.5">{selectedMail.serialNumber}</p>
+                  <p className="text-xs text-slate-500 mb-1">Tracking Number (IRN)</p>
+                  <p className="text-sm font-semibold font-mono text-[#0A3D8F]">
+                    {selectedMail.serialNumber.startsWith('IRN-') ? selectedMail.serialNumber : (selectedMail.serialNumber || '—')}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-0.5">Scanned: {selectedMail.scannedAt}</p>
                 </div>
               </div>
               <div className="p-5 bg-gradient-to-br from-[#0A3D8F]/5 to-slate-50 rounded-xl border border-[#0A3D8F]/10">
@@ -1126,8 +1228,12 @@ export default function AdminArchivedMailsPage() {
               </button>
             </div>
             <div className="p-6 space-y-5">
-              <div className="w-full h-52 rounded-xl overflow-hidden border border-slate-200">
-                <img src={selectedCheque.thumbnail} alt="Cheque document" className="w-full h-full object-cover object-top" />
+              <div className="w-full h-52 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 flex items-center justify-center">
+                {selectedCheque.thumbnail ? (
+                  <img src={selectedCheque.thumbnail} alt="Cheque document" className="w-full h-full object-cover object-top" />
+                ) : (
+                  <i className="ri-bank-card-line text-slate-300 text-5xl"></i>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 bg-slate-50 rounded-xl">

@@ -52,8 +52,8 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await stripeService.createCheckoutSession(clientId, priceId, {
-      successUrl: `${appUrl}/customer/${encodeURIComponent(clientId)}/account?tab=billing&checkout=success`,
-      cancelUrl: `${appUrl}/customer/${encodeURIComponent(clientId)}/account?tab=billing&checkout=cancel`,
+      successUrl: `${appUrl}/customer/account?tab=billing&checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancelUrl: `${appUrl}/customer/account?tab=billing&checkout=cancel`,
     });
 
     return NextResponse.json({ url: result.url });

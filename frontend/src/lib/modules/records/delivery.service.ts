@@ -376,7 +376,7 @@ export const deliveryService = {
     actorRole: "admin" | "super_admin";
     submissionId?: string;
     submissionNumber?: string;
-    trackingNumber: string;
+    trackingNumber?: string;
     req?: Request;
   }) {
     const recordRow = await deliveryModel.findRecordRowById(params.recordId);
@@ -395,7 +395,7 @@ export const deliveryService = {
              delivery_in_transit_at = '${now.toISOString().slice(0, 19).replace("T", " ")}',
              delivery_vsendocs_submission_id = ${params.submissionId ? `'${escapeSql(params.submissionId)}'` : "NULL"},
              delivery_vsendocs_submission_number = ${params.submissionNumber ? `'${escapeSql(params.submissionNumber)}'` : "NULL"},
-             delivery_tracking_number = '${escapeSql(params.trackingNumber)}'
+             delivery_tracking_number = ${params.trackingNumber ? `'${escapeSql(params.trackingNumber)}'` : "NULL"}
          WHERE id = '${escapeSql(params.recordId)}'`
       )
     );
@@ -492,10 +492,11 @@ export const deliveryService = {
     recordId: string;
     actorId: string;
     actorRole: "admin" | "super_admin";
-    proofOfServiceUrl: string;
+    proofOfServiceUrl: string | undefined;
     req?: Request;
   }) {
-    if (!isAllowedProofUrl(params.proofOfServiceUrl)) {
+    const proofUrl = params.proofOfServiceUrl || "";
+    if (proofUrl && !isAllowedProofUrl(proofUrl)) {
       throw new Error("Proof-of-service URL must be hosted on an allowed domain");
     }
 
@@ -519,7 +520,7 @@ export const deliveryService = {
          SET delivery_status = 'delivered',
              delivery_marked_delivered_by = '${escapeSql(params.actorId)}',
              delivery_marked_delivered_at = '${now.toISOString().slice(0, 19).replace("T", " ")}',
-             delivery_proof_of_service_url = '${escapeSql(params.proofOfServiceUrl)}'
+             delivery_proof_of_service_url = ${proofUrl ? `'${escapeSql(proofUrl)}'` : "NULL"}
              ${chequeStatusSet}
          WHERE id = '${escapeSql(params.recordId)}'`
       )
@@ -547,7 +548,7 @@ export const deliveryService = {
           action: "delivery.delivered",
           entity: params.recordId,
           clientId,
-          after: { recordId: params.recordId, proofOfServiceUrl: params.proofOfServiceUrl },
+          after: { recordId: params.recordId, proofOfServiceUrl: proofUrl },
           req: params.req,
           notifRecipientId: clientUser.userId,
           notifTitle: "Delivery completed",
@@ -562,7 +563,7 @@ export const deliveryService = {
               requestId: params.recordId,
               sourceType,
               irn,
-              proofOfServiceUrl: params.proofOfServiceUrl,
+              proofOfServiceUrl: proofUrl,
             })
             .catch((err) => console.error("[delivery] delivered email failed:", err));
         }

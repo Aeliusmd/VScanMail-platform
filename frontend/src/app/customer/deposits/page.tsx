@@ -111,10 +111,36 @@ export default function CustomerDepositRequestsPage() {
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
 
+  const [slipDownloading, setSlipDownloading] = useState(false);
+
   const resetCancelState = () => {
     setCancelConfirming(false);
     setCancelError(null);
     setCancelling(false);
+  };
+
+  const handleDownloadSlip = async (chequeId: string, depositId: string) => {
+    setSlipDownloading(true);
+    try {
+      const res = await fetch(`/api/customer/deposits/${chequeId}/slip`, { credentials: "include" });
+      if (!res.ok) throw new Error("Download failed");
+      const blob = await res.blob();
+      const ext = blob.type.includes("pdf") ? "pdf" : "jpg";
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `deposit-slip-${depositId}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      // fallback: open directly
+      const direct = selectedRequest?.depositSlipUrl;
+      if (direct) window.open(direct, "_blank");
+    } finally {
+      setSlipDownloading(false);
+    }
   };
 
   const handleCancelDeposit = async () => {
@@ -569,16 +595,26 @@ export default function CustomerDepositRequestsPage() {
                       </div>
                       <div>
                         <p className="text-sm font-bold text-teal-900">Deposit Slip</p>
-                        <p className="text-xs text-teal-600">Received via email - Available to view</p>
+                        <p className="text-xs text-teal-600">Available to view and download</p>
                       </div>
                     </div>
-                    <button
-                      onClick={() => setShowSlipModal(true)}
-                      className="flex items-center gap-1.5 px-4 py-2 bg-teal-600 text-white text-xs font-semibold rounded-lg hover:bg-teal-700 transition-colors cursor-pointer whitespace-nowrap"
-                    >
-                      <i className="ri-eye-line"></i>
-                      View Slip
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleDownloadSlip(selectedRequest.chequeId, selectedRequest.id)}
+                        disabled={slipDownloading}
+                        className="flex items-center gap-1.5 px-3 py-2 bg-white border border-teal-300 text-teal-700 text-xs font-semibold rounded-lg hover:bg-teal-50 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50"
+                      >
+                        <i className={slipDownloading ? "ri-loader-4-line animate-spin" : "ri-download-line"}></i>
+                        {slipDownloading ? "..." : "Download"}
+                      </button>
+                      <button
+                        onClick={() => setShowSlipModal(true)}
+                        className="flex items-center gap-1.5 px-3 py-2 bg-teal-600 text-white text-xs font-semibold rounded-lg hover:bg-teal-700 transition-colors cursor-pointer whitespace-nowrap"
+                      >
+                        <i className="ri-eye-line"></i>
+                        View Slip
+                      </button>
+                    </div>
                   </div>
                   <div
                     className="w-full h-32 rounded-lg overflow-hidden border border-teal-300 cursor-pointer"
@@ -674,12 +710,22 @@ export default function CustomerDepositRequestsPage() {
                   <p className="text-xs text-gray-400">{selectedRequest.id}</p>
                 </div>
               </div>
-              <button
-                onClick={() => setShowSlipModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg cursor-pointer transition-colors"
-              >
-                <i className="ri-close-line text-gray-600 text-xl"></i>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleDownloadSlip(selectedRequest.chequeId, selectedRequest.id)}
+                  disabled={slipDownloading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 text-white text-xs font-semibold rounded-lg hover:bg-teal-700 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <i className={slipDownloading ? "ri-loader-4-line animate-spin" : "ri-download-line"}></i>
+                  {slipDownloading ? "Downloading..." : "Download"}
+                </button>
+                <button
+                  onClick={() => setShowSlipModal(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg cursor-pointer transition-colors"
+                >
+                  <i className="ri-close-line text-gray-600 text-xl"></i>
+                </button>
+              </div>
             </div>
 
             {/* Scrollable body */}

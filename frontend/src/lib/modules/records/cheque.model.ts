@@ -13,6 +13,7 @@ import { inArray, eq } from "drizzle-orm"; // Kept for other files potentially n
 export type Cheque = {
   id: string;
   mail_item_id: string;
+  irn?: string;
   amount_figures: number;
   amount_words: string;
   amounts_match: boolean;
@@ -86,6 +87,7 @@ function rowToCheque(row: any, clientId: string): Cheque {
   return {
     id: row.id,
     mail_item_id: row.id,
+    irn: row.irn ?? '',
     amount_figures: Number(row.cheque_amount_figures || 0),
     amount_words: row.cheque_amount_words || "",
     amounts_match: Boolean(row.cheque_amounts_match),
@@ -143,7 +145,7 @@ async function locateChequeById(id: string) {
 
   // Explicit column list keeps UNION ALL safe when future columns are added to createClientTable.
   const cols = [
-    "id", "envelope_front_url", "envelope_back_url", "content_scan_urls", "record_type",
+    "id", "irn", "envelope_front_url", "envelope_back_url", "content_scan_urls", "record_type",
     "cheque_amount_figures", "cheque_amount_words", "cheque_amounts_match", "cheque_date_on_cheque",
     "cheque_date_valid", "cheque_beneficiary", "cheque_beneficiary_match", "cheque_signature_present",
     "cheque_alteration_detected", "cheque_crossing_present", "cheque_ai_confidence",
@@ -163,9 +165,9 @@ async function locateChequeById(id: string) {
 
 export const chequeModel = {
   async listAllGlobal(
-    opts: { page?: number; limit?: number; status?: string; archived?: boolean } = {}
+    opts: { page?: number; limit?: number; status?: string; archived?: boolean; search?: string } = {}
   ) {
-    const { page = 1, limit = 100, status, archived } = opts;
+    const { page = 1, limit = 100, status, archived, search } = opts;
     const from = (page - 1) * limit;
 
     const allClientsRaw = await db.select({ id: clients.id, tableName: clients.tableName }).from(clients);
@@ -187,6 +189,10 @@ export const chequeModel = {
 
     const conditionParts: string[] = ["record_type = 'cheque'"];
     if (status) conditionParts.push(`cheque_status = '${status.replace(/'/g, "''")}'`);
+    if (search?.trim()) {
+      const q = search.trim().replace(/'/g, "''");
+      conditionParts.push(`(irn LIKE '%${q}%' OR cheque_beneficiary LIKE '%${q}%' OR cheque_amount_figures LIKE '%${q}%')`);
+    }
     if (archived !== undefined) {
       const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
         .toISOString()
@@ -200,8 +206,8 @@ export const chequeModel = {
     }
     const whereStr = `WHERE ${conditionParts.join(' AND ')}`;
 
-    // Column list matches rowToCheque dependencies + id, record_type, created_at
-    const columnList = `id, record_type, cheque_amount_figures, cheque_amount_words, cheque_amounts_match, cheque_date_on_cheque, cheque_date_valid, cheque_beneficiary, cheque_beneficiary_match, cheque_signature_present, cheque_alteration_detected, cheque_crossing_present, cheque_ai_confidence, cheque_ai_raw_result, cheque_type, cheque_decision, cheque_decided_by, cheque_decided_at, cheque_status, deposit_requested_at, deposit_marked_deposited_at, delivery_status, delivery_requested_at, created_at`;
+    // Column list matches rowToCheque dependencies + id, irn, record_type, created_at
+    const columnList = `id, irn, record_type, cheque_amount_figures, cheque_amount_words, cheque_amounts_match, cheque_date_on_cheque, cheque_date_valid, cheque_beneficiary, cheque_beneficiary_match, cheque_signature_present, cheque_alteration_detected, cheque_crossing_present, cheque_ai_confidence, cheque_ai_raw_result, cheque_type, cheque_decision, cheque_decided_by, cheque_decided_at, cheque_status, deposit_requested_at, deposit_marked_deposited_at, delivery_status, delivery_requested_at, created_at`;
 
     const unionParts = allClients.map(c => 
       `SELECT ${columnList}, '${c.id}' AS _client_id FROM \`${c.tableName}\` ${whereStr}`
@@ -296,7 +302,8 @@ export const chequeModel = {
     limit = 20,
     archived?: boolean,
     status?: string,
-    hiddenIds?: Set<string>
+    hiddenIds?: Set<string>,
+    search?: string
   ) {
     const from = (page - 1) * limit;
     const tableName = await getClientTableName(clientId);
@@ -316,10 +323,13 @@ export const chequeModel = {
       hiddenIds && hiddenIds.size > 0
         ? sql` AND id NOT IN (${sql.join(Array.from(hiddenIds).map((id) => sql`${id}`), sql`, `)})`
         : sql``;
+    const searchClause = search?.trim()
+      ? sql` AND (irn LIKE ${'%' + search.trim() + '%'} OR cheque_beneficiary LIKE ${'%' + search.trim() + '%'})`
+      : sql``;
 
     const query = sql`
       SELECT * FROM ${sql.raw(`\`${tableName}\``)}
-      WHERE record_type = 'cheque'${archiveClause}${statusClause}${hiddenClause}
+      WHERE record_type = 'cheque'${archiveClause}${statusClause}${hiddenClause}${searchClause}
       ORDER BY created_at DESC
       LIMIT ${limit} OFFSET ${from}
     `;
@@ -328,7 +338,7 @@ export const chequeModel = {
     const countQuery = sql`
       SELECT COUNT(*) as count
       FROM ${sql.raw(`\`${tableName}\``)}
-      WHERE record_type = 'cheque'${archiveClause}${statusClause}${hiddenClause}
+      WHERE record_type = 'cheque'${archiveClause}${statusClause}${hiddenClause}${searchClause}
     `;
     const [countRows] = await db.execute(countQuery) as any;
 

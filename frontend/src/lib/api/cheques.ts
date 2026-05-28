@@ -14,6 +14,7 @@ export type ChequeStatus =
 export interface Cheque {
   id: string;
   mail_item_id: string;
+  irn?: string;
   amount_figures: number | null;
   beneficiary: string;
   date_on_cheque: string | null;
@@ -53,6 +54,7 @@ export const chequeApi = {
     limit?: number;
     status?: string;
     clientId?: string;
+    search?: string;
   }) => {
     const qs = new URLSearchParams();
     if (params?.archived !== undefined) qs.set("archived", String(params.archived));
@@ -60,6 +62,7 @@ export const chequeApi = {
     if (params?.limit) qs.set("limit", String(params.limit));
     if (params?.status) qs.set("status", params.status);
     if (params?.clientId) qs.set("clientId", params.clientId);
+    if (params?.search) qs.set("search", params.search);
     const suffix = qs.toString() ? `?${qs.toString()}` : "";
     return apiClient<ChequeListResponse>(`/api/records/cheques${suffix}`);
   },

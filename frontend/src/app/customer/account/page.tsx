@@ -527,10 +527,25 @@ function CustomerAccountPageContent() {
 
     if (checkout === "success") {
       setActiveTab("billing");
-      showToast("success", "Payment successful. We are activating your subscription...");
-      void reloadBillingData().catch((e) => {
-        console.error("Failed to refresh billing after checkout success:", e);
-      });
+      showToast("success", "Payment successful. Activating your subscription...");
+      const sessionId = searchParams.get("session_id");
+      const activate = async () => {
+        if (sessionId) {
+          try {
+            await fetch("/api/customer/billing/checkout/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ sessionId }),
+            });
+          } catch (e) {
+            console.error("Checkout verify failed:", e);
+          }
+        }
+        await reloadBillingData().catch((e) => {
+          console.error("Failed to refresh billing after checkout success:", e);
+        });
+      };
+      void activate();
       return;
     }
 
@@ -586,16 +601,16 @@ function CustomerAccountPageContent() {
     setUpgradeSubmitting(true);
     try {
       if (billing.planType === "subscription" && billingStatus?.status && billingStatus.status !== "none") {
-        await billingApi.changeSubscription({
-          planId: selectedUpgradePlan,
-          prorationBehavior: "always_invoice",
-        });
+        const currentTier = billingStatus?.planTier ?? null;
+        const isUpgrade = currentTier ? PLAN_ORDER[selectedUpgradePlan] > PLAN_ORDER[currentTier] : true;
+        const prorationBehavior = isUpgrade ? "always_invoice" : "none";
+        await billingApi.changeSubscription({ planId: selectedUpgradePlan, prorationBehavior });
         setUpgradeConfirmed(true);
         setShowUpgradeModal(false);
-        showToast(
-          "success",
-          "Plan changed successfully. Stripe has prorated your billing - no extra payment needed."
-        );
+        const detail = isUpgrade
+          ? "Stripe has charged the prorated difference."
+          : "Your plan switches to the lower tier at your next billing cycle.";
+        showToast("success", `Plan changed successfully. ${detail}`);
         await reloadBillingData();
       } else {
         const result = await apiClient<{ url: string }>("/api/customer/billing/checkout", {
@@ -637,14 +652,20 @@ function CustomerAccountPageContent() {
     setPlanChangeMessage(null);
     setPlanChangeError(null);
     try {
-      await billingApi.changeSubscription({
-        planId,
-        prorationBehavior: "always_invoice",
-      });
-      setPlanChangeMessage(
-        `Switched to ${planId.charAt(0).toUpperCase() + planId.slice(1)} plan. Stripe has prorated your billing automatically.`
-      );
-      showToast("success", "Plan updated. No extra payment required - Stripe handled the proration.");
+      const currentTier = billingStatus?.planTier ?? null;
+      const isUpgrade = currentTier ? PLAN_ORDER[planId] > PLAN_ORDER[currentTier] : true;
+      // Upgrades: charge prorated difference immediately.
+      // Downgrades: no immediate charge — new lower price applies at next billing cycle.
+      const prorationBehavior = isUpgrade ? "always_invoice" : "none";
+
+      await billingApi.changeSubscription({ planId, prorationBehavior });
+
+      const actionLabel = isUpgrade ? "Upgraded" : "Downgraded";
+      const detail = isUpgrade
+        ? "Stripe has charged the prorated difference — no full payment needed."
+        : "Your plan switches to the lower tier at your next billing cycle.";
+      setPlanChangeMessage(`${actionLabel} to ${planId.charAt(0).toUpperCase() + planId.slice(1)}. ${detail}`);
+      showToast("success", `${actionLabel} successfully. ${detail}`);
       await reloadBillingData();
     } catch (err) {
       setPlanChangeError(err instanceof Error ? err.message : "Plan change failed.");
