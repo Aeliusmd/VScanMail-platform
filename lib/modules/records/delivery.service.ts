@@ -437,7 +437,7 @@ export const deliveryService = {
               requestId: params.recordId,
               sourceType,
               irn,
-              trackingNumber: params.trackingNumber,
+              trackingNumber: params.trackingNumber ?? '',
             })
             .catch((err) => console.error("[delivery] in-transit email failed:", err));
         }
