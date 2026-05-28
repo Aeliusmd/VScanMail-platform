@@ -1196,11 +1196,8 @@ export default function AdminArchivedMailsPage() {
                 </div>
               </div>
               <div className="flex items-center space-x-3 pt-1">
-                <button onClick={() => { handleUnarchiveMail(selectedMail.id); setSelectedMail(null); }} className="flex-1 py-3 bg-slate-700 text-white font-semibold rounded-lg hover:bg-slate-800 transition-colors text-sm whitespace-nowrap cursor-pointer">
+                <button onClick={() => { handleUnarchiveMail(selectedMail.id); setSelectedMail(null); }} className="flex-1 py-3 bg-[#0A3D8F] text-white font-semibold rounded-lg hover:bg-[#083170] transition-colors text-sm whitespace-nowrap cursor-pointer">
                   <i className="ri-inbox-unarchive-line mr-2"></i>Unarchive
-                </button>
-                <button onClick={() => handleDownloadMail(selectedMail.id)} className="flex-1 py-3 bg-white border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-colors text-sm whitespace-nowrap cursor-pointer">
-                  <i className="ri-download-line mr-2"></i>Download
                 </button>
                 <button onClick={() => setSelectedMail(null)} className="px-5 py-3 bg-slate-100 text-slate-600 font-semibold rounded-lg hover:bg-slate-200 transition-colors text-sm whitespace-nowrap cursor-pointer">Close</button>
               </div>
@@ -1274,20 +1271,8 @@ export default function AdminArchivedMailsPage() {
                 </div>
               </div>
               <div className="flex items-center space-x-3 pt-1">
-                <button onClick={() => { handleUnarchiveCheque(selectedCheque.id); setSelectedCheque(null); }} className="flex-1 py-3 bg-slate-700 text-white font-semibold rounded-lg hover:bg-slate-800 transition-colors text-sm whitespace-nowrap cursor-pointer">
+                <button onClick={() => { handleUnarchiveCheque(selectedCheque.id); setSelectedCheque(null); }} className="flex-1 py-3 bg-[#0A3D8F] text-white font-semibold rounded-lg hover:bg-[#083170] transition-colors text-sm whitespace-nowrap cursor-pointer">
                   <i className="ri-inbox-unarchive-line mr-2"></i>Unarchive
-                </button>
-                <button
-                  onClick={async () => {
-                    try {
-                      const data = await chequeApi.download(selectedCheque.id);
-                      const url = data.frontUrl || data.backUrl || (data.contentUrls?.[0] ?? selectedCheque.thumbnail);
-                      if (url) window.open(url, '_blank');
-                    } catch { /* no-op */ }
-                  }}
-                  className="flex-1 py-3 bg-white border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-colors text-sm whitespace-nowrap cursor-pointer"
-                >
-                  <i className="ri-download-line mr-2"></i>Download
                 </button>
                 <button onClick={() => setSelectedCheque(null)} className="px-5 py-3 bg-slate-100 text-slate-600 font-semibold rounded-lg hover:bg-slate-200 transition-colors text-sm whitespace-nowrap cursor-pointer">Close</button>
               </div>
