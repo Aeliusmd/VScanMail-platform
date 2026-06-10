@@ -57,10 +57,10 @@ export interface MeResponse {
 }
 
 export const authApi = {
-  login: (email: string, password: string, totpCode?: string) =>
+  login: (email: string, password: string, totpCode?: string, rememberMe?: boolean) =>
     apiClient<LoginResponse>("/api/auth/login", {
       method: "POST",
-      body: JSON.stringify({ email, password, totpCode }),
+      body: JSON.stringify({ email, password, totpCode, rememberMe }),
     }),
 
   verifyMfa: (tempToken: string, totpCode: string) =>

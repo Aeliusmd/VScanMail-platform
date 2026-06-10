@@ -22,6 +22,7 @@ function LoginForm() {
   const [totpCode, setTotpCode] = useState("");
   const [showTotpInput, setShowTotpInput] = useState(false);
   const [mfaTempToken, setMfaTempToken] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [lastErrorAtMs, setLastErrorAtMs] = useState<number | null>(null);
@@ -109,7 +110,7 @@ function LoginForm() {
 
       const response = mfaTempToken
         ? await authApi.verifyMfa(mfaTempToken, totpCode)
-        : await authApi.login(email, password);
+        : await authApi.login(email, password, undefined, rememberMe);
 
       if ("requiresMfa" in response && response.requiresMfa) {
         setMfaTempToken(response.tempToken || "");
@@ -305,7 +306,15 @@ function LoginForm() {
               )}
 
               <div className={styles.rememberRow}>
-                <span aria-hidden="true" />
+                <label className={styles.rememberLabel}>
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    style={{ width: 16, height: 16, accentColor: "#0A3D8F", cursor: "pointer", flexShrink: 0 }}
+                  />
+                  Remember me
+                </label>
                 <Link href="/forgot-password" className={styles.forgotLink}>Forgot password?</Link>
               </div>
 

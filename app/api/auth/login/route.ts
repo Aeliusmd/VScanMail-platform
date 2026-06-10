@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
   let body: any = null;
   try {
     body = await req.json();
-    const { email, password } = loginSchema.parse(body);
+    const { email, password, rememberMe } = loginSchema.parse(body);
     const ip =
       req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       req.headers.get("x-real-ip") ||
@@ -246,7 +246,7 @@ export async function POST(req: NextRequest) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 2 * 60 * 60,
+      maxAge: rememberMe ? 30 * 24 * 60 * 60 : 2 * 60 * 60,
     });
     return res;
 

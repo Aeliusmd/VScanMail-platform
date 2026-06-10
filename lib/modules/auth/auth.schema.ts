@@ -22,6 +22,7 @@ export const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
   totpCode: z.string().length(6).optional(),
+  rememberMe: z.boolean().optional().default(false),
 });
 
 export const verifyEmailSchema = z.object({
