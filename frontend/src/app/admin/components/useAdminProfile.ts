@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { resolveAvatarUrl } from '@/lib/resolve-avatar-url';
+import { apiClient } from '@/lib/api-client';
 
 export function useAdminProfile() {
   const [userData, setUserData] = useState<{ firstName: string, lastName: string, avatarUrl: string, email: string, role: string } | null>(null);
@@ -7,15 +8,17 @@ export function useAdminProfile() {
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
-        const { getProfile } = await import("../settings/profile/actions");
-        const res = await getProfile();
-        if (res.success && res.data) {
+        const data = await apiClient<{
+          user?: { firstName?: string | null; lastName?: string | null; avatarUrl?: string | null; email?: string | null };
+          role?: string | null;
+        }>("/api/profile/me");
+        if (data?.user) {
           setUserData({
-            firstName: res.data.firstName || '',
-            lastName: res.data.lastName || '',
-            avatarUrl: resolveAvatarUrl(res.data.avatarUrl) || '',
-            email: res.data.email || '',
-            role: res.data.role || '',
+            firstName: data.user.firstName || '',
+            lastName: data.user.lastName || '',
+            avatarUrl: resolveAvatarUrl(data.user.avatarUrl) || '',
+            email: data.user.email || '',
+            role: data.role || '',
           });
         }
       } catch (err) {

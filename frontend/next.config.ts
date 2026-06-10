@@ -1,4 +1,8 @@
 import type { NextConfig } from "next";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const frontendRoot = path.dirname(fileURLToPath(import.meta.url));
 
 const securityHeaders = [
   { key: "Content-Security-Policy", value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; img-src 'self' data: blob: https: http://localhost:3000 http://localhost:3010 http://127.0.0.1:3000 http://127.0.0.1:3010 http://10.103.0.91:3000 http://10.103.0.91:3010; font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com; connect-src 'self' https: http://localhost:3000 http://localhost:3010 http://127.0.0.1:3000 http://127.0.0.1:3010 http://10.103.0.91:3000 http://10.103.0.91:3010; frame-src https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" },
@@ -10,6 +14,10 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Keep Turbopack scoped to frontend/ (avoids picking up repo-root instrumentation.ts).
+  turbopack: {
+    root: frontendRoot,
+  },
   allowedDevOrigins: ["10.103.0.91", "10.103.0.*", "*.10.103.0.*"],
   experimental: {
     optimizePackageImports: ["@iconify/react", "react-icons"],

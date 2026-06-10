@@ -26,8 +26,21 @@ function createPool() {
     password,
     database,
     port,
+    // --- Capacity ---
+    waitForConnections: true,
     connectionLimit: 10,
+    queueLimit: 0,
+    // --- Stale-connection protection ---
+    // MySQL closes idle connections after `wait_timeout` (default 8h). Recycle
+    // pooled connections well before that so a request after a long idle period
+    // never grabs a dead socket (the cause of overnight "ECONNRESET" failures).
+    maxIdle: 10,
+    idleTimeout: 300000, // 5 min — evict idle connections proactively
+    // TCP keepalive keeps active connections healthy across NAT/Docker.
     enableKeepAlive: true,
+    keepAliveInitialDelay: 10000,
+    // Fail fast instead of hanging if MySQL is briefly unreachable.
+    connectTimeout: 20000,
   });
 }
 

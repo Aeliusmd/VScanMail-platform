@@ -5,12 +5,16 @@
   "scripts": {
     "dev": "next dev --turbopack -H 0.0.0.0 -p 3001",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -H 0.0.0.0 -p 3001",
     "lint": "eslint"
   },
   "dependencies": {
     "@iconify/react": "^6.0.2",
     "@marsidev/react-turnstile": "^1.5.2",
+    "bcryptjs": "^3.0.2",
+    "drizzle-orm": "^0.45.2",
+    "jose": "^6.1.0",
+    "mysql2": "^3.14.3",
     "next": "^16.2.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -19,6 +23,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20.19.39",
     "@types/react": "^19.2.14",

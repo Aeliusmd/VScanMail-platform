@@ -42,7 +42,13 @@
       "Bash(echo \"exit: $?\")",
       "Bash(cmd *)",
       "Bash(python3 *)",
-      "Bash(python *)"
+      "Bash(python *)",
+      "WebSearch",
+      "Read(//c/Users/VisalC/.claude/**)",
+      "Bash(mkdir -p d:/Visal/VScanmail/.claude/skills)"
+    ],
+    "additionalDirectories": [
+      "d:\\Visal\\VScanmail\\.claude"
     ]
   }
 }
