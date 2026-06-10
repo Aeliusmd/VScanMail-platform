@@ -238,32 +238,49 @@ export const deliveryModel = {
     const allClientsRaw = await db.select({ id: clients.id, tableName: clients.tableName }).from(clients);
     if (!allClientsRaw.length) return { deliveries: [] as DeliveryRow[] };
 
-    const [tablesResult] = await db.execute(sql`SHOW TABLES`);
-    const existingTableNames = new Set(((tablesResult as unknown) as any[]).map((row) => Object.values(row)[0] as string));
+    const existingTableNames = await getExistingTableNames();
     const allClients = allClientsRaw.filter((c) => existingTableNames.has(c.tableName));
     if (!allClients.length) return { deliveries: [] as DeliveryRow[] };
 
-    await Promise.all(allClients.map((c) => ensureClientTableDeliveryColumns(c.tableName)));
+    const clientMetaRows = await db
+      .select({ id: clients.id, companyName: clients.companyName, email: clients.email })
+      .from(clients);
+    const clientMeta = new Map(clientMetaRows.map((r) => [r.id, r]));
 
-    const unionParts = allClients.map(
-      (c) =>
-        `SELECT ${COLUMN_LIST}, '${c.id}' AS clientId
-         FROM \`${c.tableName}\`
-         WHERE record_type IN ('cheque','letter','package','legal')
-           AND delivery_requested_at IS NOT NULL`
+    const collected: any[] = [];
+    await Promise.all(
+      allClients.map(async (c) => {
+        try {
+          await ensureClientTableDeliveryColumns(c.tableName);
+          const [rows] = (await db.execute(
+            sql.raw(
+              `SELECT ${COLUMN_LIST}, '${escapeSql(c.id)}' AS clientId
+               FROM ${escapeIdent(c.tableName)}
+               WHERE record_type IN ('cheque','letter','package','legal')
+                 AND delivery_requested_at IS NOT NULL`
+            )
+          )) as any;
+          const meta = clientMeta.get(c.id);
+          for (const r of rows as any[]) {
+            collected.push({
+              ...r,
+              clientId: c.id,
+              clientName: meta?.companyName,
+              clientEmail: meta?.email,
+            });
+          }
+        } catch (err) {
+          console.warn(`[deliveryModel] skip listAllForAdmin for ${c.tableName}:`, err);
+        }
+      })
     );
-    const unionSql = unionParts.join(" UNION ALL ");
 
-    const [rows] = (await db.execute(
-      sql.raw(
-        `SELECT q.*, cl.company_name AS clientName, cl.email AS clientEmail
-         FROM (${unionSql}) q
-         INNER JOIN \`clients\` cl ON q.clientId = cl.id
-         ORDER BY q.delivery_requested_at DESC
-         LIMIT ${Number(limit)}`
-      )
-    )) as any;
+    collected.sort((a, b) => {
+      const ta = a.delivery_requested_at ? new Date(a.delivery_requested_at).getTime() : 0;
+      const tb = b.delivery_requested_at ? new Date(b.delivery_requested_at).getTime() : 0;
+      return tb - ta;
+    });
 
-    return { deliveries: (rows as any[]).map((r) => mapRow(r)) };
+    return { deliveries: collected.slice(0, limit).map((r) => mapRow(r)) };
   },
 };

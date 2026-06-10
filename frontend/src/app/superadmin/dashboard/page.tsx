@@ -113,7 +113,7 @@ export default function SuperAdminDashboardPage() {
         up: true,
       },
       {
-        label: "Open Deposit Requests",
+        label: "Pending Deposit Requests",
         value: s ? String(s.openDeposits) : "—",
         icon: "ri-exchange-dollar-line",
         change: s ? `+${s.openDepositsToday} today` : "—",

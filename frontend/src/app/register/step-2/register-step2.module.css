@@ -352,6 +352,18 @@
   text-decoration: underline;
 }
 
+.inputError {
+  border-color: #EF4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
+}
+
+.fieldError {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #EF4444;
+  font-family: 'Roboto';
+}
+
 @media (min-width: 1201px) and (max-width: 1700px) {
   .page {
     --register-gutter: min(260px, 18vw);

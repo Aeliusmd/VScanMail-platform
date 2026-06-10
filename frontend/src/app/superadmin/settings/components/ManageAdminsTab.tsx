@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Icon } from "@iconify/react";
+import { EMAIL_RE, PHONE_RE, EMAIL_ERROR_MSG, PHONE_ERROR_MSG } from "@/lib/validation";
 
 interface Admin {
   id: string;
@@ -50,6 +51,8 @@ export default function ManageAdminsTab() {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [emailError, setEmailError] = useState("");
+  const [phoneError, setPhoneError] = useState("");
 
   // ------------------------------------------------------------------
   // Fetch admins from backend
@@ -81,6 +84,8 @@ export default function ManageAdminsTab() {
     setForm(emptyForm);
     setSaveError("");
     setSaveSuccess(false);
+    setEmailError("");
+    setPhoneError("");
     setShowPassword(false);
     setShowPanel(true);
   };
@@ -97,6 +102,8 @@ export default function ManageAdminsTab() {
     });
     setSaveError("");
     setSaveSuccess(false);
+    setEmailError("");
+    setPhoneError("");
     setShowPanel(true);
   };
 
@@ -107,6 +114,14 @@ export default function ManageAdminsTab() {
     if (!form.fullName || !form.email) return;
     if (panelMode === "add" && !form.password) {
       setSaveError("Password is required when creating a new admin.");
+      return;
+    }
+    if (panelMode === "add" && form.email && !EMAIL_RE.test(form.email)) {
+      setEmailError(EMAIL_ERROR_MSG);
+      return;
+    }
+    if (form.phone && !PHONE_RE.test(form.phone)) {
+      setPhoneError(PHONE_ERROR_MSG);
       return;
     }
 
@@ -516,14 +531,18 @@ export default function ManageAdminsTab() {
                     <input
                       type="email"
                       value={form.email}
-                      onChange={(e) =>
-                        setForm((p) => ({ ...p, email: e.target.value }))
-                      }
+                      onChange={(e) => {
+                        setForm((p) => ({ ...p, email: e.target.value }));
+                        if (panelMode === "add") {
+                          setEmailError(e.target.value && !EMAIL_RE.test(e.target.value) ? EMAIL_ERROR_MSG : "");
+                        }
+                      }}
                       disabled={panelMode === "edit"}
                       placeholder="admin@vscanmail.com"
                       className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-2 focus:ring-[#0A3D8F]/10 transition-all shadow-sm disabled:bg-slate-50 disabled:text-slate-400"
                     />
                   </div>
+                  {emailError && <p className="mt-1 text-xs text-red-500 font-normal">{emailError}</p>}
                   {panelMode === "edit" && (
                     <p className="text-xs text-slate-400 mt-1">
                       Email cannot be changed after account creation.
@@ -542,15 +561,17 @@ export default function ManageAdminsTab() {
                       className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-base"
                     />
                     <input
-                      type="text"
+                      type="tel"
                       value={form.phone}
-                      onChange={(e) =>
-                        setForm((p) => ({ ...p, phone: e.target.value }))
-                      }
+                      onChange={(e) => {
+                        setForm((p) => ({ ...p, phone: e.target.value }));
+                        setPhoneError(e.target.value && !PHONE_RE.test(e.target.value) ? PHONE_ERROR_MSG : "");
+                      }}
                       placeholder="+1 (000) 000-0000"
                       className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-2 focus:ring-[#0A3D8F]/10 transition-all shadow-sm"
                     />
                   </div>
+                  {phoneError && <p className="mt-1 text-xs text-red-500 font-normal">{phoneError}</p>}
                 </div>
 
                 {/* Password (Add only) */}
@@ -640,7 +661,9 @@ export default function ManageAdminsTab() {
                       saving ||
                       !form.fullName ||
                       !form.email ||
-                      (panelMode === "add" && !form.password)
+                      (panelMode === "add" && !form.password) ||
+                      !!emailError ||
+                      !!phoneError
                     }
                     className="flex-1 py-2.5 bg-[#0A3D8F] text-white font-bold rounded-xl hover:bg-[#083170] transition-all text-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md active:scale-[0.98]"
                   >

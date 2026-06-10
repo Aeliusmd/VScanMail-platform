@@ -15,7 +15,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(result);
   } catch (error: any) {
     if (error instanceof Response) return error as any;
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    console.error("[admin/deposits] GET failed:", error);
+    return NextResponse.json({ error: "Failed to load deposits" }, { status: 500 });
   }
 }
 

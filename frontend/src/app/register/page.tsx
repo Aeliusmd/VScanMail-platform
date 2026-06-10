@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { HiArrowRight } from "react-icons/hi2";
 import styles from "./register.module.css";
+import { EMAIL_RE, PHONE_RE, COMPANY_NAME_RE, MAX_COMPANY_NAME, PHONE_ERROR_MSG, EMAIL_ERROR_MSG, COMPANY_NAME_ERROR_MSG } from "@/lib/validation";
 
 export default function RegisterStep1() {
   const router = useRouter();
@@ -22,6 +23,9 @@ export default function RegisterStep1() {
     zipCode: "",
     country: "",
   });
+  const [phoneError, setPhoneError] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [companyNameError, setCompanyNameError] = useState("");
 
   useEffect(() => {
     const raw = localStorage.getItem("registerStep1");
@@ -45,11 +49,33 @@ export default function RegisterStep1() {
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+    if (name === "companyName") {
+      setCompanyNameError(value && !COMPANY_NAME_RE.test(value) ? COMPANY_NAME_ERROR_MSG : "");
+    }
+    if (name === "companyPhone") {
+      setPhoneError(value && !PHONE_RE.test(value) ? PHONE_ERROR_MSG : "");
+    }
+    if (name === "companyEmail") {
+      setEmailError(value && !EMAIL_RE.test(value) ? EMAIL_ERROR_MSG : "");
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (formData.companyName && !COMPANY_NAME_RE.test(formData.companyName)) {
+      setCompanyNameError(COMPANY_NAME_ERROR_MSG);
+      return;
+    }
+    if (formData.companyEmail && !EMAIL_RE.test(formData.companyEmail)) {
+      setEmailError(EMAIL_ERROR_MSG);
+      return;
+    }
+    if (formData.companyPhone && !PHONE_RE.test(formData.companyPhone)) {
+      setPhoneError(PHONE_ERROR_MSG);
+      return;
+    }
     localStorage.setItem("registerStep1", JSON.stringify(formData));
     router.push("/register/step-2");
   };
@@ -109,9 +135,17 @@ export default function RegisterStep1() {
                 value={formData.companyName}
                 onChange={handleChange}
                 placeholder="Enter company name"
-                className={styles.input}
+                className={`${styles.input} ${companyNameError ? styles.inputError : ""}`}
+                maxLength={MAX_COMPANY_NAME}
                 required
               />
+              {companyNameError && <p className={styles.fieldError}>{companyNameError}</p>}
+              {!companyNameError && formData.companyName.length > 150 && (
+                <p className={`${styles.fieldError} ${formData.companyName.length >= MAX_COMPANY_NAME ? "" : styles.charCounterNear}`}>
+                  {formData.companyName.length}/{MAX_COMPANY_NAME} characters
+                  {formData.companyName.length >= MAX_COMPANY_NAME ? " — limit reached" : ""}
+                </p>
+              )}
             </div>
 
             <div className={styles.fieldRow}>
@@ -166,9 +200,10 @@ export default function RegisterStep1() {
                   value={formData.companyEmail}
                   onChange={handleChange}
                   placeholder="company@example.com"
-                  className={styles.input}
+                  className={`${styles.input} ${emailError ? styles.inputError : ""}`}
                   required
                 />
+                {emailError && <p className={styles.fieldError}>{emailError}</p>}
               </div>
               <div className={styles.fieldGroup}>
                 <label htmlFor="companyPhone" className={styles.label}>
@@ -181,9 +216,10 @@ export default function RegisterStep1() {
                   value={formData.companyPhone}
                   onChange={handleChange}
                   placeholder="+1 (555) 000-0000"
-                  className={styles.input}
+                  className={`${styles.input} ${phoneError ? styles.inputError : ""}`}
                   required
                 />
+                {phoneError && <p className={styles.fieldError}>{phoneError}</p>}
               </div>
             </div>
 

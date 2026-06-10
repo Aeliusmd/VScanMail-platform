@@ -117,7 +117,7 @@ export default function SuperAdminDashboardPage() {
     { label: "Total Companies", value: "156", icon: "ri-building-4-line", change: "+8 this month", up: true },
     { label: "Active Admins", value: "4", icon: "ri-user-settings-line", change: "3 online now", up: true },
     {
-      label: "Open Deposit Requests",
+      label: "Pending Deposit Requests",
       value: "23",
       icon: "ri-exchange-dollar-line",
       change: "+5 today",

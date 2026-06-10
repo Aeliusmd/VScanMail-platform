@@ -9,6 +9,31 @@ import { HiOutlineEye, HiOutlineEyeSlash } from "react-icons/hi2";
 import { Turnstile } from "@marsidev/react-turnstile";
 import styles from "./register-step3.module.css";
 
+const FIELD_LABELS: Record<string, string> = {
+  companyName: "Company name",
+  email: "Email",
+  phone: "Phone number",
+  password: "Password",
+  registrationNo: "Registration number",
+};
+
+function parseServerError(raw: string): string {
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed.map((e: { code?: string; maximum?: number; minimum?: number; message?: string; path?: string[] }) => {
+        const field = FIELD_LABELS[e.path?.[0] ?? ""] ?? e.path?.[0] ?? "Field";
+        if (e.code === "too_big") return `${field} must be ${e.maximum} characters or less.`;
+        if (e.code === "too_small") return `${field} must be at least ${e.minimum} characters.`;
+        return e.message ?? "Invalid input.";
+      }).join(" ");
+    }
+  } catch {
+    // not JSON — fall through
+  }
+  return raw;
+}
+
 const passwordRequirements = [
   { label: "At least 8 characters long", test: (p: string) => p.length >= 8 },
   { label: "Include uppercase and lowercase letters", test: (p: string) => /[A-Z]/.test(p) && /[a-z]/.test(p) },
@@ -121,10 +146,15 @@ export default function RegisterStep3() {
         body: JSON.stringify(payload),
       });
 
-      const result = await response.json();
+      let result: { error?: string; [key: string]: unknown } = {};
+      try {
+        result = await response.json();
+      } catch {
+        // server returned a non-JSON body (e.g. 500 HTML page)
+      }
 
       if (!response.ok) {
-        throw new Error(result.error || "Registration failed");
+        throw new Error(parseServerError(result.error || "Something went wrong. Please try again."));
       }
 
       // Success — keep selectedPlanId until checkout completes (cleared on login?checkout=success).

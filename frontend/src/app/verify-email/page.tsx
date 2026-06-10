@@ -146,8 +146,8 @@ function VerifyEmailInner() {
       setError("Missing email in verification link.");
       return;
     }
-    if (otp.trim().length !== 6) {
-      setError("Enter the 6-digit OTP code.");
+    if (!/^\d{6}$/.test(otp.trim())) {
+      setError("Enter the 6-digit numeric code sent to your email.");
       return;
     }
 
@@ -200,7 +200,7 @@ function VerifyEmailInner() {
               <label className="text-xs text-slate-500">OTP code</label>
               <input
                 value={otp}
-                onChange={(e) => setOtp(e.target.value)}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
                 inputMode="numeric"
                 maxLength={6}
                 className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-[#0A3D8F]/20 text-slate-900 placeholder:text-slate-400"

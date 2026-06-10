@@ -5,6 +5,7 @@ import { getProfile, updateProfile, updatePassword, uploadAvatar } from "../prof
 import ImageCropperModal from "./ImageCropperModal";
 import { getCroppedImg } from "@/lib/image-utils";
 import { Area } from "react-easy-crop";
+import { EMAIL_RE, PHONE_RE, EMAIL_ERROR_MSG, PHONE_ERROR_MSG } from "@/lib/validation";
 
 export default function ProfileTab() {
   const [loading, setLoading] = useState(true);
@@ -21,6 +22,8 @@ export default function ProfileTab() {
 
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState("");
+  const [phoneError, setPhoneError] = useState("");
   const [passwordForm, setPasswordForm] = useState({ current: '', newPass: '', confirm: '' });
   const [pwSuccess, setPwSuccess] = useState(false);
   const [pwError, setPwError] = useState<string | null>(null);
@@ -52,6 +55,14 @@ export default function ProfileTab() {
   const handleSave = async () => {
     setSaveSuccess(false);
     setError(null);
+    if (profile.email && !EMAIL_RE.test(profile.email)) {
+      setEmailError(EMAIL_ERROR_MSG);
+      return;
+    }
+    if (profile.phone && !PHONE_RE.test(profile.phone)) {
+      setPhoneError(PHONE_ERROR_MSG);
+      return;
+    }
     const res = await updateProfile(profile);
     if (res.success) {
       setSaveSuccess(true);
@@ -241,20 +252,22 @@ export default function ProfileTab() {
             <input
               type="email"
               value={profile.email}
-              onChange={e => setProfile(p => ({ ...p, email: e.target.value }))}
+              onChange={e => { setProfile(p => ({ ...p, email: e.target.value })); setEmailError(e.target.value && !EMAIL_RE.test(e.target.value) ? EMAIL_ERROR_MSG : ""); }}
               placeholder="Enter email"
               className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all"
             />
+            {emailError && <p className="mt-1 text-xs text-red-500 font-normal">{emailError}</p>}
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">Phone Number</label>
             <input
-              type="text"
+              type="tel"
               value={profile.phone}
-              onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))}
+              onChange={e => { setProfile(p => ({ ...p, phone: e.target.value })); setPhoneError(e.target.value && !PHONE_RE.test(e.target.value) ? PHONE_ERROR_MSG : ""); }}
               placeholder="Enter phone number"
               className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all"
             />
+            {phoneError && <p className="mt-1 text-xs text-red-500 font-normal">{phoneError}</p>}
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">Role</label>

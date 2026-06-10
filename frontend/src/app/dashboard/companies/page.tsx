@@ -9,6 +9,7 @@ import ClickedCompany from './components/ClickedCompany';
 import styles from './page.module.css';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { EMAIL_RE, PHONE_RE, COMPANY_NAME_RE, EMAIL_ERROR_MSG, PHONE_ERROR_MSG, COMPANY_NAME_ERROR_MSG } from '@/lib/validation';
 
 type TabType = 'All' | 'Active' | 'Pending' | 'Inactive';
 
@@ -37,6 +38,9 @@ function CompaniesPageContent() {
   const [addLoading, setAddLoading] = useState(false);
   const [addSuccess, setAddSuccess] = useState(false);
   const [addError, setAddError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [companyNameError, setCompanyNameError] = useState('');
   const [newCompany, setNewCompany] = useState({
     name: '',
     industry: 'Technology',
@@ -121,6 +125,18 @@ function CompaniesPageContent() {
 
   const handleAddCompany = async () => {
     if (!newCompany.name || !newCompany.email) return;
+    if (newCompany.name && !COMPANY_NAME_RE.test(newCompany.name)) {
+      setCompanyNameError(COMPANY_NAME_ERROR_MSG);
+      return;
+    }
+    if (newCompany.email && !EMAIL_RE.test(newCompany.email)) {
+      setEmailError(EMAIL_ERROR_MSG);
+      return;
+    }
+    if (newCompany.phone && !PHONE_RE.test(newCompany.phone)) {
+      setPhoneError(PHONE_ERROR_MSG);
+      return;
+    }
 
     try {
       setAddLoading(true);
@@ -160,6 +176,8 @@ function CompaniesPageContent() {
       window.setTimeout(() => {
         setShowAddModal(false);
         setAddSuccess(false);
+        setPhoneError('');
+        setEmailError('');
         setNewCompany({
           name: '',
           industry: 'Technology',
@@ -386,7 +404,8 @@ function CompaniesPageContent() {
                   <div className="space-y-4">
                     <div>
                       <label className="block text-xs font-semibold text-slate-600 mb-1.5">Company Name <span className="text-red-500">*</span></label>
-                      <input type="text" value={newCompany.name} onChange={(e) => setNewCompany((p) => ({ ...p, name: e.target.value }))} placeholder="e.g. Acme Corporation" className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all shadow-sm" />
+                      <input type="text" value={newCompany.name} onChange={(e) => { setNewCompany((p) => ({ ...p, name: e.target.value })); setCompanyNameError(e.target.value && !COMPANY_NAME_RE.test(e.target.value) ? COMPANY_NAME_ERROR_MSG : ""); }} placeholder="e.g. Acme Corporation" maxLength={200} className={`w-full px-4 py-2.5 border rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-1 transition-all shadow-sm ${companyNameError ? 'border-red-400 focus:border-red-400 focus:ring-red-400/20' : 'border-slate-200 focus:border-[#0A3D8F] focus:ring-[#0A3D8F]/20'}`} />
+                      {companyNameError && <p className="mt-1 text-xs text-red-500">{companyNameError}</p>}
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -434,8 +453,9 @@ function CompaniesPageContent() {
                       <label className="block text-xs font-semibold text-slate-600 mb-1.5">Email Address <span className="text-red-500">*</span></label>
                       <div className="relative">
                         <i className="ri-mail-line absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-base"></i>
-                        <input type="email" value={newCompany.email} onChange={(e) => setNewCompany((p) => ({ ...p, email: e.target.value }))} placeholder="info@company.com" className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all shadow-sm" />
+                        <input type="email" value={newCompany.email} onChange={(e) => { setNewCompany((p) => ({ ...p, email: e.target.value })); setEmailError(e.target.value && !EMAIL_RE.test(e.target.value) ? EMAIL_ERROR_MSG : ""); }} placeholder="info@company.com" className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all shadow-sm" />
                       </div>
+                      {emailError && <p className="mt-1 text-xs text-red-500 font-normal">{emailError}</p>}
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -446,8 +466,9 @@ function CompaniesPageContent() {
                         <label className="block text-xs font-semibold text-slate-600 mb-1.5">Phone</label>
                         <div className="relative">
                           <i className="ri-phone-line absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-base"></i>
-                          <input type="text" value={newCompany.phone} onChange={(e) => setNewCompany((p) => ({ ...p, phone: e.target.value }))} placeholder="+1 (000) 000-0000" className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all shadow-sm" />
+                          <input type="tel" value={newCompany.phone} onChange={(e) => { setNewCompany((p) => ({ ...p, phone: e.target.value })); setPhoneError(e.target.value && !PHONE_RE.test(e.target.value) ? PHONE_ERROR_MSG : ""); }} placeholder="+1 (000) 000-0000" className={`w-full pl-10 pr-4 py-2.5 border rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-1 transition-all shadow-sm ${phoneError ? 'border-red-400 focus:border-red-400 focus:ring-red-400/20' : 'border-slate-200 focus:border-[#0A3D8F] focus:ring-[#0A3D8F]/20'}`} />
                         </div>
+                        {phoneError && <p className="mt-1 text-xs text-red-500">{phoneError}</p>}
                       </div>
                     </div>
                   </div>
@@ -485,12 +506,12 @@ function CompaniesPageContent() {
                   )}
                 </div>
                 <div className="flex items-center space-x-3">
-                  <button onClick={() => setShowAddModal(false)} className="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 font-semibold rounded-xl hover:bg-slate-50 transition-colors text-sm whitespace-nowrap cursor-pointer shadow-sm">
+                  <button onClick={() => { setShowAddModal(false); setPhoneError(''); setEmailError(''); setCompanyNameError(''); }} className="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 font-semibold rounded-xl hover:bg-slate-50 transition-colors text-sm whitespace-nowrap cursor-pointer shadow-sm">
                     Cancel
                   </button>
-                  <button 
-                    onClick={handleAddCompany} 
-                    disabled={!newCompany.name || !newCompany.email || addLoading} 
+                  <button
+                    onClick={handleAddCompany}
+                    disabled={!newCompany.name || !newCompany.email || addLoading || !!phoneError || !!emailError || !!companyNameError}
                     className="flex-1 py-2.5 bg-[#0A3D8F] text-white font-bold rounded-xl hover:bg-[#083170] transition-colors text-sm whitespace-nowrap cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center space-x-2 shadow-md hover:shadow-lg active:scale-[0.98]"
                   >
                     {addLoading ? (

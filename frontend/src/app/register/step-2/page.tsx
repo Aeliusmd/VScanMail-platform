@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { HiArrowRight, HiArrowLeft } from "react-icons/hi2";
 import { HiInformationCircle } from "react-icons/hi2";
 import styles from "./register-step2.module.css";
+import { EMAIL_RE, PHONE_RE, PHONE_ERROR_MSG, EMAIL_ERROR_MSG } from "@/lib/validation";
 
 export default function RegisterStep2() {
   const router = useRouter();
@@ -17,6 +18,8 @@ export default function RegisterStep2() {
     emailAddress: "",
     phoneNumber: "",
   });
+  const [emailError, setEmailError] = useState("");
+  const [phoneError, setPhoneError] = useState("");
 
   useEffect(() => {
     const step1Data = localStorage.getItem("registerStep1");
@@ -39,11 +42,26 @@ export default function RegisterStep2() {
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+    if (name === "emailAddress") {
+      setEmailError(value && !EMAIL_RE.test(value) ? EMAIL_ERROR_MSG : "");
+    }
+    if (name === "phoneNumber") {
+      setPhoneError(value && !PHONE_RE.test(value) ? PHONE_ERROR_MSG : "");
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (formData.emailAddress && !EMAIL_RE.test(formData.emailAddress)) {
+      setEmailError(EMAIL_ERROR_MSG);
+      return;
+    }
+    if (formData.phoneNumber && !PHONE_RE.test(formData.phoneNumber)) {
+      setPhoneError(PHONE_ERROR_MSG);
+      return;
+    }
     localStorage.setItem("registerStep2", JSON.stringify(formData));
     router.push("/register/step-3");
   };
@@ -144,9 +162,10 @@ export default function RegisterStep2() {
                   value={formData.emailAddress}
                   onChange={handleChange}
                   placeholder="john@company.com"
-                  className={styles.input}
+                  className={`${styles.input} ${emailError ? styles.inputError : ""}`}
                   required
                 />
+                {emailError && <p className={styles.fieldError}>{emailError}</p>}
               </div>
               <div className={styles.fieldGroup}>
                 <label htmlFor="phoneNumber" className={styles.label}>
@@ -159,9 +178,10 @@ export default function RegisterStep2() {
                   value={formData.phoneNumber}
                   onChange={handleChange}
                   placeholder="+1 (555) 000-0000"
-                  className={styles.input}
+                  className={`${styles.input} ${phoneError ? styles.inputError : ""}`}
                   required
                 />
+                {phoneError && <p className={styles.fieldError}>{phoneError}</p>}
               </div>
             </div>
 

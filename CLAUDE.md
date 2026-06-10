@@ -27,15 +27,47 @@ $resp = Invoke-RestMethod "https://dev.azure.com/MedCubeUSA/Medcube%20AI/_apis/w
 ```
 
 ### Step 2 — Download Screenshots to logs/
-```powershell
-$imageExts = @('.png','.jpg','.jpeg','.gif','.webp')
-$attachments = $item.relations | Where-Object { $_.rel -eq 'AttachedFile' }
-$images = $attachments | Where-Object { $imageExts -contains [IO.Path]::GetExtension($_.attributes.name).ToLower() }
 
-foreach ($img in $images) {
-    $dest = "logs/bug-$id-$($img.attributes.name)"
-    Invoke-WebRequest $img.url -Headers @{ Authorization = "Basic $base64" } -OutFile $dest
+Images can come from TWO places — always check both:
+
+**Source A: AttachedFile relations**
+```powershell
+$imageExts = @('.png','.jpg','.jpeg','.gif','.webp','.bmp')
+$relImages = $item.relations | Where-Object {
+    $_.rel -eq 'AttachedFile' -and
+    $imageExts -contains ([IO.Path]::GetExtension($_.attributes.name).ToLower())
 }
+$downloadedPaths = @()
+foreach ($img in $relImages) {
+    $dest = "logs/bug${id}-$($img.attributes.name)"
+    Invoke-WebRequest $img.url -Headers @{ Authorization = "Basic $base64" } -OutFile $dest
+    $downloadedPaths += $dest
+}
+```
+
+**Source B: Embedded `<img src="...">` inside HTML fields (Description / ReproSteps / AcceptanceCriteria)**
+```powershell
+$rawHtmlFields = @(
+    $item.fields.'System.Description',
+    $item.fields.'Microsoft.VSTS.TCM.ReproSteps',
+    $item.fields.'Microsoft.VSTS.Common.AcceptanceCriteria'
+) | Where-Object { $_ }
+
+$embeddedIdx = 0
+foreach ($html in $rawHtmlFields) {
+    $imgMatches = [regex]::Matches($html, '<img[^>]+src="([^"]+)"')
+    foreach ($m in $imgMatches) {
+        $src = $m.Groups[1].Value
+        # Only download from Azure DevOps — skip external widgets (Cloudflare, etc.)
+        if ($src -match 'dev\.azure\.com|vstfs|attachments') {
+            $embeddedIdx++
+            $dest = "logs/bug${id}-embedded-${embeddedIdx}.png"
+            Invoke-WebRequest $src -Headers @{ Authorization = "Basic $base64" } -OutFile $dest
+            $downloadedPaths += $dest
+        }
+    }
+}
+Write-Host "Total images downloaded: $($downloadedPaths.Count)"
 ```
 
 ### Step 3 — Read & Understand

@@ -5,6 +5,42 @@ import { clients, profiles, users } from "@/lib/modules/core/db/schema";
 import { desc, eq } from "drizzle-orm";
 import { depositModel } from "@/lib/modules/records/deposit.model";
 import { deliveryModel } from "@/lib/modules/records/delivery.model";
+import {
+  ensureClientTableDepositColumns,
+  ensureClientTableDeliveryColumns,
+} from "@/lib/modules/core/db/dynamic-table";
+
+/** Matches admin deposits "Pending" tab: requested, not deposited, awaiting decision. */
+const PENDING_DEPOSIT_FILTER = `
+  record_type = 'cheque'
+  AND deposit_requested_at IS NOT NULL
+  AND deposit_marked_deposited_at IS NULL
+  AND (deposit_decision IS NULL OR deposit_decision = 'pending')`;
+
+/** Matches admin deliveries "Pending" tab: requested mail/cheque deliveries awaiting decision. */
+const PENDING_DELIVERY_FILTER = `
+  record_type IN ('cheque','letter','package','legal')
+  AND delivery_requested_at IS NOT NULL
+  AND delivery_status = 'pending'`;
+
+/** Sum COUNT(*) across per-client tables; skip tables that fail (legacy/incomplete schema). */
+async function sumTableCounts(
+  tableNames: string[],
+  whereSql: string
+): Promise<number> {
+  let total = 0;
+  for (const tableName of tableNames) {
+    try {
+      const [rows] = (await db.execute(
+        sql.raw(`SELECT COUNT(*) AS c FROM \`${tableName}\` WHERE ${whereSql}`)
+      )) as any;
+      total += Number(rows?.[0]?.c || 0);
+    } catch (err) {
+      console.warn(`[superadmin/dashboard] skip count for ${tableName}:`, err);
+    }
+  }
+  return total;
+}
 
 function startOfThisMonthUtc(): Date {
   const now = new Date();
@@ -16,12 +52,13 @@ function depositStatusLabel(d: any): string {
   if (d?.decision === "rejected") return "Rejected";
   if (d?.decision === "approved") return "Approved";
   if (d?.slipUploadedAt) return "Slip Uploaded";
-  return "Open";
+  return "Pending";
 }
 
 function deliveryStatusLabel(s: string | null): string {
+  if (s === "pending") return "Pending";
   if (!s) return "Pending";
-  if (s === "in_transit") return "On the Way";
+  if (s === "in_transit") return "In Transit";
   return s.replaceAll("_", " ").replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
@@ -83,55 +120,17 @@ export async function GET(req: NextRequest) {
     const existingTableNames = new Set(((tablesResult as unknown) as any[]).map((row) => Object.values(row)[0] as string));
     const tableNames = allClientTables.map((r) => r.tableName).filter((t) => existingTableNames.has(t));
 
-    const openDepositUnion = tableNames
-      .map(
-        (t) =>
-          `SELECT COUNT(*) AS c FROM \`${t}\`
-           WHERE record_type = 'cheque'
-             AND deposit_requested_at IS NOT NULL
-             AND (deposit_decision IS NULL OR deposit_decision = '')`
-      )
-      .join(" UNION ALL ");
-    const openDepositTodayUnion = tableNames
-      .map(
-        (t) =>
-          `SELECT COUNT(*) AS c FROM \`${t}\`
-           WHERE record_type = 'cheque'
-             AND deposit_requested_at IS NOT NULL
-             AND (deposit_decision IS NULL OR deposit_decision = '')
-             AND DATE(deposit_requested_at) = CURDATE()`
-      )
-      .join(" UNION ALL ");
-
-    const pendingDeliveryUnion = tableNames
-      .map(
-        (t) =>
-          `SELECT COUNT(*) AS c FROM \`${t}\`
-           WHERE delivery_requested_at IS NOT NULL
-             AND (delivery_status = 'pending' OR delivery_status IS NULL)`
-      )
-      .join(" UNION ALL ");
-    const pendingDeliveryTodayUnion = tableNames
-      .map(
-        (t) =>
-          `SELECT COUNT(*) AS c FROM \`${t}\`
-           WHERE delivery_requested_at IS NOT NULL
-             AND (delivery_status = 'pending' OR delivery_status IS NULL)
-             AND DATE(delivery_requested_at) = CURDATE()`
-      )
-      .join(" UNION ALL ");
-
-    const sumCounts = async (unionSql: string): Promise<number> => {
-      if (!unionSql) return 0;
-      const [rows] = (await db.execute(sql.raw(`SELECT SUM(c) AS total FROM (${unionSql}) q`))) as any;
-      return Number(rows?.[0]?.total || 0);
-    };
+    // Backfill schema on legacy per-client tables before aggregate counts.
+    await Promise.all([
+      ...tableNames.map((t) => ensureClientTableDepositColumns(t)),
+      ...tableNames.map((t) => ensureClientTableDeliveryColumns(t)),
+    ]);
 
     const [openDeposits, openDepositsToday, pendingDeliveries, pendingDeliveriesToday] = await Promise.all([
-      sumCounts(openDepositUnion),
-      sumCounts(openDepositTodayUnion),
-      sumCounts(pendingDeliveryUnion),
-      sumCounts(pendingDeliveryTodayUnion),
+      sumTableCounts(tableNames, PENDING_DEPOSIT_FILTER),
+      sumTableCounts(tableNames, `${PENDING_DEPOSIT_FILTER} AND DATE(deposit_requested_at) = CURDATE()`),
+      sumTableCounts(tableNames, PENDING_DELIVERY_FILTER),
+      sumTableCounts(tableNames, `${PENDING_DELIVERY_FILTER} AND DATE(delivery_requested_at) = CURDATE()`),
     ]);
 
     const [depositsRes, deliveriesRes] = await Promise.all([
@@ -217,7 +216,8 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: any) {
     if (error instanceof Response) return error as any;
-    return NextResponse.json({ error: error.message || "Failed to load dashboard" }, { status: 400 });
+    console.error("[superadmin/dashboard]", error);
+    return NextResponse.json({ error: "Failed to load dashboard" }, { status: 500 });
   }
 }
 
