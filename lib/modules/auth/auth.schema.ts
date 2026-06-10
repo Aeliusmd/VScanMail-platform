@@ -16,6 +16,10 @@ export const registerSchema = z.object({
   }),
   planType: z.enum(["subscription", "topup"]),
   planTier: z.enum(["starter", "professional", "enterprise"]).optional(),
+  contactName: z.string().max(255).optional(),
+  contactJob: z.string().max(255).optional(),
+  contactEmail: z.string().email().optional().or(z.literal("")),
+  contactPhone: z.string().max(64).optional(),
 });
 
 export const loginSchema = z.object({

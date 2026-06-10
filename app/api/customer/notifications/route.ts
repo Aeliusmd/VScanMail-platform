@@ -11,9 +11,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ notifications: rows });
   } catch (error: any) {
     if (error instanceof Response) return error as any;
+    console.error("[customer/notifications GET]", error?.message || error);
     return NextResponse.json(
-      { error: error.message || "Failed to load notifications" },
-      { status: 400 }
+      { error: "Failed to load notifications" },
+      { status: 500 }
     );
   }
 }

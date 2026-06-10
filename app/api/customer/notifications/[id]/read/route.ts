@@ -15,9 +15,10 @@ export async function PATCH(
     return NextResponse.json({ ok: true });
   } catch (error: any) {
     if (error instanceof Response) return error as any;
+    console.error("[customer/notifications/read PATCH]", error?.message || error);
     return NextResponse.json(
-      { error: error.message || "Failed to mark notification as read" },
-      { status: 400 }
+      { error: "Failed to mark notification as read" },
+      { status: 500 }
     );
   }
 }

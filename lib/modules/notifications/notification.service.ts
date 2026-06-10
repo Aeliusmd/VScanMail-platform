@@ -826,6 +826,75 @@ export const notificationService = {
     });
   },
 
+  async sendPlanChangedToManual(params: {
+    clientId: string;
+    companyName: string;
+    toEmail: string;
+    planName: string;
+    periodStart: string;
+    periodEnd: string;
+    amount: number;
+  }) {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+    const amountText = Number(params.amount || 0).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    const startLabel = params.periodStart
+      ? new Date(params.periodStart).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+      : "—";
+    const endLabel = params.periodEnd
+      ? new Date(params.periodEnd).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+      : "—";
+
+    const html = wrapInTemplate(`
+      <h1 style="font-size: 20px; color: #0f172a; margin-top: 0;">Your plan has been updated</h1>
+      <p style="color: #64748b; font-size: 15px;">
+        Your organization's plan has been changed to <strong style="color:#0f172a;">Manual</strong> by your VScanMail administrator.
+        Your service will continue uninterrupted for the coverage period shown below.
+      </p>
+
+      <div class="highlight-box">
+        <table class="detail-table">
+          <tr>
+            <td class="label">Organization</td>
+            <td class="value">${escapeHtml(params.companyName)}</td>
+          </tr>
+          <tr>
+            <td class="label">Plan</td>
+            <td class="value">${escapeHtml(params.planName)}</td>
+          </tr>
+          <tr>
+            <td class="label">Amount</td>
+            <td class="value">$${escapeHtml(amountText)}</td>
+          </tr>
+          <tr>
+            <td class="label">Coverage Start</td>
+            <td class="value">${escapeHtml(startLabel)}</td>
+          </tr>
+          <tr>
+            <td class="label">Coverage End</td>
+            <td class="value">${escapeHtml(endLabel)}</td>
+          </tr>
+        </table>
+      </div>
+
+      <p style="color: #64748b; font-size: 13px;">
+        If you have questions about your plan, please contact your administrator.
+      </p>
+
+      <div style="text-align: center; margin-top: 32px;">
+        <a href="${appUrl}/customer/account" class="button">View My Plan</a>
+      </div>
+    `);
+
+    await sendEmail({
+      to: params.toEmail,
+      subject: `VScanMail — Your plan has been updated to Manual`,
+      html,
+    });
+  },
+
   async sendBankAccountChangeAlert(
     clientId: string,
     payload: {

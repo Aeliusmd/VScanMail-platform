@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth, withRole } from "@/lib/modules/auth/auth.middleware";
 import { manualPaymentModel } from "@/lib/modules/billing/manual-payment.model";
+import { clientModel } from "@/lib/modules/clients/client.model";
+import { notificationService } from "@/lib/modules/notifications/notification.service";
+import { auditService } from "@/lib/modules/audit/audit.service";
+import { db } from "@/lib/modules/core/db/mysql";
+import { profiles } from "@/lib/modules/core/db/schema";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
 const manualPaymentSchema = z.object({
@@ -40,9 +46,57 @@ export async function POST(req: NextRequest) {
       period_end: data.periodEnd,
     }, req);
 
+    // Notify the organization that their plan has been set to Manual.
+    try {
+      const client = await clientModel.findById(data.clientId);
+      const months = data.durationMonths;
+      const planName =
+        months >= 12 ? "Manual Annual Plan" :
+        months >= 6  ? "Manual Semi-Annual Plan" :
+        months >= 3  ? "Manual Quarterly Plan" : "Manual Monthly Plan";
+
+      // Email notification
+      await notificationService.sendPlanChangedToManual({
+        clientId: data.clientId,
+        companyName: client.company_name,
+        toEmail: client.email,
+        planName,
+        periodStart: data.periodStart,
+        periodEnd: data.periodEnd,
+        amount: data.amount,
+      });
+
+      // In-app notification: find the client user for this org
+      const profileRows = await db
+        .select({ userId: profiles.userId })
+        .from(profiles)
+        .where(and(eq(profiles.clientId, data.clientId), eq(profiles.role, "client")))
+        .limit(1);
+
+      const clientUserId = profileRows[0]?.userId;
+      if (clientUserId) {
+        await auditService.log({
+          actor: user.id,
+          actor_role: "super_admin",
+          action: "billing.plan_changed_to_manual",
+          entity: record.id,
+          clientId: data.clientId,
+          notifRecipientId: clientUserId,
+          notifTitle: `Your plan has been updated to ${planName}`,
+          notifTargetUrl: "/customer/account",
+          req,
+        });
+      }
+    } catch (notifyErr) {
+      console.error("Failed to send plan-changed-to-manual notification:", notifyErr);
+    }
+
     return NextResponse.json(record, { status: 201 });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    console.error("[manual-payments POST] error:", error?.message || error);
+    const status = error instanceof Response ? (error as any).status ?? 400 : 400;
+    if (error instanceof Response) return error;
+    return NextResponse.json({ error: error?.message || "Unexpected error" }, { status });
   }
 }
 

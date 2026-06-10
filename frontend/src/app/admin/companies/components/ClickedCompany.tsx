@@ -65,8 +65,8 @@ export default function ClickedCompany({ company, onClose, onEdit, onDelete, onV
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
             <div className="bg-[#EEF2F7] rounded-xl p-4 border border-[#E2E8F0]">
               <p className="text-xs text-[#64748B] mb-1">Contact Person</p>
-              <p className="text-base font-semibold text-[#1E293B] leading-5">{company.contact}</p>
-              <p className="text-xs text-[#64748B] mt-1">{company.email}</p>
+              <p className="text-base font-semibold text-[#1E293B] leading-5">{company.contact || '—'}</p>
+              <p className="text-xs text-[#64748B] mt-1">{company.contactEmail || company.email}</p>
             </div>
             <div className="bg-[#EEF2F7] rounded-xl p-4 border border-[#E2E8F0]">
               <p className="text-xs text-[#64748B] mb-1">Phone</p>

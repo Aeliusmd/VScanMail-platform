@@ -679,30 +679,19 @@ function DepositsPageContent() {
       </div>
 
       {/* Filter tabs */}
-      <div className="bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center gap-1 overflow-x-auto shrink-0">
+      <div className="bg-slate-50 border-b border-slate-200 px-4 sm:px-6 py-2.5 flex items-center gap-1.5 overflow-x-auto shrink-0">
         {STATUS_TABS.map((tab) => (
           <button
             key={tab}
             type="button"
             onClick={() => setTab(tab)}
-            className={`px-3 sm:px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer shrink-0 ${
+            className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all whitespace-nowrap cursor-pointer shrink-0 ${
               statusFilter === tab
-                ? 'border-[#0A3D8F] text-[#0A3D8F]'
-                : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                ? 'bg-[#0A3D8F] text-white shadow-sm'
+                : 'text-slate-500 hover:text-slate-700 hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-200'
             }`}
           >
             {tab}
-            {tab !== 'All' && (
-              <span
-                className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${
-                  statusFilter === tab
-                    ? 'bg-[#0A3D8F]/10 text-[#0A3D8F]'
-                    : 'bg-slate-100 text-slate-500'
-                }`}
-              >
-                {countForStatus(tab)}
-              </span>
-            )}
           </button>
         ))}
       </div>

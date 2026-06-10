@@ -1,10 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, useCallback, type ReactNode } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useSuperAdminToolbarOptional } from "./SuperAdminToolbarContext";
 import { apiClient } from "@/lib/api-client";
+
+type CompanyResult = {
+  id: string;
+  company_name: string;
+  client_type: string;
+  status: string;
+};
 
 export type SuperAdminHeaderProps = {
   title: string;
@@ -37,7 +44,15 @@ export default function SuperAdminHeader({
   const profileRef = useRef<HTMLDivElement>(null);
   const profileBtnRef = useRef<HTMLButtonElement>(null);
 
+  const router = useRouter();
   const [userData, setUserData] = useState<{ firstName: string, lastName: string, avatarUrl: string, email: string, role: string } | null>(null);
+
+  const [globalSearch, setGlobalSearch] = useState("");
+  const [searchResults, setSearchResults] = useState<CompanyResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [showSearchDrop, setShowSearchDrop] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchUserProfile = async () => {
     try {
@@ -66,6 +81,58 @@ export default function SuperAdminHeader({
     window.addEventListener('profileUpdated', handleUpdate);
     return () => window.removeEventListener('profileUpdated', handleUpdate);
   }, []);
+
+  const runSearch = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      setShowSearchDrop(false);
+      return;
+    }
+    setSearchLoading(true);
+    try {
+      const data = await apiClient<{ clients: CompanyResult[] }>(
+        `/api/clients?search=${encodeURIComponent(query.trim())}&limit=8`
+      );
+      setSearchResults(data?.clients ?? []);
+      setShowSearchDrop(true);
+    } catch {
+      setSearchResults([]);
+    } finally {
+      setSearchLoading(false);
+    }
+  }, []);
+
+  const handleGlobalSearchChange = (value: string) => {
+    setGlobalSearch(value);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    if (!value.trim()) {
+      setSearchResults([]);
+      setShowSearchDrop(false);
+      return;
+    }
+    searchDebounceRef.current = setTimeout(() => runSearch(value), 300);
+  };
+
+  useEffect(() => {
+    function handlePointerDownSearch(e: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setShowSearchDrop(false);
+      }
+    }
+    document.addEventListener("mousedown", handlePointerDownSearch);
+    return () => document.removeEventListener("mousedown", handlePointerDownSearch);
+  }, []);
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Escape") {
+      setShowSearchDrop(false);
+      setGlobalSearch("");
+    }
+    if (e.key === "Enter" && globalSearch.trim()) {
+      setShowSearchDrop(false);
+      router.push(`/superadmin/companies`);
+    }
+  };
 
   const initials = userData?.firstName && userData?.lastName 
     ? `${userData.firstName[0].toUpperCase()}${userData.lastName[0].toUpperCase()}`
@@ -259,14 +326,53 @@ export default function SuperAdminHeader({
           }
         >
           {!hideSearch && (
-            <div className="relative h-[38px] w-full min-w-0 max-w-[576px] sm:w-full lg:w-[576px]">
+            <div ref={searchRef} className="relative h-[38px] w-full min-w-0 max-w-[576px] sm:w-full lg:w-[576px]">
               <input
                 type="search"
-                placeholder="Search companies, requests..."
+                placeholder="Search companies..."
                 className={searchFieldClass}
                 aria-label="Search companies and requests"
+                value={globalSearch}
+                onChange={(e) => handleGlobalSearchChange(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
+                onFocus={() => { if (searchResults.length > 0) setShowSearchDrop(true); }}
+                autoComplete="off"
               />
               <i className="ri-search-line pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-base text-[#94A3B8]"></i>
+              {searchLoading && (
+                <i className="ri-loader-4-line animate-spin pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[#94A3B8]"></i>
+              )}
+              {showSearchDrop && (
+                <div className="absolute left-0 right-0 top-[44px] z-50 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden">
+                  {searchResults.length === 0 ? (
+                    <p className="px-4 py-3 text-sm text-slate-500">No companies found.</p>
+                  ) : (
+                    <ul>
+                      {searchResults.map((c) => (
+                        <li key={c.id}>
+                          <button
+                            type="button"
+                            className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50 transition-colors"
+                            onClick={() => {
+                              setShowSearchDrop(false);
+                              setGlobalSearch("");
+                              router.push("/superadmin/companies");
+                            }}
+                          >
+                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#0A3D8F]/10 text-[#0A3D8F]">
+                              <i className="ri-building-line text-sm"></i>
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-slate-900">{c.company_name}</p>
+                              <p className="text-xs text-slate-400 capitalize">{c.client_type} · {c.status}</p>
+                            </div>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

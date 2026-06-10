@@ -40,11 +40,17 @@ export const authService = {
 
     // 4. Wrap all DB operations in a single transaction
     await db.transaction(async (tx) => {
-      // 1) Create user
+      // 1) Create user — split contactName into firstName / lastName if provided
+      const nameParts = (input.contactName || "").trim().split(/\s+/);
+      const firstName = nameParts[0] || undefined;
+      const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : undefined;
+
       await tx.insert(users).values({
         id: userId,
         email: input.email,
         passwordHash,
+        firstName,
+        lastName,
         emailVerifiedAt: null,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -66,6 +72,8 @@ export const authService = {
         status: "pending",
         twoFaEnabled: false,
         twoFaSecret: undefined,
+        contactName: (input.contactName || "").trim() || undefined,
+        contactEmail: input.contactEmail || undefined,
         createdAt: new Date() as any,
         updatedAt: new Date() as any,
       });

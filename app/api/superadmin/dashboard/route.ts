@@ -120,11 +120,15 @@ export async function GET(req: NextRequest) {
     const existingTableNames = new Set(((tablesResult as unknown) as any[]).map((row) => Object.values(row)[0] as string));
     const tableNames = allClientTables.map((r) => r.tableName).filter((t) => existingTableNames.has(t));
 
-    // Backfill schema on legacy per-client tables before aggregate counts.
-    await Promise.all([
-      ...tableNames.map((t) => ensureClientTableDepositColumns(t)),
-      ...tableNames.map((t) => ensureClientTableDeliveryColumns(t)),
-    ]);
+    // Backfill schema sequentially — parallel ALTER TABLE causes InnoDB lock storms.
+    for (const t of tableNames) {
+      try {
+        await ensureClientTableDepositColumns(t);
+        await ensureClientTableDeliveryColumns(t);
+      } catch (err) {
+        console.warn(`[superadmin/dashboard] ensure failed for ${t}:`, err);
+      }
+    }
 
     const [openDeposits, openDepositsToday, pendingDeliveries, pendingDeliveriesToday] = await Promise.all([
       sumTableCounts(tableNames, PENDING_DEPOSIT_FILTER),

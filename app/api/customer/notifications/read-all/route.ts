@@ -11,9 +11,10 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: true });
   } catch (error: any) {
     if (error instanceof Response) return error as any;
+    console.error("[customer/notifications/read-all PATCH]", error?.message || error);
     return NextResponse.json(
-      { error: error.message || "Failed to mark all notifications as read" },
-      { status: 400 }
+      { error: "Failed to mark all notifications as read" },
+      { status: 500 }
     );
   }
 }

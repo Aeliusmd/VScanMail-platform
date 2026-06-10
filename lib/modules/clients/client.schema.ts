@@ -16,6 +16,8 @@ export const addManualCompanySchema = z.object({
     country: z.string().optional().default(""),
   }).optional(),
   contactPerson: z.string().optional(),
+  contactEmail:  z.string().email().optional().or(z.literal("")),
+  registrationNo: z.string().optional(),
   notes:         z.string().max(500).optional(),
   paymentType:   z.enum(["cash", "bank_transfer", "cheque", "other"]).default("other"),
 });

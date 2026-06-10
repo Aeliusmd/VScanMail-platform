@@ -259,11 +259,19 @@ export const depositModel = {
       "ai_summary AS aiSummary",
     ].join(", ");
 
+    // Run DDL sequentially to avoid lock storms; reads can stay parallel.
+    for (const c of allClients) {
+      try {
+        await ensureClientTableDepositColumns(c.tableName);
+      } catch (err) {
+        console.warn(`[depositModel] ensure failed for ${c.tableName}:`, err);
+      }
+    }
+
     const collected: any[] = [];
     await Promise.all(
       allClients.map(async (c) => {
         try {
-          await ensureClientTableDepositColumns(c.tableName);
           const [rows] = (await db.execute(
             sql.raw(
               `SELECT ${columnList}

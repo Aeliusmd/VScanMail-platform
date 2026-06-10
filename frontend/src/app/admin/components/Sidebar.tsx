@@ -531,6 +531,17 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     }
   };
 
+  const getLabelBadgeClass = (color?: string) => {
+    switch (color) {
+      case '#2F8F3A': return 'bg-green-100 text-green-700';
+      case '#F59E0B': return 'bg-amber-100 text-amber-700';
+      case '#EF4444': return 'bg-red-100 text-red-700';
+      case '#0D9488': return 'bg-teal-100 text-teal-700';
+      case '#0A3D8F': return 'bg-blue-100 text-[#0A3D8F]';
+      default: return 'bg-slate-100 text-slate-600';
+    }
+  };
+
   return (
     <aside
       className={`flex flex-col h-screen bg-white border-r border-gray-200 transition-[width] duration-300 ease-out ${collapsed ? 'w-[72px]' : 'w-[min(100%,260px)] sm:w-[260px]'} flex-shrink-0`}
@@ -616,24 +627,22 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                       )}`
                       : '#'
                   }
-                  className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors min-h-[36px] ${item.bg || 'hover:bg-gray-50'
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors min-h-[36px] ${item.bg || 'hover:bg-gray-50'
                     } ${tabFromUrl && getTabValueForLabel(labelsPagePath ?? '', item.label) === tabFromUrl ? 'bg-[#EFF6FF]' : ''}`}
                 >
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <Icon
-                      icon={item.icon}
-                      className={`text-[16px] flex-shrink-0 ${getLabelColorClass(item.color)}`}
-                    />
-                    <span
-                      className={`text-[13px] leading-snug ${item.fontWeight || 'font-normal'} text-[#0F172A] min-w-0 line-clamp-2`}
-                    >
-                      {item.label}
-                    </span>
-                  </div>
+                  <Icon
+                    icon={item.icon}
+                    className={`text-[16px] flex-shrink-0 ${getLabelColorClass(item.color)}`}
+                  />
                   <span
-                    className={`text-xs flex-shrink-0 tabular-nums ${item.fontWeight || 'font-normal'} text-[#94A3B8]`}
+                    className={`flex-shrink-0 min-w-[22px] h-5 px-1.5 inline-flex items-center justify-center rounded-full text-[11px] font-semibold tabular-nums ${getLabelBadgeClass(item.color)}`}
                   >
                     {item.count}
+                  </span>
+                  <span
+                    className={`text-[13px] leading-snug ${item.fontWeight || 'font-normal'} text-[#0F172A] min-w-0 line-clamp-2 flex-1`}
+                  >
+                    {item.label}
                   </span>
                 </Link>
               ))}

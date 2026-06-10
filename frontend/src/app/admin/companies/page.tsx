@@ -58,6 +58,7 @@ function CompaniesPageContent() {
   const [companyNameError, setCompanyNameError] = useState("");
   const [newCompany, setNewCompany] = useState({
     name: '',
+    registrationNo: '',
     industry: 'Technology',
     status: 'Pending' as Company['status'],
     website: '',
@@ -68,6 +69,7 @@ function CompaniesPageContent() {
     country: '',
     email: '',
     contactPerson: '',
+    contactEmail: '',
     phone: '',
     notes: '',
   });
@@ -90,6 +92,7 @@ function CompaniesPageContent() {
       setEmailError("");
       setNewCompany({
         name: '',
+        registrationNo: '',
         industry: 'Technology',
         status: 'Pending',
         website: '',
@@ -100,6 +103,7 @@ function CompaniesPageContent() {
         country: '',
         email: '',
         contactPerson: '',
+        contactEmail: '',
         phone: '',
         notes: '',
       });
@@ -149,7 +153,8 @@ function CompaniesPageContent() {
       avatar_url: c.avatar_url ?? null,
       industry: c.industry || 'Other',
       industryBadge: industryColors[c.industry] || 'bg-slate-100 text-slate-700',
-      contact: c.contact_person || c.email.split('@')[0], // Fallback if no contact person
+      contact: c.contact_person || '',
+      contactEmail: c.contact_email || null,
       email: c.email,
       mails: metrics?.mails ?? 0,
       cheques: metrics?.cheques ?? 0,
@@ -239,12 +244,11 @@ function CompaniesPageContent() {
   const handleBulkDelete = async () => {
     if (!canManageOrganizations) return;
     if (!confirm(`Delete ${selectedIds.length} organization(s)? This cannot be undone.`)) return;
+    const toDelete = [...selectedIds];
     try {
-      await Promise.all(
-        selectedIds.map((id) => apiClient(`/api/clients/${id}`, { method: 'DELETE' }))
-      );
+      await Promise.all(toDelete.map((id) => apiClient(`/api/clients/${id}`, { method: 'DELETE' })));
+      setCompanyList((prev) => prev.filter((c) => !toDelete.includes(c.id)));
       setSelectedIds([]);
-      await fetchCompanies();
     } catch (err: any) {
       alert(err.message || 'Failed to delete selected organizations');
     }
@@ -254,9 +258,10 @@ function CompaniesPageContent() {
     setEditingCompany(company);
     setNewCompany({
       name: company.name,
+      registrationNo: '',
       industry: company.industry,
       status: company.status,
-      website: '', 
+      website: '',
       street: company.address_json?.street || '',
       city: company.address_json?.city || '',
       state: company.address_json?.state || '',
@@ -264,6 +269,7 @@ function CompaniesPageContent() {
       country: company.address_json?.country || '',
       email: company.email,
       contactPerson: company.contact,
+      contactEmail: company.contactEmail || '',
       phone: company.phone,
       notes: company.notes,
     });
@@ -275,10 +281,10 @@ function CompaniesPageContent() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this company? This action cannot be undone.')) return;
-    
     try {
       await apiClient(`/api/clients/${id}`, { method: 'DELETE' });
-      await fetchCompanies();
+      setCompanyList((prev) => prev.filter((c) => c.id !== id));
+      setOpenedCompany(null);
     } catch (err: any) {
       alert(err.message || "Failed to delete company");
     }
@@ -337,6 +343,9 @@ function CompaniesPageContent() {
             zip: newCompany.zip, 
             country: newCompany.country 
           },
+          contactPerson: newCompany.contactPerson,
+          contactEmail: newCompany.contactEmail,
+          registrationNo: newCompany.registrationNo || undefined,
           notes: newCompany.notes,
           ...(editingCompany ? {} : { clientType: "manual" }),
         })
@@ -344,7 +353,7 @@ function CompaniesPageContent() {
 
       setAddSuccess(true);
       await fetchCompanies(); // Refresh the list
-      
+
       window.setTimeout(() => {
       setShowAddModal(false);
       setAddSuccess(false);
@@ -352,6 +361,7 @@ function CompaniesPageContent() {
       setEmailError("");
       setNewCompany({
         name: '',
+        registrationNo: '',
         industry: 'Technology',
         status: 'Pending',
         website: '',
@@ -362,6 +372,7 @@ function CompaniesPageContent() {
         country: '',
         email: '',
         contactPerson: '',
+        contactEmail: '',
         phone: '',
         notes: '',
       });
@@ -536,7 +547,7 @@ function CompaniesPageContent() {
           company={openedCompany}
           onClose={() => setOpenedCompany(null)}
           onEdit={canManageOrganizations ? () => { handleEdit(openedCompany); setOpenedCompany(null); } : undefined}
-          onDelete={canManageOrganizations ? () => { handleDelete(openedCompany.id); setOpenedCompany(null); } : undefined}
+          onDelete={canManageOrganizations ? () => { void handleDelete(openedCompany.id); } : undefined}
           onViewDeliveries={() => router.push('/superadmin/deliveries')}
           onViewDeposits={() => router.push('/superadmin/deposits')}
         />
@@ -586,6 +597,10 @@ function CompaniesPageContent() {
                       <label className="block text-xs font-semibold text-slate-600 mb-1.5">Organization Name <span className="text-red-500">*</span></label>
                       <input type="text" value={newCompany.name} onChange={(e) => { setNewCompany((p) => ({ ...p, name: e.target.value })); setCompanyNameError(e.target.value && !COMPANY_NAME_RE.test(e.target.value) ? COMPANY_NAME_ERROR_MSG : ""); }} placeholder="e.g. Acme Corporation" maxLength={200} className={`w-full px-4 py-2.5 border rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-1 transition-all ${companyNameError ? 'border-red-400 focus:border-red-400 focus:ring-red-400/20' : 'border-slate-200 focus:border-[#0A3D8F] focus:ring-[#0A3D8F]/20'}`} />
                       {companyNameError && <p className="mt-1 text-xs text-red-500">{companyNameError}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1.5">Registration Number</label>
+                      <input type="text" value={newCompany.registrationNo ?? ''} onChange={(e) => setNewCompany((p) => ({ ...p, registrationNo: e.target.value }))} placeholder="e.g. REG-123456" className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -670,6 +685,10 @@ function CompaniesPageContent() {
                         </div>
                         {phoneError && <p className="mt-1 text-xs text-red-500">{phoneError}</p>}
                       </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1.5">Contact Person Email</label>
+                      <input type="email" value={newCompany.contactEmail ?? ''} onChange={(e) => setNewCompany((p) => ({ ...p, contactEmail: e.target.value }))} placeholder="contact@example.com" className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all" />
                     </div>
                   </div>
                 </div>

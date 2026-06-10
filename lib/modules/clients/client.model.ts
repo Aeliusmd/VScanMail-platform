@@ -17,7 +17,7 @@ import {
   users,
 } from "../core/db/schema";
 import { dropClientTable } from "../core/db/dynamic-table";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, like } from "drizzle-orm";
 
 export type Client = {
   id: string;
@@ -43,6 +43,8 @@ export type Client = {
   two_fa_enabled: boolean;
   two_fa_secret: string | null;
   added_by: string | null;
+  contact_name: string | null;
+  contact_email: string | null;
   notes: string | null;
   suspended_reason: "admin" | "payment_overdue" | null;
   created_at: string;
@@ -68,6 +70,8 @@ function rowToClient(row: typeof clients.$inferSelect): Client {
     two_fa_enabled: Boolean(row.twoFaEnabled),
     two_fa_secret: row.twoFaSecret ?? null,
     added_by: row.addedBy ?? null,
+    contact_name: row.contactName ?? null,
+    contact_email: row.contactEmail ?? null,
     notes: row.notes ?? null,
     suspended_reason: row.suspendedReason ?? null,
     created_at: new Date(row.createdAt as any).toISOString(),
@@ -94,6 +98,8 @@ export const clientModel = {
       twoFaEnabled: Boolean(data.two_fa_enabled ?? false),
       twoFaSecret: data.two_fa_secret ?? undefined,
       addedBy: data.added_by ?? undefined,
+      contactName: (data as any).contact_name ?? (data as any).contactName ?? undefined,
+      contactEmail: (data as any).contact_email ?? (data as any).contactEmail ?? undefined,
       notes: data.notes ?? undefined,
       createdAt: sql`NOW()` as any,
       updatedAt: sql`NOW()` as any,
@@ -158,6 +164,11 @@ export const clientModel = {
     if (data.two_fa_secret !== undefined) patch.twoFaSecret = data.two_fa_secret;
     if (data.twoFaSecret !== undefined) patch.twoFaSecret = data.twoFaSecret;
 
+    if (data.contact_name !== undefined) patch.contactName = data.contact_name || null;
+    if (data.contactName !== undefined) patch.contactName = data.contactName || null;
+    if (data.contactPerson !== undefined) patch.contactName = data.contactPerson || null;
+    if (data.contact_email !== undefined) patch.contactEmail = data.contact_email || null;
+    if (data.contactEmail !== undefined) patch.contactEmail = data.contactEmail || null;
     if (data.notes !== undefined) patch.notes = data.notes || null;
     if (data.suspended_reason !== undefined) patch.suspendedReason = data.suspended_reason || null;
     if (data.suspendedReason !== undefined) patch.suspendedReason = data.suspendedReason || null;
@@ -185,10 +196,13 @@ export const clientModel = {
     return after;
   },
 
-  async list(page = 1, limit = 20, type?: string) {
+  async list(page = 1, limit = 20, type?: string, search?: string) {
     const from = (page - 1) * limit;
-    
-    const cond = type ? eq(clients.clientType, type as any) : undefined;
+
+    const conditions = [];
+    if (type) conditions.push(eq(clients.clientType, type as any));
+    if (search) conditions.push(like(clients.companyName, `%${search}%`));
+    const cond = conditions.length > 0 ? and(...conditions) : undefined;
 
     const rows = await db
       .select()

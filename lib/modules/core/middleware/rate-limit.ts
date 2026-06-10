@@ -26,24 +26,30 @@ export async function rateLimit(
   limit: number = 60,
   windowMs: number = 60_000
 ): Promise<boolean> {
-  await ensureRateLimitTable();
+  try {
+    await ensureRateLimitTable();
 
-  const now = Date.now();
-  const resetAt = now + windowMs;
-  const keyHash = crypto.createHash("sha256").update(key).digest("hex");
+    const now = Date.now();
+    const resetAt = now + windowMs;
+    const keyHash = crypto.createHash("sha256").update(key).digest("hex");
 
-  await db.execute(sql`
-    INSERT INTO rate_limit_buckets (key_hash, count, reset_at)
-    VALUES (${keyHash}, 1, ${resetAt})
-    ON DUPLICATE KEY UPDATE
-      count = IF(reset_at < ${now}, 1, count + 1),
-      reset_at = IF(reset_at < ${now}, ${resetAt}, reset_at)
-  `);
+    await db.execute(sql`
+      INSERT INTO rate_limit_buckets (key_hash, count, reset_at)
+      VALUES (${keyHash}, 1, ${resetAt})
+      ON DUPLICATE KEY UPDATE
+        count = IF(reset_at < ${now}, 1, count + 1),
+        reset_at = IF(reset_at < ${now}, ${resetAt}, reset_at)
+    `);
 
-  const [rows] = (await db.execute(sql`
-    SELECT count, reset_at FROM rate_limit_buckets WHERE key_hash = ${keyHash} LIMIT 1
-  `)) as any;
+    const [rows] = (await db.execute(sql`
+      SELECT count, reset_at FROM rate_limit_buckets WHERE key_hash = ${keyHash} LIMIT 1
+    `)) as any;
 
-  const row = rows?.[0];
-  return Number(row?.count ?? 0) <= limit;
+    const row = rows?.[0];
+    return Number(row?.count ?? 0) <= limit;
+  } catch (err) {
+    // Fail open when the DB is under DDL lock pressure (e.g. schema backfill).
+    console.warn("[rateLimit] bypassed due to DB error:", err);
+    return true;
+  }
 }

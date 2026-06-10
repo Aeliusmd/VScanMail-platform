@@ -247,11 +247,18 @@ export const deliveryModel = {
       .from(clients);
     const clientMeta = new Map(clientMetaRows.map((r) => [r.id, r]));
 
+    for (const c of allClients) {
+      try {
+        await ensureClientTableDeliveryColumns(c.tableName);
+      } catch (err) {
+        console.warn(`[deliveryModel] ensure failed for ${c.tableName}:`, err);
+      }
+    }
+
     const collected: any[] = [];
     await Promise.all(
       allClients.map(async (c) => {
         try {
-          await ensureClientTableDeliveryColumns(c.tableName);
           const [rows] = (await db.execute(
             sql.raw(
               `SELECT ${COLUMN_LIST}, '${escapeSql(c.id)}' AS clientId

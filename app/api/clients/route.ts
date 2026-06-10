@@ -7,6 +7,9 @@ import { clientModel } from "@/lib/modules/clients/client.model";
 import { addManualCompanySchema } from "@/lib/modules/clients/client.schema";
 import { generateClientCode, generateClientTableName } from "@/lib/modules/clients/client-code";
 import { auditService } from "@/lib/modules/audit/audit.service";
+import { db } from "@/lib/modules/core/db/mysql";
+import { profiles, users } from "@/lib/modules/core/db/schema";
+import { and, eq, inArray, or } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,8 +17,47 @@ export async function GET(req: NextRequest) {
     withRole(user, ["admin", "super_admin"]);
     const page = parseInt(req.nextUrl.searchParams.get("page") || "1", 10);
     const limit = parseInt(req.nextUrl.searchParams.get("limit") || "100", 10);
-    const result = await clientModel.list(page, limit);
-    return NextResponse.json(result);
+    const search = req.nextUrl.searchParams.get("search") || undefined;
+    const result = await clientModel.list(page, limit, undefined, search);
+
+    // Enrich each client with the linked user's real name as contact_person.
+    // "admin" role = manually-added org admin; "client" role = self-registered org owner.
+    // Prefer admin over client when both exist for the same clientId.
+    const clientIds = result.clients.map((c) => c.id);
+    const contactMap = new Map<string, string>();
+    if (clientIds.length > 0) {
+      const profileRows = await db
+        .select({
+          clientId: profiles.clientId,
+          role: profiles.role,
+          firstName: users.firstName,
+          lastName: users.lastName,
+        })
+        .from(profiles)
+        .innerJoin(users, eq(users.id, profiles.userId))
+        .where(
+          and(
+            or(eq(profiles.role, "admin"), eq(profiles.role, "client")),
+            inArray(profiles.clientId, clientIds)
+          )
+        );
+      // Sort so "admin" entries are processed last and overwrite "client" entries.
+      profileRows.sort((a, b) => (a.role === "admin" ? 1 : -1) - (b.role === "admin" ? 1 : -1));
+      for (const row of profileRows) {
+        if (!row.clientId) continue;
+        const name = [row.firstName, row.lastName].filter(Boolean).join(" ");
+        if (name) contactMap.set(row.clientId, name);
+      }
+    }
+
+    return NextResponse.json({
+      ...result,
+      clients: result.clients.map((c) => ({
+        ...c,
+        contact_person: contactMap.get(c.id) || c.contact_name || null,
+        contact_email: c.contact_email || null,
+      })),
+    });
   } catch (err: unknown) {
     const message =
       typeof err === "string"
@@ -61,6 +103,9 @@ export async function POST(req: NextRequest) {
       client_type: "manual",
       status: (data.status?.toLowerCase() as any) || "pending",
       added_by: user.id,
+      contact_name: data.contactPerson || null,
+      contact_email: data.contactEmail || null,
+      registration_no: data.registrationNo || null,
       notes: data.notes || null,
     }, user.id, req);
 

@@ -8,6 +8,7 @@ export interface Company {
   industry: string;
   industryBadge: string;
   contact: string;
+  contactEmail: string | null;
   email: string;
   mails: number;
   cheques: number;
