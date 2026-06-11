@@ -41,10 +41,12 @@ const usZipSchema = z
     message: "ZIP must be 5 digits or ZIP+4 (e.g. 12345 or 12345-6789) for USPS delivery.",
   });
 
+const US_PHONE_RE = /^(\+1 \(\d{3}\) \d{3}-\d{4}|\(\d{3}\) \d{3}-\d{4}|\d{3}-\d{3}-\d{4})$/;
+
 const phoneSchema = z
   .string()
   .trim()
-  .regex(/^\+?[0-9()\-\s]{7,20}$/, "Phone number format is invalid")
+  .refine(v => !v || US_PHONE_RE.test(v), "Use format: +1 (XXX) XXX-XXXX, (XXX) XXX-XXXX, or XXX-XXX-XXXX")
   .optional()
   .nullable();
 

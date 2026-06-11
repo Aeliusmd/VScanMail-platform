@@ -53,6 +53,7 @@ function CompaniesPageContent() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [addSuccess, setAddSuccess] = useState(false);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState("");
   const [emailError, setEmailError] = useState("");
   const [companyNameError, setCompanyNameError] = useState("");
@@ -241,6 +242,11 @@ function CompaniesPageContent() {
     }
   };
 
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 3000);
+  };
+
   const handleBulkDelete = async () => {
     if (!canManageOrganizations) return;
     if (!confirm(`Delete ${selectedIds.length} organization(s)? This cannot be undone.`)) return;
@@ -249,6 +255,7 @@ function CompaniesPageContent() {
       await Promise.all(toDelete.map((id) => apiClient(`/api/clients/${id}`, { method: 'DELETE' })));
       setCompanyList((prev) => prev.filter((c) => !toDelete.includes(c.id)));
       setSelectedIds([]);
+      showToast(`${toDelete.length} organization${toDelete.length > 1 ? 's' : ''} deleted successfully.`);
     } catch (err: any) {
       alert(err.message || 'Failed to delete selected organizations');
     }
@@ -285,6 +292,7 @@ function CompaniesPageContent() {
       await apiClient(`/api/clients/${id}`, { method: 'DELETE' });
       setCompanyList((prev) => prev.filter((c) => c.id !== id));
       setOpenedCompany(null);
+      showToast("Company deleted successfully.");
     } catch (err: any) {
       alert(err.message || "Failed to delete company");
     }
@@ -390,6 +398,12 @@ function CompaniesPageContent() {
 
   return (
     <div className={styles.pageContainer}>
+      {toastMsg && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-2 px-5 py-3 bg-green-600 text-white text-sm font-medium rounded-xl shadow-lg animate-fade-in">
+          <i className="ri-check-line text-base"></i>
+          {toastMsg}
+        </div>
+      )}
       {!isSuperadminRoute && (
       <div className={styles.topBar}>
         <div className={styles.searchContainer}>

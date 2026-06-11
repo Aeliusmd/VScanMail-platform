@@ -102,6 +102,7 @@ export async function POST(req: NextRequest) {
         passwordHash: users.passwordHash,
         emailVerifiedAt: users.emailVerifiedAt,
         totpEnabled: users.totpEnabled,
+        isActive: users.isActive,
       })
       .from(users)
       .where(eq(users.email, email))
@@ -146,6 +147,13 @@ export async function POST(req: NextRequest) {
     if (!user.emailVerifiedAt) {
       return NextResponse.json(
         { error: "Please verify your email before signing in." },
+        { status: 403 }
+      );
+    }
+
+    if (user.isActive === false) {
+      return NextResponse.json(
+        { error: "Your account has been deactivated. Please contact your Super Admin to restore access." },
         { status: 403 }
       );
     }

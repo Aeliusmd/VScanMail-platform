@@ -10,11 +10,14 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { auditService } from "@/lib/modules/audit/audit.service";
 
+const US_PHONE_RE = /^(\+1 \(\d{3}\) \d{3}-\d{4}|\(\d{3}\) \d{3}-\d{4}|\d{3}-\d{3}-\d{4})$/;
+const PHONE_MSG = "Use format: +1 (XXX) XXX-XXXX, (XXX) XXX-XXXX, or XXX-XXX-XXXX";
+
 const createAdminSchema = z.object({
   firstName: z.string().min(1).max(100),
   lastName: z.string().max(100).default(""),
   email: z.string().email(),
-  phone: z.string().optional().default(""),
+  phone: z.string().refine(v => !v || US_PHONE_RE.test(v), PHONE_MSG).optional().default(""),
   password: z.string().min(8, "Password must be at least 8 characters"),
   status: z.enum(["active", "inactive"]).default("active"),
 });
@@ -22,7 +25,7 @@ const createAdminSchema = z.object({
 const updateAdminSchema = z.object({
   firstName: z.string().min(1).max(100).optional(),
   lastName: z.string().min(1).max(100).optional(),
-  phone: z.string().optional(),
+  phone: z.string().refine(v => !v || US_PHONE_RE.test(v), PHONE_MSG).optional(),
   status: z.enum(["active", "inactive"]).optional(),
 });
 

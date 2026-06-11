@@ -51,6 +51,7 @@ export default function ManageAdminsTab() {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [deleteToast, setDeleteToast] = useState("");
   const [emailError, setEmailError] = useState("");
   const [phoneError, setPhoneError] = useState("");
 
@@ -192,6 +193,8 @@ export default function ManageAdminsTab() {
       if (!res.ok) throw new Error(data.error || "Failed to delete admin");
       setAdmins((prev) => prev.filter((a) => a.id !== id));
       setDeleteConfirm(null);
+      setDeleteToast("Admin removed successfully.");
+      setTimeout(() => setDeleteToast(""), 3000);
     } catch (err: any) {
       alert(err.message);
     } finally {
@@ -207,6 +210,12 @@ export default function ManageAdminsTab() {
 
   return (
     <div className="space-y-6">
+      {deleteToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-2 px-5 py-3 bg-green-600 text-white text-sm font-medium rounded-xl shadow-lg">
+          <i className="ri-check-line text-base"></i>
+          {deleteToast}
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>

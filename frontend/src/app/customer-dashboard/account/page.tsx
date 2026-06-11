@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { PHONE_RE, PHONE_ERROR_MSG } from "@/lib/validation";
 
 interface BankAccount {
   id: string;
@@ -46,6 +47,7 @@ export default function CustomerAccountPage() {
     website: 'www.acmecorp.com', industry: 'Technology', employees: '51–200',
   });
   const [profileDirty, setProfileDirty] = useState(false);
+  const [phoneError, setPhoneError] = useState("");
 
   // New bank account form
   const [newBank, setNewBank] = useState({
@@ -65,6 +67,10 @@ export default function CustomerAccountPage() {
   };
 
   const saveProfile = () => {
+    if (profile.phone && !PHONE_RE.test(profile.phone)) {
+      setPhoneError(PHONE_ERROR_MSG);
+      return;
+    }
     setProfileDirty(false);
     showSuccess('Profile updated successfully!');
   };
@@ -197,8 +203,9 @@ export default function CustomerAccountPage() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">Phone Number</label>
-                      <input type="tel" value={profile.phone} onChange={e => { setProfile(p => ({...p, phone: e.target.value})); setProfileDirty(true); }}
-                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
+                      <input type="tel" value={profile.phone} placeholder="+1 (XXX) XXX-XXXX" onChange={e => { setProfile(p => ({...p, phone: e.target.value})); setProfileDirty(true); setPhoneError(e.target.value && !PHONE_RE.test(e.target.value) ? PHONE_ERROR_MSG : ""); }}
+                        className={`w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-all ${phoneError ? "border-red-400 focus:ring-red-200" : "border-gray-200 focus:ring-[#0A3D8F]/30"}`} />
+                      {phoneError && <p className="mt-1 text-xs text-red-500">{phoneError}</p>}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">Website</label>

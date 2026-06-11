@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { PHONE_RE, PHONE_ERROR_MSG } from "@/lib/validation";
 
 export default function CustomerRegister() {
   const router = useRouter();
@@ -12,6 +13,8 @@ export default function CustomerRegister() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<'success' | 'error' | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const [companyPhoneError, setCompanyPhoneError] = useState('');
+  const [contactPhoneError, setContactPhoneError] = useState('');
 
   // Form data
   const [formData, setFormData] = useState({
@@ -43,6 +46,14 @@ export default function CustomerRegister() {
   };
 
   const handleNext = () => {
+    if (step === 1 && formData.companyPhone && !PHONE_RE.test(formData.companyPhone)) {
+      setCompanyPhoneError(PHONE_ERROR_MSG);
+      return;
+    }
+    if (step === 2 && formData.contactPersonPhone && !PHONE_RE.test(formData.contactPersonPhone)) {
+      setContactPhoneError(PHONE_ERROR_MSG);
+      return;
+    }
     if (step < 3) setStep(step + 1);
   };
 
@@ -313,11 +324,12 @@ export default function CustomerRegister() {
                         id="companyPhone"
                         name="companyPhone"
                         value={formData.companyPhone}
-                        onChange={handleInputChange}
-                        className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0A3D8F] focus:border-transparent transition-all"
-                        placeholder="+1 (555) 000-0000"
+                        onChange={e => { handleInputChange(e); setCompanyPhoneError(e.target.value && !PHONE_RE.test(e.target.value) ? PHONE_ERROR_MSG : ""); }}
+                        className={`block w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all ${companyPhoneError ? "border-red-400 focus:ring-red-200" : "border-gray-300 focus:ring-[#0A3D8F]"}`}
+                        placeholder="+1 (XXX) XXX-XXXX"
                         required
                       />
+                      {companyPhoneError && <p className="mt-1 text-xs text-red-500">{companyPhoneError}</p>}
                     </div>
 
                     <div className="md:col-span-2">
@@ -487,11 +499,12 @@ export default function CustomerRegister() {
                         id="contactPersonPhone"
                         name="contactPersonPhone"
                         value={formData.contactPersonPhone}
-                        onChange={handleInputChange}
-                        className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0A3D8F] focus:border-transparent transition-all"
-                        placeholder="+1 (555) 000-0000"
+                        onChange={e => { handleInputChange(e); setContactPhoneError(e.target.value && !PHONE_RE.test(e.target.value) ? PHONE_ERROR_MSG : ""); }}
+                        className={`block w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all ${contactPhoneError ? "border-red-400 focus:ring-red-200" : "border-gray-300 focus:ring-[#0A3D8F]"}`}
+                        placeholder="+1 (XXX) XXX-XXXX"
                         required
                       />
+                      {contactPhoneError && <p className="mt-1 text-xs text-red-500">{contactPhoneError}</p>}
                     </div>
                   </div>
 

@@ -1,11 +1,14 @@
 import { z } from "zod";
 
+const US_PHONE_RE = /^(\+1 \(\d{3}\) \d{3}-\d{4}|\(\d{3}\) \d{3}-\d{4}|\d{3}-\d{3}-\d{4})$/;
+const PHONE_MSG = "Use format: +1 (XXX) XXX-XXXX, (XXX) XXX-XXXX, or XXX-XXX-XXXX";
+
 export const registerSchema = z.object({
   companyName: z.string().min(2).max(200),
   registrationNo: z.string().optional(),
   industry: z.string().min(1),
   email: z.string().email(),
-  phone: z.string().min(6),
+  phone: z.string().regex(US_PHONE_RE, PHONE_MSG),
   password: z.string().min(8),
   address: z.object({
     street: z.string().min(1),
@@ -19,7 +22,7 @@ export const registerSchema = z.object({
   contactName: z.string().max(255).optional(),
   contactJob: z.string().max(255).optional(),
   contactEmail: z.string().email().optional().or(z.literal("")),
-  contactPhone: z.string().max(64).optional(),
+  contactPhone: z.string().refine(v => !v || US_PHONE_RE.test(v), PHONE_MSG).optional(),
 });
 
 export const loginSchema = z.object({

@@ -47,6 +47,7 @@ function AllChequesPageContent() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [openedCheque, setOpenedCheque] = useState<UiCheque | null>(null);
   const [loading, setLoading] = useState(true);
+  const [listVisible, setListVisible] = useState(true);
 
   const tabFromUrl = searchParams.get('tab');
   const clientId = searchParams.get('clientId') || '';
@@ -438,33 +439,40 @@ function AllChequesPageContent() {
         </div>
       )}
 
-      <div className={styles.tabsBar}>
+      {/* Tabs */}
+      <div className="bg-slate-50 border-b border-slate-200 px-4 sm:px-6 py-2.5 flex items-center gap-1.5 overflow-x-auto shrink-0">
         {TABS.map((tab) => {
           const count = getTabCount(tab.label);
-
           return (
             <button
               key={tab.label}
+              type="button"
               onClick={() => {
-                setActiveTab(tab.label);
-                setPage(1);
-                router.replace(`${pathname}?tab=${encodeURIComponent(tab.label)}`);
+                if (activeTab === tab.label) return;
+                setListVisible(false);
+                const qs = new URLSearchParams(searchParams.toString());
+                qs.set('tab', tab.label);
+                router.replace(`${pathname}?${qs.toString()}`);
+                setTimeout(() => {
+                  setActiveTab(tab.label);
+                  setPage(1);
+                  setListVisible(true);
+                }, 150);
               }}
-              className={activeTab === tab.label ? styles.tabActive : styles.tab}
+              className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all duration-200 whitespace-nowrap cursor-pointer shrink-0 ${
+                activeTab === tab.label
+                  ? 'bg-[#0A3D8F] text-white shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-200'
+              }`}
             >
               {tab.label}
-              {tab.label !== 'All' && (
-                <span className={activeTab === tab.label ? styles.badgeActive : styles.badge}>
-                  {count}
-                </span>
-              )}
             </button>
           );
         })}
       </div>
 
       {/* Cheque List */}
-      <div className={styles.listContainer}>
+      <div className={`${styles.listContainer} transition-opacity duration-150 ${listVisible ? 'opacity-100' : 'opacity-0'}`}>
         <div className={styles.listInner}>
           {loading ? (
             <div className={styles.emptyState}>

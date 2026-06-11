@@ -14,7 +14,7 @@ export const annotateSchema = z.object({
 
 export const mailQuerySchema = z.object({
   page: z.coerce.number().min(1).default(1),
-  limit: z.coerce.number().min(1).max(100).default(20),
+  limit: z.coerce.number().min(1).max(200).default(20),
   type: z.enum(["letter", "cheque", "package", "legal"]).optional(),
   status: z.enum(["received", "scanned", "processed", "delivered"]).optional(),
   search: z.string().optional(),

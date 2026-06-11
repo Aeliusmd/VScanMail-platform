@@ -101,8 +101,10 @@ export default function AdminArchivedMailsPage() {
   const [activeTab, setActiveTab] = useState<'mails' | 'cheques'>('mails');
   const [loading, setLoading] = useState(true);
 
+  // Shared search across both tabs
+  const [searchQuery, setSearchQuery] = useState('');
+
   // Mails state
-  const [mailSearch, setMailSearch] = useState('');
   const [mailStatusFilter, setMailStatusFilter] = useState<string>('All');
   const [mailBoxFilter, setMailBoxFilter] = useState<string>('All');
   const [mailDateFrom, setMailDateFrom] = useState('');
@@ -115,7 +117,6 @@ export default function AdminArchivedMailsPage() {
   const [mailAllChecked, setMailAllChecked] = useState(false);
 
   // Cheques state
-  const [chequeSearch, setChequeSearch] = useState('');
   const [chequeStatusFilter, setChequeStatusFilter] = useState<string>('All');
   const [chequeBoxFilter, setChequeBoxFilter] = useState<string>('All');
   const [chequeDateFrom, setChequeDateFrom] = useState('');
@@ -126,9 +127,6 @@ export default function AdminArchivedMailsPage() {
   const [cheques, setCheques] = useState<ArchivedCheque[]>([]);
   const [chequeCheckedIds, setChequeCheckedIds] = useState<Set<string>>(new Set());
   const [chequeAllChecked, setChequeAllChecked] = useState(false);
-  // Server-side search results (null = no active search, use full mails/cheques dataset)
-  const [serverMailResults, setServerMailResults] = useState<ArchivedMail[] | null>(null);
-  const [serverChequeResults, setServerChequeResults] = useState<ArchivedCheque[] | null>(null);
   const mailBoxFilterRef = useRef<HTMLDivElement | null>(null);
   const mailDateFilterRef = useRef<HTMLDivElement | null>(null);
   const chequeBoxFilterRef = useRef<HTMLDivElement | null>(null);
@@ -271,89 +269,6 @@ export default function AdminArchivedMailsPage() {
     };
   }, []);
 
-  // Debounced server-side mail search: backend searches by irn LIKE '%q%'
-  useEffect(() => {
-    const term = mailSearch.trim();
-    if (!term) {
-      setServerMailResults(null);
-      return;
-    }
-    const timer = setTimeout(() => {
-      mailApi.list({ archived: true, limit: 100, search: term })
-        .then(mailRes => {
-          const mapped: ArchivedMail[] = mailRes.items.filter(isArchivedMailRecord).map((item: ArchiveApiMailItem) => {
-            const scannedIso = item.scanned_at || item.created_at;
-            return {
-              id: item.id,
-              serialNumber: item.irn || item.id.slice(0, 8),
-              company: item.company_name || 'Unknown Company',
-              companyEmail: '',
-              sender: item.company_name || 'Unknown',
-              subject: `${String(item.type || 'mail').charAt(0).toUpperCase()}${String(item.type || 'mail').slice(1)} - ${item.irn || item.id.slice(0, 8)}`,
-              preview: item.ai_summary || 'No preview available.',
-              scannedAt: toHumanDate(scannedIso),
-              scannedDate: toDateIso(scannedIso),
-              timeShort: toTimeShort(scannedIso),
-              archivedAt: toHumanDate(scannedIso),
-              archiveBox: toBoxFromIso(scannedIso),
-              status: item.status === 'processed' ? 'Processed' : item.status === 'delivered' ? 'Delivered' : 'Pending Delivery',
-              aiSummary: item.ai_summary || '',
-              emailSent: false,
-              thumbnail: item.envelope_front_url || item.envelope_back_url || (item.content_scan_urls?.[0] ?? ''),
-              starred: false,
-              hasAttachment: Array.isArray(item.content_scan_urls) && item.content_scan_urls.length > 0,
-              tag: item.status === 'processed' ? 'Processed' : item.status === 'delivered' ? 'Delivered' : 'Inbox',
-              tagColor: item.status === 'delivered' ? 'bg-green-100 text-[#2F8F3A]' : 'bg-[#0A3D8F]/10 text-[#0A3D8F]',
-            };
-          });
-          setServerMailResults(mapped);
-        })
-        .catch(() => {});
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [mailSearch]);
-
-  // Debounced server-side cheque search: backend searches by irn LIKE '%q%' or beneficiary
-  useEffect(() => {
-    const term = chequeSearch.trim();
-    if (!term) {
-      setServerChequeResults(null);
-      return;
-    }
-    const timer = setTimeout(() => {
-      chequeApi.list({ archived: true, limit: 100, search: term })
-        .then(chequeRes => {
-          const mapped: ArchivedCheque[] = chequeRes.cheques.map((c: ApiCheque) => {
-            const createdIso = c.created_at;
-            const bankName = c.ai_raw_result?.bank_name || c.ai_raw_result?.bankName || 'Bank';
-            const chequeNumber = c.ai_raw_result?.cheque_number || c.ai_raw_result?.chequeNumber || c.ai_raw_result?.number || '—';
-            return {
-              id: c.id,
-              serialNumber: c.irn || c.id.slice(0, 12),
-              company: c.company_name || 'Unknown Company',
-              companyEmail: '',
-              payee: c.beneficiary || c.company_name || 'Payee',
-              amount: new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(Number(c.amount_figures || 0)),
-              bankName,
-              chequeNumber: String(chequeNumber),
-              scannedAt: toHumanDate(createdIso),
-              scannedDate: toDateIso(createdIso),
-              timeShort: toTimeShort(createdIso),
-              archivedAt: toHumanDate(createdIso),
-              archiveBox: toBoxFromIso(createdIso),
-              status: c.client_decision === 'rejected' ? 'Rejected' : c.status === 'flagged' ? 'On Hold' : 'Deposited',
-              aiSummary: c.ai_raw_result?.summary || c.ai_raw_result?.notes || '',
-              thumbnail: '',
-              starred: false,
-              depositToggle: c.status === 'deposited' || c.status === 'cleared',
-            };
-          });
-          setServerChequeResults(mapped);
-        })
-        .catch(() => {});
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [chequeSearch]);
 
   const uniqueMailBoxes = useMemo(
     () => [...new Set(mails.map((m) => m.archiveBox))],
@@ -368,19 +283,16 @@ export default function AdminArchivedMailsPage() {
     [uniqueMailBoxes, uniqueChequeBoxes]
   );
 
-  // Filtered mails: when server search is active use its results (backend already filtered by IRN/text);
-  // otherwise fall back to client-side text filtering on the full mails dataset.
-  const mailBase = serverMailResults ?? mails;
-  const filteredMails = mailBase.filter(m => {
-    const matchSearch = serverMailResults !== null ? true : (
-      !mailSearch.trim() ||
-      m.company.toLowerCase().includes(mailSearch.toLowerCase()) ||
-      m.sender.toLowerCase().includes(mailSearch.toLowerCase()) ||
-      m.subject.toLowerCase().includes(mailSearch.toLowerCase()) ||
-      m.id.toLowerCase().includes(mailSearch.toLowerCase()) ||
-      m.serialNumber.toLowerCase().includes(mailSearch.toLowerCase()) ||
-      m.archiveBox.toLowerCase().includes(mailSearch.toLowerCase())
-    );
+  const filteredMails = mails.filter(m => {
+    const q = searchQuery.trim().toLowerCase();
+    const matchSearch =
+      !q ||
+      m.company.toLowerCase().includes(q) ||
+      m.sender.toLowerCase().includes(q) ||
+      m.subject.toLowerCase().includes(q) ||
+      m.id.toLowerCase().includes(q) ||
+      m.serialNumber.toLowerCase().includes(q) ||
+      m.archiveBox.toLowerCase().includes(q);
     const matchStatus = mailStatusFilter === 'All' || m.status === mailStatusFilter;
     const matchBox = mailBoxFilter === 'All' || m.archiveBox === mailBoxFilter;
     const matchDateFrom = !mailDateFrom || m.scannedDate >= mailDateFrom;
@@ -388,25 +300,32 @@ export default function AdminArchivedMailsPage() {
     return matchSearch && matchStatus && matchBox && matchDateFrom && matchDateTo;
   });
 
-  // Filtered cheques: server search results take priority when active (backend filters by IRN/beneficiary)
-  const chequeBase = serverChequeResults ?? cheques;
-  const filteredCheques = chequeBase.filter(c => {
-    const matchSearch = serverChequeResults !== null ? true : (
-      !chequeSearch.trim() ||
-      c.company.toLowerCase().includes(chequeSearch.toLowerCase()) ||
-      c.payee.toLowerCase().includes(chequeSearch.toLowerCase()) ||
-      c.bankName.toLowerCase().includes(chequeSearch.toLowerCase()) ||
-      c.chequeNumber.toLowerCase().includes(chequeSearch.toLowerCase()) ||
-      c.id.toLowerCase().includes(chequeSearch.toLowerCase()) ||
-      c.serialNumber.toLowerCase().includes(chequeSearch.toLowerCase()) ||
-      c.archiveBox.toLowerCase().includes(chequeSearch.toLowerCase())
-    );
+  const filteredCheques = cheques.filter(c => {
+    const q = searchQuery.trim().toLowerCase();
+    const matchSearch =
+      !q ||
+      c.company.toLowerCase().includes(q) ||
+      c.payee.toLowerCase().includes(q) ||
+      c.bankName.toLowerCase().includes(q) ||
+      c.chequeNumber.toLowerCase().includes(q) ||
+      c.id.toLowerCase().includes(q) ||
+      c.serialNumber.toLowerCase().includes(q) ||
+      c.archiveBox.toLowerCase().includes(q);
     const matchStatus = chequeStatusFilter === 'All' || c.status === chequeStatusFilter;
     const matchBox = chequeBoxFilter === 'All' || c.archiveBox === chequeBoxFilter;
     const matchDateFrom = !chequeDateFrom || c.scannedDate >= chequeDateFrom;
     const matchDateTo = !chequeDateTo || c.scannedDate <= chequeDateTo;
     return matchSearch && matchStatus && matchBox && matchDateFrom && matchDateTo;
   });
+
+  useEffect(() => {
+    if (!searchQuery.trim()) return;
+    if (activeTab === 'mails' && filteredMails.length === 0 && filteredCheques.length > 0) {
+      setActiveTab('cheques');
+    } else if (activeTab === 'cheques' && filteredCheques.length === 0 && filteredMails.length > 0) {
+      setActiveTab('mails');
+    }
+  }, [searchQuery, filteredMails.length, filteredCheques.length]);
 
   const reload = () => {
     setLoading(true);
@@ -583,9 +502,9 @@ export default function AdminArchivedMailsPage() {
                 <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base"></i>
                 <input
                   type="text"
-                  placeholder="Search by serial number, box, cheque no., company..."
-                  value={activeTab === 'mails' ? mailSearch : chequeSearch}
-                  onChange={e => activeTab === 'mails' ? setMailSearch(e.target.value) : setChequeSearch(e.target.value)}
+                  placeholder="Search by serial number, cheque no., company..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 bg-slate-100 border border-transparent rounded-full focus:bg-white focus:border-slate-300 focus:ring-0 outline-none text-sm text-slate-800 placeholder:text-slate-600 transition-all"
                 />
               </div>
@@ -702,7 +621,6 @@ export default function AdminArchivedMailsPage() {
             <button
               onClick={() => {
                 setActiveTab('mails');
-                setMailSearch('');
               }}
               className={`flex items-center space-x-2 px-5 py-2 rounded-full text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${activeTab === 'mails' ? 'bg-white text-[#0A3D8F] shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
             >
@@ -715,7 +633,6 @@ export default function AdminArchivedMailsPage() {
             <button
               onClick={() => {
                 setActiveTab('cheques');
-                setChequeSearch('');
               }}
               className={`flex items-center space-x-2 px-5 py-2 rounded-full text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${activeTab === 'cheques' ? 'bg-white text-[#0A3D8F] shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
             >
@@ -845,23 +762,7 @@ export default function AdminArchivedMailsPage() {
                   )}
                 </div>
               </div>
-              <span className="text-xs text-slate-500">{filteredMails.length} of {mailBase.length} mails</span>
-            </div>
-
-            {/* Mail Status Tabs */}
-            <div className="bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center space-x-1 overflow-x-auto">
-              {['All', 'Processed', 'Delivered', 'Pending Delivery'].map(tab => (
-                <button key={tab} onClick={() => setMailStatusFilter(tab)}
-                  className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer ${mailStatusFilter === tab ? 'border-[#0A3D8F] text-[#0A3D8F]' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
-                >
-                  {tab}
-                  {tab !== 'All' && (
-                    <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${mailStatusFilter === tab ? 'bg-[#0A3D8F]/10 text-[#0A3D8F]' : 'bg-slate-100 text-slate-500'}`}>
-                      {mails.filter(m => m.status === tab).length}
-                    </span>
-                  )}
-                </button>
-              ))}
+              <span className="text-xs text-slate-500">{filteredMails.length} of {mails.length} mails</span>
             </div>
 
             {/* Mail List */}
@@ -885,11 +786,15 @@ export default function AdminArchivedMailsPage() {
                 <div className="overflow-x-auto">
                   <div className="min-w-[980px] divide-y divide-slate-100">
                     {filteredMails.map(mail => (
-                    <div key={mail.id} className="flex items-center group px-4 py-3 hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setSelectedMail(mail)}>
+                    <div key={mail.id} className={`flex items-center group px-4 py-3 hover:bg-slate-50 transition-colors cursor-pointer${searchQuery.trim() ? ' border-l-2 border-[#0A3D8F] bg-[#0A3D8F]/5' : ''}`} onClick={() => setSelectedMail(mail)}>
                       <div className="flex items-center space-x-2 mr-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
                         <input type="checkbox" checked={mailCheckedIds.has(mail.id)} onChange={() => toggleMailCheck(mail.id)} className="w-4 h-4 rounded border-slate-300 accent-[#0A3D8F] cursor-pointer" />
                       </div>
-                      <div className="mr-2 flex-shrink-0"><i className="ri-archive-line text-slate-300 text-lg"></i></div>
+                      <div className="mr-2 flex-shrink-0">
+                        <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-sky-50 text-sky-600 border border-sky-200 rounded-full font-medium whitespace-nowrap">
+                          <i className="ri-mail-line text-xs"></i> Mail
+                        </span>
+                      </div>
                       <div className="mr-3 flex-shrink-0">
                         <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full font-medium whitespace-nowrap">{mail.archiveBox}</span>
                       </div>
@@ -908,10 +813,13 @@ export default function AdminArchivedMailsPage() {
                         <span className="text-sm truncate text-slate-700">{mail.subject}</span>
                         <span className="text-sm text-slate-400 truncate hidden xl:block">– {mail.preview}</span>
                       </div>
-                      <div className="w-36 flex-shrink-0 mr-4 hidden lg:block">
-                        <span className={`text-xs font-mono ${mail.serialNumber.startsWith('IRN-') ? 'text-[#0A3D8F]' : 'text-slate-400'}`}>
-                          {mail.serialNumber || '—'}
-                        </span>
+                      <div className="w-40 flex-shrink-0 mr-4 hidden lg:flex flex-col justify-center gap-0.5">
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide w-7 flex-shrink-0">IRN</span>
+                          <span className={`text-xs font-mono truncate ${mail.serialNumber.startsWith('IRN-') ? 'text-[#0A3D8F]' : 'text-slate-400'}`}>
+                            {mail.serialNumber || '—'}
+                          </span>
+                        </div>
                       </div>
                       <div className="flex items-center space-x-2 mr-4 flex-shrink-0">
                         {mail.hasAttachment && <i className="ri-attachment-2 text-slate-400 text-base"></i>}
@@ -1048,23 +956,7 @@ export default function AdminArchivedMailsPage() {
                   )}
                 </div>
               </div>
-              <span className="text-xs text-slate-500">{filteredCheques.length} of {chequeBase.length} cheques</span>
-            </div>
-
-            {/* Cheque Status Tabs */}
-            <div className="bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center space-x-1 overflow-x-auto">
-              {['All', 'Deposited', 'Rejected', 'On Hold'].map(tab => (
-                <button key={tab} onClick={() => setChequeStatusFilter(tab)}
-                  className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer ${chequeStatusFilter === tab ? 'border-[#0A3D8F] text-[#0A3D8F]' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
-                >
-                  {tab}
-                  {tab !== 'All' && (
-                    <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${chequeStatusFilter === tab ? 'bg-[#0A3D8F]/10 text-[#0A3D8F]' : 'bg-slate-100 text-slate-500'}`}>
-                      {cheques.filter(c => c.status === tab).length}
-                    </span>
-                  )}
-                </button>
-              ))}
+              <span className="text-xs text-slate-500">{filteredCheques.length} of {cheques.length} cheques</span>
             </div>
 
             {/* Cheque List */}
@@ -1088,11 +980,15 @@ export default function AdminArchivedMailsPage() {
                 <div className="overflow-x-auto">
                   <div className="min-w-[1080px] divide-y divide-slate-100">
                     {filteredCheques.map(cheque => (
-                    <div key={cheque.id} className="flex items-center group px-4 py-3 hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setSelectedCheque(cheque)}>
+                    <div key={cheque.id} className={`flex items-center group px-4 py-3 hover:bg-slate-50 transition-colors cursor-pointer${searchQuery.trim() ? ' border-l-2 border-[#0A3D8F] bg-[#0A3D8F]/5' : ''}`} onClick={() => setSelectedCheque(cheque)}>
                       <div className="flex items-center space-x-2 mr-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
                         <input type="checkbox" checked={chequeCheckedIds.has(cheque.id)} onChange={() => toggleChequeCheck(cheque.id)} className="w-4 h-4 rounded border-slate-300 accent-[#0A3D8F] cursor-pointer" />
                       </div>
-                      <div className="mr-2 flex-shrink-0"><i className="ri-bank-card-line text-slate-300 text-lg"></i></div>
+                      <div className="mr-2 flex-shrink-0">
+                        <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-violet-50 text-violet-600 border border-violet-200 rounded-full font-medium whitespace-nowrap">
+                          <i className="ri-bank-card-line text-xs"></i> Cheque
+                        </span>
+                      </div>
                       <div className="mr-3 flex-shrink-0">
                         <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full font-medium whitespace-nowrap">{cheque.archiveBox}</span>
                       </div>
@@ -1104,11 +1000,20 @@ export default function AdminArchivedMailsPage() {
                       </div>
                       <div className="flex-1 min-w-0 flex items-center space-x-2 mr-4">
                         <span className={`flex-shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${chequeStatusColors[cheque.status]}`}>{cheque.status}</span>
-                        <span className="text-sm truncate text-slate-700">{cheque.bankName} – #{cheque.chequeNumber}</span>
+                        <span className="text-sm truncate text-slate-700">{cheque.payee} · {cheque.bankName}</span>
                         <span className="text-sm text-slate-400 truncate hidden xl:block">– {cheque.aiSummary.substring(0, 50)}...</span>
                       </div>
-                      <div className="w-36 flex-shrink-0 mr-4 hidden lg:block">
-                        <span className="text-xs text-slate-400 font-mono">{cheque.serialNumber}</span>
+                      <div className="w-44 flex-shrink-0 mr-4 hidden lg:flex flex-col justify-center gap-0.5">
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide w-7 flex-shrink-0">Chq</span>
+                          <span className="text-xs font-mono text-slate-700 truncate">#{cheque.chequeNumber !== '—' ? cheque.chequeNumber : '—'}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide w-7 flex-shrink-0">IRN</span>
+                          <span className={`text-xs font-mono truncate ${cheque.serialNumber.startsWith('IRN-') ? 'text-[#0A3D8F]' : 'text-slate-400'}`}>
+                            {cheque.serialNumber || '—'}
+                          </span>
+                        </div>
                       </div>
                       <div className="flex items-center mr-4 flex-shrink-0">
                         <span className="text-sm font-bold text-slate-600">{cheque.amount}</span>

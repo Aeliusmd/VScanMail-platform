@@ -7,12 +7,15 @@ import { profiles, users } from "@/lib/modules/core/db/schema";
 import { eq } from "drizzle-orm";
 import { auditService } from "@/lib/modules/audit/audit.service";
 
+const US_PHONE_RE = /^(\+1 \(\d{3}\) \d{3}-\d{4}|\(\d{3}\) \d{3}-\d{4}|\d{3}-\d{3}-\d{4})$/;
+const PHONE_MSG = "Use format: +1 (XXX) XXX-XXXX, (XXX) XXX-XXXX, or XXX-XXX-XXXX";
+
 const profileSchema = z.object({
   firstName: z.string().min(1).max(100),
   lastName: z.string().min(1).max(100),
   email: z.string().email(),
   backupEmail: z.string().email().optional().nullable(),
-  phone: z.string().optional(),
+  phone: z.string().refine(v => !v || US_PHONE_RE.test(v), PHONE_MSG).optional(),
   bio: z.string().max(500).optional(),
   language: z.string().min(2).max(10),
 });

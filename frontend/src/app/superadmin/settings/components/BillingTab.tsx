@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { apiClient } from "@/lib/api-client";
+import { PHONE_RE, PHONE_ERROR_MSG } from "@/lib/validation";
 
 interface SubscriptionPlan {
   id: string;
@@ -59,6 +60,7 @@ export default function BillingTab() {
   });
   const [contactSaving, setContactSaving] = useState(false);
   const [contactSaveSuccess, setContactSaveSuccess] = useState(false);
+  const [contactPhoneError, setContactPhoneError] = useState("");
   
   const [editPlan, setEditPlan] = useState<SubscriptionPlan | null>(null);
   const [editPlanForm, setEditPlanForm] = useState<Partial<SubscriptionPlan>>({});
@@ -99,6 +101,10 @@ export default function BillingTab() {
   };
 
   const saveContactSettings = async () => {
+    if (contactSettings.contactPhone && !PHONE_RE.test(contactSettings.contactPhone)) {
+      setContactPhoneError(PHONE_ERROR_MSG);
+      return;
+    }
     try {
       setContactSaving(true);
       await apiClient<ContactSettings>("/api/billing/contact-settings", {
@@ -414,12 +420,13 @@ export default function BillingTab() {
                 Phone
               </label>
               <input
-                type="text"
+                type="tel"
                 value={contactSettings.contactPhone}
-                onChange={(e) => setContactSettings((p) => ({ ...p, contactPhone: e.target.value }))}
-                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] transition-colors"
+                onChange={(e) => { setContactSettings((p) => ({ ...p, contactPhone: e.target.value })); setContactPhoneError(e.target.value && !PHONE_RE.test(e.target.value) ? PHONE_ERROR_MSG : ""); }}
+                className={`w-full px-3 py-2.5 border rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] transition-colors ${contactPhoneError ? "border-red-400" : "border-slate-200"}`}
                 placeholder="e.g., +1 (555) 000-0000"
               />
+              {contactPhoneError && <p className="mt-1 text-xs text-red-500">{contactPhoneError}</p>}
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">

@@ -21,16 +21,28 @@ export default function ProfileTab() {
   });
 
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [avatarSuccess, setAvatarSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState("");
   const [phoneError, setPhoneError] = useState("");
   const [passwordForm, setPasswordForm] = useState({ current: '', newPass: '', confirm: '' });
   const [pwSuccess, setPwSuccess] = useState(false);
   const [pwError, setPwError] = useState<string | null>(null);
+  const [showCurrentPw, setShowCurrentPw] = useState(false);
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showCropper, setShowCropper] = useState(false);
   const [imageToCrop, setImageToCrop] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const pwStrength = {
+    length: passwordForm.newPass.length >= 8,
+    upper: /[A-Z]/.test(passwordForm.newPass),
+    number: /[0-9]/.test(passwordForm.newPass),
+    special: /[^A-Za-z0-9]/.test(passwordForm.newPass),
+  };
+  const pwStrengthValid = Object.values(pwStrength).every(Boolean);
 
   useEffect(() => {
     async function fetchData() {
@@ -74,9 +86,16 @@ export default function ProfileTab() {
   };
 
   const handlePasswordSave = async () => {
-    if (passwordForm.newPass !== passwordForm.confirm) return;
     setPwSuccess(false);
     setPwError(null);
+    if (!pwStrengthValid) {
+      setPwError("Password does not meet the security requirements below.");
+      return;
+    }
+    if (passwordForm.newPass !== passwordForm.confirm) {
+      setPwError("Passwords do not match.");
+      return;
+    }
     const res = await updatePassword({
       currentPassword: passwordForm.current,
       newPassword: passwordForm.newPass,
@@ -126,6 +145,8 @@ export default function ProfileTab() {
       if (res.success && res.url) {
         setProfile(p => ({ ...p, avatarUrl: res.url }));
         window.dispatchEvent(new Event('profileUpdated'));
+        setAvatarSuccess(true);
+        setTimeout(() => setAvatarSuccess(false), 2500);
       } else {
         setError(res.error || "Failed to upload avatar");
       }
@@ -205,12 +226,13 @@ export default function ProfileTab() {
             {profile.role === 'super_admin' ? 'System Administrator' : profile.role.replace('_', ' ')}
           </div>
           <div className="block pt-1">
-            <button 
+            <button
                 onClick={handleAvatarClick}
                 className="text-xs text-[#0A3D8F] font-semibold hover:text-[#083170] hover:underline transition-colors cursor-pointer"
             >
                 Edit Photo
             </button>
+            {avatarSuccess && <p className="text-xs text-green-600 font-medium mt-1"><i className="ri-check-line mr-0.5"></i>Photo updated!</p>}
           </div>
         </div>
       </div>
@@ -336,38 +358,64 @@ export default function ProfileTab() {
 
         <div>
           <label className="block text-xs font-semibold text-slate-600 mb-1">Current Password</label>
-          <input
-            type="password"
-            value={passwordForm.current}
-            onChange={e => setPasswordForm(p => ({ ...p, current: e.target.value }))}
-            placeholder="Enter current password"
-            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all"
-          />
+          <div className="relative">
+            <input
+              type={showCurrentPw ? "text" : "password"}
+              value={passwordForm.current}
+              onChange={e => setPasswordForm(p => ({ ...p, current: e.target.value }))}
+              placeholder="Enter current password"
+              autoComplete="new-password"
+              className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all"
+            />
+            <button type="button" tabIndex={-1} onClick={() => setShowCurrentPw(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+              <i className={showCurrentPw ? "ri-eye-off-line" : "ri-eye-line"}></i>
+            </button>
+          </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">New Password</label>
-            <input
-              type="password"
-              value={passwordForm.newPass}
-              onChange={e => setPasswordForm(p => ({ ...p, newPass: e.target.value }))}
-              placeholder="Enter new password"
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all"
-            />
+            <div className="relative">
+              <input
+                type={showNewPw ? "text" : "password"}
+                value={passwordForm.newPass}
+                onChange={e => setPasswordForm(p => ({ ...p, newPass: e.target.value }))}
+                placeholder="Enter new password"
+                autoComplete="new-password"
+                className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-1 focus:ring-[#0A3D8F]/20 transition-all"
+              />
+              <button type="button" tabIndex={-1} onClick={() => setShowNewPw(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                <i className={showNewPw ? "ri-eye-off-line" : "ri-eye-line"}></i>
+              </button>
+            </div>
+            {passwordForm.newPass && (
+              <ul className="mt-1.5 space-y-0.5 text-xs">
+                <li className={pwStrength.length ? "text-green-600" : "text-red-500"}>{pwStrength.length ? "✓" : "✗"} At least 8 characters</li>
+                <li className={pwStrength.upper ? "text-green-600" : "text-red-500"}>{pwStrength.upper ? "✓" : "✗"} At least 1 uppercase letter</li>
+                <li className={pwStrength.number ? "text-green-600" : "text-red-500"}>{pwStrength.number ? "✓" : "✗"} At least 1 number</li>
+                <li className={pwStrength.special ? "text-green-600" : "text-red-500"}>{pwStrength.special ? "✓" : "✗"} At least 1 special character</li>
+              </ul>
+            )}
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">Confirm Password</label>
-            <input
-              type="password"
-              value={passwordForm.confirm}
-              onChange={e => setPasswordForm(p => ({ ...p, confirm: e.target.value }))}
-              placeholder="Repeat new password"
-              className={`w-full px-3 py-2 border rounded-lg text-sm text-slate-900 focus:outline-none transition-all ${
-                passwordForm.confirm && passwordForm.confirm !== passwordForm.newPass
-                  ? 'border-red-400 focus:border-red-500 focus:ring-red-100'
-                  : 'border-slate-200 focus:border-[#0A3D8F] focus:ring-[#0A3D8F]/20'
-              }`}
-            />
+            <div className="relative">
+              <input
+                type={showConfirmPw ? "text" : "password"}
+                value={passwordForm.confirm}
+                onChange={e => setPasswordForm(p => ({ ...p, confirm: e.target.value }))}
+                placeholder="Repeat new password"
+                autoComplete="new-password"
+                className={`w-full px-3 py-2 pr-10 border rounded-lg text-sm text-slate-900 focus:outline-none transition-all ${
+                  passwordForm.confirm && passwordForm.confirm !== passwordForm.newPass
+                    ? 'border-red-400 focus:border-red-500 focus:ring-red-100'
+                    : 'border-slate-200 focus:border-[#0A3D8F] focus:ring-[#0A3D8F]/20'
+                }`}
+              />
+              <button type="button" tabIndex={-1} onClick={() => setShowConfirmPw(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                <i className={showConfirmPw ? "ri-eye-off-line" : "ri-eye-line"}></i>
+              </button>
+            </div>
             {passwordForm.confirm && passwordForm.confirm !== passwordForm.newPass && (
               <p className="text-xs text-red-500 mt-0.5">Passwords do not match</p>
             )}
@@ -375,7 +423,7 @@ export default function ProfileTab() {
         </div>
         <button
           onClick={handlePasswordSave}
-          disabled={!passwordForm.current || !passwordForm.newPass || passwordForm.newPass !== passwordForm.confirm}
+          disabled={!passwordForm.current || !passwordForm.newPass || !pwStrengthValid || passwordForm.newPass !== passwordForm.confirm}
           className="px-5 py-2 bg-[#0A3D8F] text-white text-sm font-semibold rounded-lg hover:bg-[#083170] shadow-sm transition-all focus:scale-[0.98] active:scale-[0.96] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
         >
           {pwSuccess ? <><i className="ri-check-line mr-1"></i>Password Updated!</> : 'Update Password'}

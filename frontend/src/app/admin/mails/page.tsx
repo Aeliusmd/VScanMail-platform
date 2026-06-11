@@ -14,8 +14,8 @@ import OrganizationPicker from '../components/OrganizationPicker';
 import NotificationBell from '../components/NotificationBell';
 import { formatRelativeTime } from '@/lib/format-relative-time';
 
-type TabType = 'All' | 'Processed' | 'Delivered' | 'Pending Delivery';
-const TABS: TabType[] = ['All', 'Processed', 'Delivered', 'Pending Delivery'];
+type TabType = 'All' | 'Received' | 'Scanned' | 'Processed' | 'Delivered';
+const TABS: TabType[] = ['All', 'Received', 'Scanned', 'Processed', 'Delivered'];
 const PER_PAGE = 10;
 type AdminMailItem = ApiMailItem & {
   company_name?: string;
@@ -44,7 +44,7 @@ function AllMailsPageContent() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [openedMail, setOpenedMail] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
-
+  const [listVisible, setListVisible] = useState(true);
   const tabFromUrl = searchParams.get('tab');
   const clientId = searchParams.get('clientId') || '';
   const router = useRouter();
@@ -57,9 +57,10 @@ function AllMailsPageContent() {
     setLoading(true);
     try {
       let status: MailStatus | undefined;
+      if (activeTab === 'Received') status = 'received';
+      if (activeTab === 'Scanned') status = 'scanned';
       if (activeTab === 'Processed') status = 'processed';
       if (activeTab === 'Delivered') status = 'delivered';
-      if (activeTab === 'Pending Delivery') status = 'scanned';
 
       const data = await mailApi.list({
         page,
@@ -225,12 +226,7 @@ function AllMailsPageContent() {
 
   const visibleMails = mailItems; // Already filtered by server
 
-  const tabCount = (tab: TabType) => {
-    if (activeTab === tab) return totalCount;
-    return 0; // For simplicity, only active tab shows count, or we need more API calls
-  };
-
-  const allVisibleSelected = visibleMails.length > 0 && visibleMails.every((m) => selectedIds.includes(m.id));
+const allVisibleSelected = visibleMails.length > 0 && visibleMails.every((m) => selectedIds.includes(m.id));
 
   const toggleSelectAll = () => {
     if (allVisibleSelected) {
@@ -383,23 +379,30 @@ function AllMailsPageContent() {
       )}
 
       {/* Tabs */}
-      <div className={styles.tabsContainer}>
+      <div className="bg-slate-50 border-b border-slate-200 px-4 sm:px-6 py-2.5 flex items-center gap-1.5 overflow-x-auto shrink-0">
         {TABS.map((tab) => (
           <button
             key={tab}
-                onClick={() => {
-                  setActiveTab(tab);
-                  setPage(1);
-                  router.replace(`${pathname}?tab=${encodeURIComponent(tab)}`);
-                }}
-            className={activeTab === tab ? styles.tabActive : styles.tab}
+            type="button"
+            onClick={() => {
+              if (activeTab === tab) return;
+              setListVisible(false);
+              const qs = new URLSearchParams(searchParams.toString());
+              qs.set('tab', tab);
+              router.replace(`${pathname}?${qs.toString()}`);
+              setTimeout(() => {
+                setActiveTab(tab);
+                setPage(1);
+                setListVisible(true);
+              }, 150);
+            }}
+            className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all duration-200 whitespace-nowrap cursor-pointer shrink-0 ${
+              activeTab === tab
+                ? 'bg-[#0A3D8F] text-white shadow-sm'
+                : 'text-slate-500 hover:text-slate-700 hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-200'
+            }`}
           >
             {tab}
-            {tabCount(tab) > 0 && (
-              <span className={activeTab === tab ? styles.badgeActive : styles.badge}>
-                {tabCount(tab)}
-              </span>
-            )}
           </button>
         ))}
       </div>
@@ -424,7 +427,7 @@ function AllMailsPageContent() {
         )}
 
       {/* Mail List */}
-      <div className={styles.listContainer}>
+      <div className={`${styles.listContainer} transition-opacity duration-150 ${listVisible ? 'opacity-100' : 'opacity-0'}`}>
         <div className={styles.listInner}>
         {visibleMails.length === 0 ? (
           <div className={styles.emptyState}>

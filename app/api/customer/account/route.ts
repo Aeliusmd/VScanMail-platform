@@ -8,11 +8,14 @@ import { clientModel } from "@/lib/modules/clients/client.model";
 import { notificationPreferencesService } from "@/lib/modules/notifications/notification-preferences.service";
 import { auditService } from "@/lib/modules/audit/audit.service";
 
+const US_PHONE_RE = /^(\+1 \(\d{3}\) \d{3}-\d{4}|\(\d{3}\) \d{3}-\d{4}|\d{3}-\d{3}-\d{4})$/;
+const PHONE_MSG = "Use format: +1 (XXX) XXX-XXXX, (XXX) XXX-XXXX, or XXX-XXX-XXXX";
+
 const profileSchema = z.object({
   companyName: z.string().min(1).max(255).optional(),
   contactPerson: z.string().max(500).optional(),
   email: z.string().email().max(255).optional(),
-  phone: z.string().max(64).optional(),
+  phone: z.string().refine(v => !v || US_PHONE_RE.test(v), PHONE_MSG).optional(),
   address: z.string().max(500).optional(),
   city: z.string().max(128).optional(),
   state: z.string().max(64).optional(),

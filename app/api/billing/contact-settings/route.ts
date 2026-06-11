@@ -5,9 +5,12 @@ import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
+const US_PHONE_RE = /^(\+1 \(\d{3}\) \d{3}-\d{4}|\(\d{3}\) \d{3}-\d{4}|\d{3}-\d{3}-\d{4})$/;
+const PHONE_MSG = "Use format: +1 (XXX) XXX-XXXX, (XXX) XXX-XXXX, or XXX-XXX-XXXX";
+
 const schema = z.object({
   contactName: z.string().max(255).optional(),
-  contactPhone: z.string().max(64).optional(),
+  contactPhone: z.string().refine(v => !v || US_PHONE_RE.test(v), PHONE_MSG).optional(),
   contactEmail: z.string().email().max(255).or(z.literal("")).optional(),
 });
 

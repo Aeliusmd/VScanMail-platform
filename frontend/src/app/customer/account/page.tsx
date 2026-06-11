@@ -22,6 +22,7 @@ import { bankAccountsApi, type BankAccountListItem } from "@/lib/api/bankAccount
 import { deliveryAddressesApi, type DeliveryAddress } from "@/lib/api/delivery-addresses";
 import { apiClient, apiUpload, ApiError } from "@/lib/api-client";
 import { authApi } from "@/lib/api/auth";
+import { PHONE_RE, PHONE_ERROR_MSG } from "@/lib/validation";
 
 type BankAccount = BankAccountListItem;
 type AddressEntry = DeliveryAddress;
@@ -292,6 +293,7 @@ function CustomerAccountPageContent() {
 
   const [profile, setProfile] = useState(FALLBACK_ACCOUNT.profile);
   const [profileDirty, setProfileDirty] = useState(false);
+  const [phoneError, setPhoneError] = useState("");
 
   const [newBank, setNewBank] = useState({
     bankName: "",
@@ -622,6 +624,7 @@ function CustomerAccountPageContent() {
           throw new Error("Checkout URL was not returned by the server.");
         }
 
+        showToast("success", "Redirecting to secure checkout...");
         window.location.href = result.url;
       }
     } catch (error) {
@@ -675,6 +678,10 @@ function CustomerAccountPageContent() {
   };
 
   const saveProfile = async () => {
+    if (profile.phone && !PHONE_RE.test(profile.phone)) {
+      setPhoneError(PHONE_ERROR_MSG);
+      return;
+    }
     setSaving(true);
     try {
       const data = await saveCustomerAccount({ profile });
@@ -713,6 +720,9 @@ function CustomerAccountPageContent() {
     }
     if (input.state.trim().length !== 2) {
       return "State must be a 2-letter code (e.g. CA).";
+    }
+    if (input.phone && !PHONE_RE.test(input.phone)) {
+      return PHONE_ERROR_MSG;
     }
     return null;
   };
@@ -1350,8 +1360,10 @@ function CustomerAccountPageContent() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">Phone Number</label>
-                      <input type="tel" value={profile.phone} onChange={e => { setProfile(p => ({ ...p, phone: e.target.value })); setProfileDirty(true); }}
-                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
+                      <input type="tel" value={profile.phone} onChange={e => { setProfile(p => ({ ...p, phone: e.target.value })); setProfileDirty(true); setPhoneError(e.target.value && !PHONE_RE.test(e.target.value) ? PHONE_ERROR_MSG : ""); }}
+                        placeholder="+1 (XXX) XXX-XXXX"
+                        className={`w-full px-3 py-2.5 border rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 transition-all ${phoneError ? "border-red-400 focus:ring-red-200" : "border-gray-200 focus:ring-[#0A3D8F]/30"}`} />
+                      {phoneError && <p className="mt-1 text-xs text-red-500">{phoneError}</p>}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">Website</label>
@@ -2003,7 +2015,7 @@ function CustomerAccountPageContent() {
                           </div>
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1.5">Phone</label>
-                            <input type="tel" value={addressForm.phone} onChange={(e) => setAddressForm((p) => ({ ...p, phone: e.target.value }))} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
+                            <input type="tel" value={addressForm.phone} placeholder="+1 (XXX) XXX-XXXX" onChange={(e) => setAddressForm((p) => ({ ...p, phone: e.target.value }))} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                           </div>
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>

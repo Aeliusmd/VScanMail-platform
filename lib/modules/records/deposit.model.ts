@@ -18,6 +18,23 @@ function escapeIdent(ident: string) {
   return `\`${String(ident).replace(/`/g, "``")}\``;
 }
 
+function toIsoString(value: unknown): string | null {
+  if (value == null || value === "") return null;
+  const date = value instanceof Date ? value : new Date(value as any);
+  const time = date.getTime();
+  if (!Number.isFinite(time)) return null;
+  return date.toISOString();
+}
+
+function toIsoStringOrNow(value: unknown): string {
+  return toIsoString(value) ?? new Date().toISOString();
+}
+
+function toTimeOrZero(value: unknown): number {
+  const iso = toIsoString(value);
+  return iso ? new Date(iso).getTime() : 0;
+}
+
 async function getExistingTableNames(): Promise<Set<string>> {
   const [tablesResult] = await db.execute(sql`SHOW TABLES`);
   return new Set(((tablesResult as unknown) as any[]).map((row) => String(Object.values(row)[0])));
@@ -195,22 +212,22 @@ export const depositModel = {
       mailItemId: String(r.mailItemId),
       clientId: String(r.clientId),
       amountFigures: Number(r.amountFigures || 0),
-      createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : new Date().toISOString(),
+      createdAt: toIsoStringOrNow(r.createdAt),
       chequeStatus: r.chequeStatus ?? null,
-      requestedAt: r.requestedAt ? new Date(r.requestedAt).toISOString() : null,
+      requestedAt: toIsoString(r.requestedAt),
       requestedBy: r.requestedBy ?? null,
       destinationBankAccountId: r.destinationBankAccountId ?? null,
       destinationBankName: r.destinationBankName ?? null,
       destinationBankNickname: r.destinationBankNickname ?? null,
       destinationBankLast4: r.destinationBankLast4 ?? null,
       decision: (r.decision as any) ?? null,
-      decidedAt: r.decidedAt ? new Date(r.decidedAt).toISOString() : null,
+      decidedAt: toIsoString(r.decidedAt),
       decidedBy: r.decidedBy ?? null,
       rejectReason: r.rejectReason ?? null,
-      markedDepositedAt: r.markedDepositedAt ? new Date(r.markedDepositedAt).toISOString() : null,
+      markedDepositedAt: toIsoString(r.markedDepositedAt),
       markedDepositedBy: r.markedDepositedBy ?? null,
       slipUrl: r.slipUrl ?? null,
-      slipUploadedAt: r.slipUploadedAt ? new Date(r.slipUploadedAt).toISOString() : null,
+      slipUploadedAt: toIsoString(r.slipUploadedAt),
       slipUploadedBy: r.slipUploadedBy ?? null,
       slipAiResult: tryParseJson(r.slipAiResult),
       aiSummary: r.aiSummary ?? null,
@@ -295,8 +312,8 @@ export const depositModel = {
     );
 
     collected.sort((a, b) => {
-      const ta = a.requestedAt ? new Date(a.requestedAt).getTime() : 0;
-      const tb = b.requestedAt ? new Date(b.requestedAt).getTime() : 0;
+      const ta = toTimeOrZero(a.requestedAt);
+      const tb = toTimeOrZero(b.requestedAt);
       return tb - ta;
     });
 
@@ -307,22 +324,22 @@ export const depositModel = {
       clientName: r.clientName ?? undefined,
       clientEmail: r.clientEmail ?? undefined,
       amountFigures: Number(r.amountFigures || 0),
-      createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : new Date().toISOString(),
+      createdAt: toIsoStringOrNow(r.createdAt),
       chequeStatus: r.chequeStatus ?? null,
-      requestedAt: r.requestedAt ? new Date(r.requestedAt).toISOString() : null,
+      requestedAt: toIsoString(r.requestedAt),
       requestedBy: r.requestedBy ?? null,
       destinationBankAccountId: r.destinationBankAccountId ?? null,
       destinationBankName: r.destinationBankName ?? null,
       destinationBankNickname: r.destinationBankNickname ?? null,
       destinationBankLast4: r.destinationBankLast4 ?? null,
       decision: (r.decision as any) ?? null,
-      decidedAt: r.decidedAt ? new Date(r.decidedAt).toISOString() : null,
+      decidedAt: toIsoString(r.decidedAt),
       decidedBy: r.decidedBy ?? null,
       rejectReason: r.rejectReason ?? null,
-      markedDepositedAt: r.markedDepositedAt ? new Date(r.markedDepositedAt).toISOString() : null,
+      markedDepositedAt: toIsoString(r.markedDepositedAt),
       markedDepositedBy: r.markedDepositedBy ?? null,
       slipUrl: r.slipUrl ?? null,
-      slipUploadedAt: r.slipUploadedAt ? new Date(r.slipUploadedAt).toISOString() : null,
+      slipUploadedAt: toIsoString(r.slipUploadedAt),
       slipUploadedBy: r.slipUploadedBy ?? null,
       slipAiResult: tryParseJson(r.slipAiResult),
       aiSummary: r.aiSummary ?? null,
