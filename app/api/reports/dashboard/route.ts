@@ -38,30 +38,26 @@ export async function GET(req: NextRequest) {
     const user = await withAuth(req);
     withRole(user, ["admin", "super_admin"]);
 
-    // 1. Get total letters count (excluding cheques)
-    const lettersResponse = await mailItemModel.listAllGlobal({ type: 'letter', limit: 1 });
-    // Also consider other types that aren't cheques
-    const pkgResponse = await mailItemModel.listAllGlobal({ type: 'package', limit: 1 });
-    const totalMails = lettersResponse.total + pkgResponse.total;
-    
-    // 2. Get total cheques count
-    const chequesResponse = await mailItemModel.listAllGlobal({ type: 'cheque', limit: 1 });
+    const [
+      allMailsResponse,
+      chequesResponse,
+      pendingMailsResponse,
+      pendingChequesResponse,
+      activeCompaniesRaw,
+      activityResponse,
+    ] = await Promise.all([
+      mailItemModel.listAllGlobal({ limit: 1 }),
+      chequeModel.listAllGlobal({ limit: 1 }),
+      mailItemModel.listAllGlobal({ status: "action_required", limit: 1 }),
+      chequeModel.listAllGlobal({ status: "flagged", limit: 1 }),
+      db.select({ value: count() }).from(clients).where(eq(clients.status, "active")),
+      mailItemModel.listAllGlobal({ limit: 10 }),
+    ]);
+
+    const totalMails = allMailsResponse.total;
     const totalCheques = chequesResponse.total;
-
-    // 3. Get total active companies
-    const activeCompaniesRaw = await db
-      .select({ value: count() })
-      .from(clients)
-      .where(eq(clients.status, "active"));
     const activeCompanies = activeCompaniesRaw[0]?.value || 0;
-
-    // 4. Calculate Pending Requests (filtered by status)
-    const pendingMails = await mailItemModel.listAllGlobal({ status: "action_required", limit: 1 });
-    const pendingCheques = await mailItemModel.listAllGlobal({ status: "flagged", limit: 1 });
-    const pendingRequests = pendingMails.total + pendingCheques.total;
-
-    // 5. Get Combined Recent Activity (Fetch all together to avoid duplicates)
-    const activityResponse = await mailItemModel.listAllGlobal({ limit: 10 });
+    const pendingRequests = pendingMailsResponse.total + pendingChequesResponse.total;
     
     const recentActivity = activityResponse.items.map((item: any) => {
       const isCheque = item.type === 'cheque';
