@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { usePathname } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { deliveriesApi, type DeliveryDto } from "@/lib/api/deliveries";
-import { useSuperAdminToolbarOptional } from "../../superadmin/components/SuperAdminToolbarContext";
+import { useAdminProfile } from "../components/useAdminProfile";
+import NotificationBell from "../components/NotificationBell";
 import ClickedDelivery from "./components/ClickedDelivery";
+import { useSuperAdminToolbarOptional } from "../../superadmin/components/SuperAdminToolbarContext";
 
 type TabType = "All" | "Pending" | "Approved" | "In Transit" | "Delivered" | "Rejected" | "Cancelled";
 
@@ -58,18 +61,60 @@ function sourceMeta(sourceType: DeliveryDto["sourceType"]): { label: string; cla
 }
 
 export default function AdminDeliveriesPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminDeliveriesPageContent />
+    </Suspense>
+  );
+}
+
+function AdminDeliveriesPageContent() {
   const pathname = usePathname() ?? "";
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const companyFromUrl = searchParams.get("company") ?? "";
+  const clientIdFromUrl = searchParams.get("clientId") ?? "";
+
   const isSuperadminRoute = pathname.startsWith("/superadmin");
-  const superToolbar = useSuperAdminToolbarOptional();
+  const toolbar = useSuperAdminToolbarOptional();
+  const { userData, initials, displayName, displayRole } = useAdminProfile();
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(companyFromUrl);
   const [tab, setTab] = useState<TabType>("All");
   const [rows, setRows] = useState<DeliveryDto[]>([]);
   const [opened, setOpened] = useState<DeliveryDto | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkCancelling, setBulkCancelling] = useState(false);
-  const search = isSuperadminRoute && superToolbar ? superToolbar.search : query;
+
+  const profilePath = isSuperadminRoute ? "/superadmin/settings/profile" : "/admin/settings/profile";
+  const settingsPath = isSuperadminRoute ? "/superadmin/settings" : "/admin/settings";
+  const scanPath = isSuperadminRoute ? "/superadmin/scan" : "/admin/scan";
+
+  useEffect(() => {
+    setQuery(companyFromUrl);
+  }, [companyFromUrl]);
+
+  const handleSearchChange = (value: string) => {
+    setQuery(value);
+    const params = new URLSearchParams(searchParams.toString());
+    let changed = false;
+    if (!value.trim()) {
+      if (params.has("company") || params.has("clientId")) {
+        params.delete("company");
+        params.delete("clientId");
+        changed = true;
+      }
+    } else if (params.has("clientId") && value !== companyFromUrl) {
+      params.delete("company");
+      params.delete("clientId");
+      changed = true;
+    }
+    if (changed) {
+      router.replace(params.toString() ? `${pathname}?${params.toString()}` : pathname);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -91,18 +136,19 @@ export default function AdminDeliveriesPage() {
   const filtered = useMemo(() => {
     return rows.filter((r) => {
       const matchesTab = tab === "All" || toTab(r.status) === tab;
-      const q = search.trim().toLowerCase();
+      if (clientIdFromUrl) {
+        return matchesTab && r.clientId === clientIdFromUrl;
+      }
+      const q = (isSuperadminRoute ? (toolbar?.search ?? query) : query).trim().toLowerCase();
       const matchesSearch =
         !q ||
-        (isSuperadminRoute
-          ? (r.clientName || "").toLowerCase().includes(q)
-          : r.id.toLowerCase().includes(q) ||
-            r.irn.toLowerCase().includes(q) ||
-            (r.clientName || "").toLowerCase().includes(q) ||
-            (r.trackingNumber || "").toLowerCase().includes(q));
+        r.id.toLowerCase().includes(q) ||
+        r.irn.toLowerCase().includes(q) ||
+        (r.clientName || "").toLowerCase().includes(q) ||
+        (r.trackingNumber || "").toLowerCase().includes(q);
       return matchesTab && matchesSearch;
     });
-  }, [rows, tab, search, isSuperadminRoute]);
+  }, [rows, tab, query, clientIdFromUrl, isSuperadminRoute, toolbar?.search]);
 
   const metrics = useMemo(() => {
     const total = rows.length;
@@ -160,101 +206,118 @@ export default function AdminDeliveriesPage() {
   const tabs: TabType[] = ["All", "Pending", "Approved", "In Transit", "Delivered", "Rejected", "Cancelled"];
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 sm:p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">Delivery Requests</h1>
-            <p className="text-sm text-slate-500">Admin queue for cheque and mail pickups/deliveries</p>
-          </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-              <div className="text-[11px] text-slate-500">Total</div>
-              <div className="text-sm font-semibold text-slate-900">{metrics.total}</div>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-              <div className="text-[11px] text-slate-500">Pending</div>
-              <div className="text-sm font-semibold text-slate-900">{metrics.pending}</div>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-              <div className="text-[11px] text-slate-500">Active</div>
-              <div className="text-sm font-semibold text-slate-900">{metrics.active}</div>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-              <div className="text-[11px] text-slate-500">Delivered</div>
-              <div className="text-sm font-semibold text-slate-900">{metrics.delivered}</div>
-            </div>
-          </div>
-        </div>
+    <div className="flex flex-col flex-1 min-h-0 bg-white min-w-0 overflow-x-hidden">
 
-        {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
-
-        <div className="bg-white rounded-xl border border-slate-200 mb-4">
-          {!isSuperadminRoute && (
-          <div className="p-4 border-b border-slate-100">
-            <div className="w-full md:w-[440px]">
-              <div className="relative">
-                <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search by ID, client, IRN, tracking…"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2.5 text-sm border border-slate-200 rounded-lg outline-none text-slate-900 placeholder:text-slate-400 focus:border-[#0A3D8F] focus:ring-2 focus:ring-[#0A3D8F]/15"
-                />
-              </div>
-              <div className="mt-1 text-[11px] text-slate-500">Tip: Paste an ID or IRN to jump straight to a request.</div>
+      {/* Header — deposits style */}
+      {!isSuperadminRoute && (
+        <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 shrink-0">
+          <div className="flex items-center justify-between gap-3">
+            {/* Left: search */}
+            <div className="relative flex-1 max-w-xl min-w-0">
+              <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search delivery requests..."
+                value={query}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-slate-100 border border-transparent rounded-full focus:bg-white focus:border-slate-300 focus:ring-0 outline-none text-sm text-slate-900 placeholder:text-slate-400 transition-all"
+              />
             </div>
-          </div>
-          )}
-          <div className="flex items-center px-4 overflow-x-auto">
-            {tabs.map((t) => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap ${
-                  tab === t ? "border-[#0A3D8F] text-[#0A3D8F]" : "border-transparent text-slate-500 hover:text-slate-700"
-                }`}
+
+            {/* Right: scan + notification + user */}
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              <Link
+                href={scanPath}
+                className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-[#0A3D8F] text-white text-sm font-semibold rounded-full hover:bg-[#083170] transition-colors whitespace-nowrap"
               >
-                {t}
-              </button>
-            ))}
+                <i className="ri-scan-2-line text-sm" />
+                <span className="hidden sm:inline">New Scan</span>
+              </Link>
+              <NotificationBell />
+              <div className="relative pl-2 sm:pl-3 border-l border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="flex items-center gap-2 hover:bg-slate-50 rounded-lg px-1 py-1 transition cursor-pointer"
+                >
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#0A3D8F] to-[#083170] flex items-center justify-center text-white font-semibold text-xs overflow-hidden flex-shrink-0">
+                    {userData?.avatarUrl ? <img src={userData.avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : initials}
+                  </div>
+                  <div className="text-left hidden lg:block">
+                    <p className="text-sm font-semibold text-slate-900 leading-none">{displayName}</p>
+                    <p className="text-xs text-slate-500 uppercase">{displayRole}</p>
+                  </div>
+                </button>
+                {showUserMenu && (
+                  <div className="absolute right-0 top-12 w-[200px] bg-white rounded-2xl shadow-lg border border-slate-200 z-50 py-1 overflow-hidden">
+                    <Link href={profilePath} className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50" onClick={() => setShowUserMenu(false)}>
+                      <i className="ri-user-line text-sm" /> My Profile
+                    </Link>
+                    <Link href={settingsPath} className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50" onClick={() => setShowUserMenu(false)}>
+                      <i className="ri-settings-3-line text-sm" /> Settings
+                    </Link>
+                    <div className="border-t border-slate-100 my-1" />
+                    <a href="/login" className="flex items-center gap-2 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50">
+                      <i className="ri-logout-box-r-line text-sm" /> Sign Out
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
+        </header>
+      )}
+
+      {/* Filter tabs */}
+      <div className="bg-slate-50 border-b border-slate-200 px-4 sm:px-6 py-2.5 flex items-center gap-1.5 overflow-x-auto shrink-0">
+        {tabs.map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTab(t)}
+            className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all whitespace-nowrap cursor-pointer shrink-0 ${
+              tab === t ? "bg-[#0A3D8F] text-white shadow-sm" : "text-slate-500 hover:text-slate-700 hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-200"
+            }`}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {/* Main content */}
+      <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-white min-w-0">
+        {error && (
+          <div className="mx-4 mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+        )}
 
         {loading ? (
-          <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-            <div className="p-4 border-b border-slate-100">
-              <div className="h-4 w-40 bg-slate-100 rounded animate-pulse" />
-            </div>
-            <div className="divide-y divide-slate-100">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="h-3 w-36 bg-slate-100 rounded animate-pulse" />
-                      <div className="mt-2 h-4 w-56 bg-slate-100 rounded animate-pulse" />
-                      <div className="mt-2 h-3 w-72 bg-slate-100 rounded animate-pulse" />
-                    </div>
-                    <div className="w-28">
-                      <div className="h-6 w-24 bg-slate-100 rounded-full animate-pulse" />
-                    </div>
+          <div className="divide-y divide-slate-100">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="h-3 w-36 bg-slate-100 rounded animate-pulse" />
+                    <div className="mt-2 h-4 w-56 bg-slate-100 rounded animate-pulse" />
+                    <div className="mt-2 h-3 w-72 bg-slate-100 rounded animate-pulse" />
+                  </div>
+                  <div className="w-28">
+                    <div className="h-6 w-24 bg-slate-100 rounded-full animate-pulse" />
                   </div>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="bg-white rounded-xl border border-slate-200 p-10 text-center">
-            <div className="mx-auto w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-500">
+          <div className="flex flex-col items-center justify-center h-64 gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-500">
               <i className="ri-inbox-2-line text-xl" />
             </div>
-            <div className="mt-3 text-sm font-semibold text-slate-900">No delivery requests</div>
-            <div className="mt-1 text-sm text-slate-500">Try switching tabs or clearing your search.</div>
+            <div className="text-sm font-semibold text-slate-900">No delivery requests</div>
+            <div className="text-sm text-slate-500">Try switching tabs or clearing your search.</div>
           </div>
         ) : (
-          <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-            {/* Queue header */}
+          <div>
+            {/* Queue toolbar */}
             <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <input
@@ -403,7 +466,7 @@ export default function AdminDeliveriesPage() {
             </div>
           </div>
         )}
-      </div>
+      </main>
 
       {opened && (
         <ClickedDelivery

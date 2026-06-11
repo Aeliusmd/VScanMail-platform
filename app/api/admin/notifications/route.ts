@@ -10,8 +10,14 @@ export async function GET(req: NextRequest) {
     const rows = await auditLogModel.listNotificationsForUser(user.id, 20);
     return NextResponse.json({ notifications: rows });
   } catch (error: any) {
-    if (error instanceof Response) return error as any;
-    return NextResponse.json({ error: error.message || "Failed to load notifications" }, { status: 400 });
+    if (error instanceof Response) {
+      return NextResponse.json(
+        { error: error.status === 403 ? "Forbidden" : "Unauthorized" },
+        { status: error.status }
+      );
+    }
+    console.error("[GET /api/admin/notifications]", error);
+    return NextResponse.json({ error: error?.message || "Failed to load notifications" }, { status: 500 });
   }
 }
 

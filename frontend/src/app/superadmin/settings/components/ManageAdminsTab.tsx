@@ -601,6 +601,7 @@ export default function ManageAdminsTab() {
                           setForm((p) => ({ ...p, password: e.target.value }))
                         }
                         placeholder="Min. 8 characters"
+                        autoComplete="new-password"
                         className="w-full pl-10 pr-12 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] focus:ring-2 focus:ring-[#0A3D8F]/10 transition-all shadow-sm"
                       />
                       <button

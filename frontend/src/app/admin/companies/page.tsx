@@ -80,6 +80,12 @@ function CompaniesPageContent() {
   const router = useRouter();
   const pathname = usePathname();
   const isSuperadminRoute = pathname.startsWith('/superadmin');
+  const basePath = isSuperadminRoute ? '/superadmin' : '/admin';
+  const buildOrgFilterQs = (company: Company) =>
+    new URLSearchParams({
+      company: company.name,
+      clientId: company.id,
+    }).toString();
   const superToolbar = useSuperAdminToolbarOptional();
   const search = isSuperadminRoute && superToolbar ? superToolbar.search : localSearch;
   const canManageOrganizations = isSuperadminRoute;
@@ -562,8 +568,14 @@ function CompaniesPageContent() {
           onClose={() => setOpenedCompany(null)}
           onEdit={canManageOrganizations ? () => { handleEdit(openedCompany); setOpenedCompany(null); } : undefined}
           onDelete={canManageOrganizations ? () => { void handleDelete(openedCompany.id); } : undefined}
-          onViewDeliveries={() => router.push('/superadmin/deliveries')}
-          onViewDeposits={() => router.push('/superadmin/deposits')}
+          onViewDeliveries={() => {
+            setOpenedCompany(null);
+            router.push(`${basePath}/deliveries?${buildOrgFilterQs(openedCompany)}`);
+          }}
+          onViewDeposits={() => {
+            setOpenedCompany(null);
+            router.push(`${basePath}/deposits?${buildOrgFilterQs(openedCompany)}`);
+          }}
         />
       )}
 

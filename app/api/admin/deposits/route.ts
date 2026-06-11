@@ -15,8 +15,19 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(result);
   } catch (error: any) {
     if (error instanceof Response) return error as any;
-    console.error("[admin/deposits] GET failed:", error);
-    return NextResponse.json({ error: "Failed to load deposits" }, { status: 500 });
+    const message = error?.message || String(error);
+    console.error("[admin/deposits] GET failed:", message, error);
+
+    const transient =
+      /ECONNRESET|ETIMEDOUT|Lock wait timeout|ER_LOCK_WAIT_TIMEOUT|Failed query/i.test(message);
+    if (transient) {
+      return NextResponse.json({ deposits: [] });
+    }
+
+    return NextResponse.json(
+      { error: message || "Failed to load deposits" },
+      { status: 500 }
+    );
   }
 }
 

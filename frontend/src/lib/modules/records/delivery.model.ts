@@ -243,7 +243,13 @@ export const deliveryModel = {
     const allClients = allClientsRaw.filter((c) => existingTableNames.has(c.tableName));
     if (!allClients.length) return { deliveries: [] as DeliveryRow[] };
 
-    await Promise.all(allClients.map((c) => ensureClientTableDeliveryColumns(c.tableName)));
+    for (const c of allClients) {
+      try {
+        await ensureClientTableDeliveryColumns(c.tableName);
+      } catch (err) {
+        console.warn(`[deliveryModel] ensure failed for ${c.tableName}:`, err);
+      }
+    }
 
     const unionParts = allClients.map(
       (c) =>

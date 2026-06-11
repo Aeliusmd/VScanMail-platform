@@ -231,7 +231,13 @@ export const depositModel = {
     const allClients = allClientsRaw.filter((c) => existingTableNames.has(c.tableName));
     if (!allClients.length) return { deposits: [] as DepositRow[] };
 
-    await Promise.all(allClients.map((c) => ensureClientTableDepositColumns(c.tableName)));
+    for (const c of allClients) {
+      try {
+        await ensureClientTableDepositColumns(c.tableName);
+      } catch (err) {
+        console.warn(`[depositModel] ensure failed for ${c.tableName}:`, err);
+      }
+    }
 
     const columnList = [
       "id AS chequeId",

@@ -113,20 +113,18 @@ export async function POST(req: NextRequest) {
 
     if (invalidCredentials) {
       const afterFailure = await recordLoginFailure(emailKey);
-      try {
-        const attemptedEmail = emailKey;
-        const emailHash = crypto.createHash("sha256").update(attemptedEmail).digest("hex");
-        await auditService.log({
+      const attemptedEmail = emailKey;
+      const emailHash = crypto.createHash("sha256").update(attemptedEmail).digest("hex");
+      auditService
+        .log({
           actor: "system",
           actor_role: "admin",
           action: "auth.login_failed",
           entity: user?.id || emailHash.slice(0, 36),
           after: { reason: "invalid_login", emailHash },
           req,
-        });
-      } catch (logError) {
-        console.error("[LOGIN_AUTH_LOG_FAILURE]", logError);
-      }
+        })
+        .catch((logError) => console.error("[LOGIN_AUTH_LOG_FAILURE]", logError));
 
       if (afterFailure.locked) {
         return NextResponse.json(
@@ -235,16 +233,18 @@ export async function POST(req: NextRequest) {
     // Update last login timestamp (fire-and-forget — column may not be migrated yet)
     db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id)).catch(() => {});
 
-    // Log successful login
-    await auditService.log({
-      actor: user.id,
-      actor_role: role as any,
-      action: "auth.login",
-      entity: user.id,
-      clientId: clientId ?? undefined,
-      after: { role },
-      req,
-    });
+    // Log successful login (fire-and-forget — must not delay the response)
+    auditService
+      .log({
+        actor: user.id,
+        actor_role: role as any,
+        action: "auth.login",
+        entity: user.id,
+        clientId: clientId ?? undefined,
+        after: { role },
+        req,
+      })
+      .catch((err) => console.error("[LOGIN_AUDIT_FAILURE]", err));
 
     const res = NextResponse.json({
       user: { id: user.id, email: user.email, role, clientId },
@@ -270,23 +270,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Log failed login attempt with extra safety
-    try {
-      const attemptedEmail = body?.email ? String(body.email).toLowerCase() : "";
-      const emailHash = attemptedEmail
-        ? crypto.createHash("sha256").update(attemptedEmail).digest("hex")
-        : undefined;
-      await auditService.log({
+    const attemptedEmail = body?.email ? String(body.email).toLowerCase() : "";
+    const emailHash = attemptedEmail
+      ? crypto.createHash("sha256").update(attemptedEmail).digest("hex")
+      : undefined;
+    auditService
+      .log({
         actor: "system",
         actor_role: "admin",
         action: "auth.login_failed",
         entity: user?.id || (emailHash ? emailHash.slice(0, 36) : "unknown"),
         after: { reason: "invalid_login", emailHash },
         req,
-      });
-    } catch (logError) {
-      console.error("[LOGIN_AUTH_LOG_FAILURE]", logError);
-    }
+      })
+      .catch((logError) => console.error("[LOGIN_AUTH_LOG_FAILURE]", logError));
 
     return NextResponse.json(
       { error: "Login failed" },

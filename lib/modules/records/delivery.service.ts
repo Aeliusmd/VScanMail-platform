@@ -503,8 +503,8 @@ export const deliveryService = {
     const recordRow = await deliveryModel.findRecordRowById(params.recordId);
     if (!recordRow) throw new Error("Record not found");
     const currentStatus = (recordRow.delivery_status as DeliveryStatus | null) ?? null;
-    if (!["approved", "in_transit"].includes(String(currentStatus))) {
-      throw new Error("Request must be approved or in transit");
+    if (currentStatus !== "in_transit") {
+      throw new Error("Delivery must be marked In Transit before it can be marked as Delivered");
     }
 
     const clientId = String(recordRow._client_id);

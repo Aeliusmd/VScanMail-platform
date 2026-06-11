@@ -765,6 +765,17 @@ export default function AdminArchivedMailsPage() {
               <span className="text-xs text-slate-500">{filteredMails.length} of {mails.length} mails</span>
             </div>
 
+            {/* Mail Status Tabs */}
+            <div className="bg-slate-50 border-b border-slate-200 px-4 sm:px-6 py-2.5 flex items-center gap-1.5 overflow-x-auto shrink-0">
+              {['All', 'Processed', 'Delivered', 'Pending Delivery'].map(tab => (
+                <button key={tab} type="button" onClick={() => setMailStatusFilter(tab)}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all whitespace-nowrap cursor-pointer shrink-0 ${mailStatusFilter === tab ? 'bg-[#0A3D8F] text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-200'}`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+
             {/* Mail List */}
             <main className="flex-1 overflow-y-auto overflow-x-hidden bg-white min-w-0">
               {loading ? (
@@ -957,6 +968,17 @@ export default function AdminArchivedMailsPage() {
                 </div>
               </div>
               <span className="text-xs text-slate-500">{filteredCheques.length} of {cheques.length} cheques</span>
+            </div>
+
+            {/* Cheque Status Tabs */}
+            <div className="bg-slate-50 border-b border-slate-200 px-4 sm:px-6 py-2.5 flex items-center gap-1.5 overflow-x-auto shrink-0">
+              {['All', 'Deposited', 'Rejected', 'On Hold'].map(tab => (
+                <button key={tab} type="button" onClick={() => setChequeStatusFilter(tab)}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all whitespace-nowrap cursor-pointer shrink-0 ${chequeStatusFilter === tab ? 'bg-[#0A3D8F] text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-200'}`}
+                >
+                  {tab}
+                </button>
+              ))}
             </div>
 
             {/* Cheque List */}

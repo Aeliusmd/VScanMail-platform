@@ -6,14 +6,15 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Icon } from '@iconify/react';
 import { depositsApi, type DepositDto } from '@/lib/api/deposits';
 import { mailApi, type MailItem } from '@/lib/api/mail';
-import { useSuperAdminToolbarOptional } from '../../superadmin/components/SuperAdminToolbarContext';
 import { useAdminProfile } from '../components/useAdminProfile';
 import NotificationBell from '../components/NotificationBell';
+import { useSuperAdminToolbarOptional } from '../../superadmin/components/SuperAdminToolbarContext';
 
 type DepositRequest = {
   id: string; // UI id like DEP-xxxxxx
   chequeId: string; // real cheque id used for API actions
   mailItemId: string;
+  clientId: string;
   slipUrl?: string | null;
   company: string;
   companyEmail: string;
@@ -100,6 +101,7 @@ function mapDepositToRequest(d: DepositDto): DepositRequest {
     id: `DEP-${d.chequeId.slice(-6)}`,
     chequeId: d.chequeId,
     mailItemId: d.mailItemId,
+    clientId: d.clientId,
     slipUrl: d.slipUrl ?? null,
     company: d.clientName || 'Client',
     companyEmail: d.clientEmail || '—',
@@ -140,6 +142,8 @@ function DepositsPageContent() {
   const searchParams = useSearchParams();
   const tabFromUrl = searchParams.get('tab');
   const highlightId = searchParams.get('highlight');
+  const companyFromUrl = searchParams.get('company') ?? '';
+  const clientIdFromUrl = searchParams.get('clientId') ?? '';
 
   const statusFilter = useMemo((): StatusTab => {
     if (!tabFromUrl) return 'All';
@@ -148,6 +152,7 @@ function DepositsPageContent() {
   }, [tabFromUrl]);
 
   const isSuperadminRoute = pathname.startsWith('/superadmin');
+  const toolbar = useSuperAdminToolbarOptional();
   const basePath = isSuperadminRoute ? '/superadmin' : '/admin';
   const scanPath = `${basePath}/scan`;
   const profilePath = isSuperadminRoute
@@ -158,9 +163,7 @@ function DepositsPageContent() {
     : '/admin/settings';
 
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [localSearch, setLocalSearch] = useState('');
-  const superToolbar = useSuperAdminToolbarOptional();
-  const search = isSuperadminRoute && superToolbar ? superToolbar.search : localSearch;
+  const [localSearch, setLocalSearch] = useState(companyFromUrl);
   const [selectedRequest, setSelectedRequest] = useState<DepositRequest | null>(null);
   const [requests, setRequests] = useState<DepositRequest[]>([]);
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
@@ -192,6 +195,30 @@ function DepositsPageContent() {
   const [selectedMailError, setSelectedMailError] = useState('');
   const [chequeViewerOpen, setChequeViewerOpen] = useState(false);
   const [chequeViewerUrl, setChequeViewerUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLocalSearch(companyFromUrl);
+  }, [companyFromUrl]);
+
+  const handleSearchChange = (value: string) => {
+    setLocalSearch(value);
+    const params = new URLSearchParams(searchParams.toString());
+    let changed = false;
+    if (!value.trim()) {
+      if (params.has('company') || params.has('clientId')) {
+        params.delete('company');
+        params.delete('clientId');
+        changed = true;
+      }
+    } else if (params.has('clientId') && value !== companyFromUrl) {
+      params.delete('company');
+      params.delete('clientId');
+      changed = true;
+    }
+    if (changed) {
+      router.replace(params.toString() ? `${pathname}?${params.toString()}` : pathname);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -230,20 +257,27 @@ function DepositsPageContent() {
   }, [highlightId, requests, pathname, router, searchParams]);
 
   const setTab = (tab: StatusTab) => {
-    router.replace(`${pathname}?tab=${encodeURIComponent(tab)}`);
+    const params = new URLSearchParams(searchParams.toString());
+    if (tab === 'All') {
+      params.delete('tab');
+    } else {
+      params.set('tab', tab);
+    }
+    router.replace(params.toString() ? `${pathname}?${params.toString()}` : pathname);
   };
 
   const filtered = requests.filter((r) => {
-    const query = search.trim().toLowerCase();
+    const matchStatus = statusFilter === 'All' || r.status === statusFilter;
+    if (clientIdFromUrl) {
+      return matchStatus && r.clientId === clientIdFromUrl;
+    }
+    const query = (isSuperadminRoute ? (toolbar?.search ?? localSearch) : localSearch).trim().toLowerCase();
     const matchSearch =
       query === '' ||
-      (isSuperadminRoute
-        ? r.company.toLowerCase().includes(query)
-        : r.company.toLowerCase().includes(query) ||
-          r.bankName.toLowerCase().includes(query) ||
-          r.chequeNumber.toLowerCase().includes(query) ||
-          r.id.toLowerCase().includes(query));
-    const matchStatus = statusFilter === 'All' || r.status === statusFilter;
+      r.company.toLowerCase().includes(query) ||
+      r.bankName.toLowerCase().includes(query) ||
+      r.chequeNumber.toLowerCase().includes(query) ||
+      r.id.toLowerCase().includes(query);
     return matchSearch && matchStatus;
   });
 
@@ -553,8 +587,8 @@ function DepositsPageContent() {
               type="text"
               placeholder="Search deposit requests..."
               value={localSearch}
-              onChange={(e) => setLocalSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-slate-100 border border-transparent rounded-full focus:bg-white focus:border-slate-300 focus:ring-0 outline-none text-sm transition-all"
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-slate-100 border border-transparent rounded-full focus:bg-white focus:border-slate-300 focus:ring-0 outline-none text-sm text-slate-900 placeholder:text-slate-400 transition-all"
             />
           </div>
 

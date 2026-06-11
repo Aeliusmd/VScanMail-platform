@@ -3,11 +3,42 @@ import { db, sql } from "@/lib/modules/core/db/mysql";
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MS = 5 * 60_000;
+const DB_PERSIST_TIMEOUT_MS = 2_000;
+const SKIP_DB_PERSIST = process.env.NODE_ENV === "development";
+
+type MemoryLockout = {
+  failedCount: number;
+  lockedUntil: number | null;
+  updatedAt: number;
+};
+
+declare global {
+  // eslint-disable-next-line no-var
+  var __vscanmail_login_lockout_mem: Map<string, MemoryLockout> | undefined;
+}
+
+const memoryLockouts = globalThis.__vscanmail_login_lockout_mem ?? new Map();
+globalThis.__vscanmail_login_lockout_mem = memoryLockouts;
 
 let initPromise: Promise<void> | null = null;
 
 function emailHash(email: string): string {
   return crypto.createHash("sha256").update(email.toLowerCase().trim()).digest("hex");
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("login_lockout_db_timeout")), ms);
+    promise
+      .then((v) => {
+        clearTimeout(timer);
+        resolve(v);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
 }
 
 async function ensureLoginLockoutTable() {
@@ -28,91 +59,110 @@ async function ensureLoginLockoutTable() {
   return initPromise;
 }
 
+function statusFromMemory(hash: string, now: number): LoginLockoutStatus {
+  const row = memoryLockouts.get(hash);
+  if (!row) return { locked: false };
+
+  if (row.lockedUntil && row.lockedUntil > now) {
+    return {
+      locked: true,
+      retryAfterSeconds: Math.max(1, Math.ceil((row.lockedUntil - now) / 1000)),
+    };
+  }
+
+  if (row.lockedUntil && row.lockedUntil <= now) {
+    memoryLockouts.set(hash, { failedCount: 0, lockedUntil: null, updatedAt: now });
+  }
+
+  return { locked: false };
+}
+
+function persistLockoutToDb(
+  hash: string,
+  failedCount: number,
+  lockedUntil: number | null,
+  now: number,
+  deleteRow = false
+): void {
+  if (SKIP_DB_PERSIST) return;
+
+  void (async () => {
+    try {
+      await withTimeout(ensureLoginLockoutTable(), DB_PERSIST_TIMEOUT_MS);
+      if (deleteRow) {
+        await withTimeout(
+          db.execute(sql`DELETE FROM login_lockout WHERE email_hash = ${hash}`),
+          DB_PERSIST_TIMEOUT_MS
+        );
+        return;
+      }
+
+      await withTimeout(
+        db.execute(sql`
+          INSERT INTO login_lockout (email_hash, failed_count, locked_until, updated_at)
+          VALUES (${hash}, ${failedCount}, ${lockedUntil}, ${now})
+          ON DUPLICATE KEY UPDATE
+            failed_count = ${failedCount},
+            locked_until = ${lockedUntil},
+            updated_at = ${now}
+        `),
+        DB_PERSIST_TIMEOUT_MS
+      );
+    } catch {
+      // Non-fatal — in-memory state is authoritative for this process.
+    }
+  })();
+}
+
 export type LoginLockoutStatus = {
   locked: boolean;
   retryAfterSeconds?: number;
 };
 
 export async function getLoginLockoutStatus(email: string): Promise<LoginLockoutStatus> {
-  await ensureLoginLockoutTable();
-
   const hash = emailHash(email);
   const now = Date.now();
-
-  const [rows] = (await db.execute(sql`
-    SELECT failed_count, locked_until FROM login_lockout WHERE email_hash = ${hash} LIMIT 1
-  `)) as any;
-
-  const row = rows?.[0];
-  if (!row) return { locked: false };
-
-  const lockedUntil = row.locked_until != null ? Number(row.locked_until) : null;
-
-  if (lockedUntil && lockedUntil > now) {
-    return {
-      locked: true,
-      retryAfterSeconds: Math.max(1, Math.ceil((lockedUntil - now) / 1000)),
-    };
-  }
-
-  if (lockedUntil && lockedUntil <= now) {
-    await db.execute(sql`
-      UPDATE login_lockout
-      SET failed_count = 0, locked_until = NULL, updated_at = ${now}
-      WHERE email_hash = ${hash}
-    `);
-  }
-
-  return { locked: false };
+  return statusFromMemory(hash, now);
 }
 
 export async function recordLoginFailure(email: string): Promise<LoginLockoutStatus> {
-  await ensureLoginLockoutTable();
-
-  const existing = await getLoginLockoutStatus(email);
-  if (existing.locked) return existing;
-
   const hash = emailHash(email);
   const now = Date.now();
 
-  const [rows] = (await db.execute(sql`
-    SELECT failed_count FROM login_lockout WHERE email_hash = ${hash} LIMIT 1
-  `)) as any;
+  const existing = statusFromMemory(hash, now);
+  if (existing.locked) return existing;
 
-  const nextCount = Number(rows?.[0]?.failed_count ?? 0) + 1;
+  const prev = memoryLockouts.get(hash);
+  const nextCount = (prev?.failedCount ?? 0) + 1;
 
   if (nextCount >= MAX_ATTEMPTS) {
     const lockedUntil = now + LOCKOUT_MS;
-    await db.execute(sql`
-      INSERT INTO login_lockout (email_hash, failed_count, locked_until, updated_at)
-      VALUES (${hash}, ${nextCount}, ${lockedUntil}, ${now})
-      ON DUPLICATE KEY UPDATE
-        failed_count = ${nextCount},
-        locked_until = ${lockedUntil},
-        updated_at = ${now}
-    `);
+    memoryLockouts.set(hash, {
+      failedCount: nextCount,
+      lockedUntil,
+      updatedAt: now,
+    });
+    persistLockoutToDb(hash, nextCount, lockedUntil, now);
     return {
       locked: true,
       retryAfterSeconds: Math.ceil(LOCKOUT_MS / 1000),
     };
   }
 
-  await db.execute(sql`
-    INSERT INTO login_lockout (email_hash, failed_count, locked_until, updated_at)
-    VALUES (${hash}, ${nextCount}, NULL, ${now})
-    ON DUPLICATE KEY UPDATE
-      failed_count = ${nextCount},
-      locked_until = NULL,
-      updated_at = ${now}
-  `);
+  memoryLockouts.set(hash, {
+    failedCount: nextCount,
+    lockedUntil: null,
+    updatedAt: now,
+  });
+  persistLockoutToDb(hash, nextCount, null, now);
 
   return { locked: false };
 }
 
 export async function clearLoginLockout(email: string): Promise<void> {
-  await ensureLoginLockoutTable();
   const hash = emailHash(email);
-  await db.execute(sql`DELETE FROM login_lockout WHERE email_hash = ${hash}`);
+  memoryLockouts.delete(hash);
+  persistLockoutToDb(hash, 0, null, Date.now(), true);
 }
 
 export function formatLoginLockoutMessage(retryAfterSeconds?: number): string {

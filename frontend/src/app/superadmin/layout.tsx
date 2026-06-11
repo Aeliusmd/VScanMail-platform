@@ -83,7 +83,7 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
               />
             )}
 
-            <main className="flex-1 overflow-y-auto">{children}</main>
+            <main className={isSuperadminListToolbarPage ? 'flex flex-1 min-h-0 flex-col overflow-hidden' : 'flex-1 overflow-y-auto'}>{children}</main>
           </div>
         </SuperAdminToolbarProvider>
       </div>

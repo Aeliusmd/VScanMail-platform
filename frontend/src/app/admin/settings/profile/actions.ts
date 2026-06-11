@@ -6,7 +6,7 @@ import { db } from "@/lib/modules/core/db/mysql";
 import { users, profiles } from "@/lib/modules/core/db/schema";
 import { eq, and } from "drizzle-orm";
 import bcrypt from "bcryptjs";
-import { z } from "zod";
+import { z, ZodError } from "zod";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { auditService } from "@/lib/modules/audit/audit.service";
@@ -73,6 +73,12 @@ async function getAuthenticatedUser() {
   }
 }
 
+function zodMessage(err: unknown): string {
+  if (err instanceof ZodError) return err.issues[0]?.message || "Validation failed";
+  if (err instanceof Error) return err.message;
+  return "An error occurred";
+}
+
 export async function updateProfile(formData: z.infer<typeof profileSchema>) {
   try {
     const { user, profile } = await getAuthenticatedUser();
@@ -120,7 +126,7 @@ export async function updateProfile(formData: z.infer<typeof profileSchema>) {
 
     return { success: true };
   } catch (err: any) {
-    return { success: false, error: err.message };
+    return { success: false, error: zodMessage(err) };
   }
 }
 
@@ -151,7 +157,7 @@ export async function updatePassword(formData: z.infer<typeof passwordSchema>) {
 
     return { success: true };
   } catch (err: any) {
-    return { success: false, error: err.message };
+    return { success: false, error: zodMessage(err) };
   }
 }
 
@@ -182,7 +188,7 @@ export async function uploadAvatar(formData: FormData) {
 
     return { success: true, url: relativeUrl };
   } catch (err: any) {
-    return { success: false, error: err.message };
+    return { success: false, error: zodMessage(err) };
   }
 }
 
@@ -203,6 +209,6 @@ export async function getProfile() {
             }
         };
     } catch (err: any) {
-        return { success: false, error: err.message };
+        return { success: false, error: zodMessage(err) };
     }
 }

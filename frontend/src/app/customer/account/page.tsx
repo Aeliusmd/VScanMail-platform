@@ -1632,6 +1632,7 @@ function CustomerAccountPageContent() {
                           value={passwordForm.currentPassword}
                           onChange={(e) => setPasswordForm((p) => ({ ...p, currentPassword: e.target.value }))}
                           placeholder="Enter current password"
+                          autoComplete="new-password"
                           className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30"
                         />
                       </div>
@@ -1642,6 +1643,7 @@ function CustomerAccountPageContent() {
                           value={passwordForm.newPassword}
                           onChange={(e) => setPasswordForm((p) => ({ ...p, newPassword: e.target.value }))}
                           placeholder="Enter new password"
+                          autoComplete="new-password"
                           className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30"
                         />
                       </div>
@@ -1652,6 +1654,7 @@ function CustomerAccountPageContent() {
                           value={passwordForm.confirmPassword}
                           onChange={(e) => setPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))}
                           placeholder="Re-enter new password"
+                          autoComplete="new-password"
                           className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30"
                         />
                       </div>

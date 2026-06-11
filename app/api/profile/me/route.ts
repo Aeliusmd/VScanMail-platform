@@ -35,10 +35,16 @@ export async function GET(req: NextRequest) {
       role: actor.role,
     });
   } catch (error: any) {
-    if (error instanceof Response) return error as any;
+    if (error instanceof Response) {
+      return NextResponse.json(
+        { error: error.status === 403 ? "Forbidden" : "Unauthorized" },
+        { status: error.status }
+      );
+    }
+    console.error("[GET /api/profile/me]", error);
     return NextResponse.json(
-      { error: error.message || "Failed to load profile" },
-      { status: 400 }
+      { error: error?.message || "Failed to load profile" },
+      { status: 500 }
     );
   }
 }

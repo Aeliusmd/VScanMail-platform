@@ -33,23 +33,23 @@
 }
 
 .tabsContainer {
-  @apply flex items-center gap-0 px-4 border-b border-gray-100;
+  @apply flex items-center gap-1.5 px-4 py-2.5 border-b border-slate-200 bg-slate-50 overflow-x-auto shrink-0;
 }
 
 .tab {
-  @apply flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition;
+  @apply px-4 py-1.5 text-sm font-medium rounded-full transition-all whitespace-nowrap cursor-pointer shrink-0 text-slate-500 hover:text-slate-700 hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-200;
 }
 
 .tabActive {
-  @apply flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 border-[#1E40AF] text-[#1E40AF] transition;
+  @apply px-4 py-1.5 text-sm font-medium rounded-full transition-all whitespace-nowrap cursor-pointer shrink-0 bg-[#0A3D8F] text-white shadow-sm;
 }
 
 .badge {
-  @apply text-xs text-gray-500;
+  @apply hidden;
 }
 
 .badgeActive {
-  @apply text-xs text-[#1E40AF];
+  @apply hidden;
 }
 
 .listContainer {
@@ -93,15 +93,6 @@
 
   .topActions {
     @apply justify-between w-full;
-  }
-
-  .tabsContainer {
-    @apply overflow-x-auto;
-  }
-
-  .tab,
-  .tabActive {
-    @apply px-3;
   }
 
   .listInner {

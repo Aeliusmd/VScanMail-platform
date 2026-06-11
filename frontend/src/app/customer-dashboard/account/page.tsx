@@ -407,13 +407,13 @@ export default function CustomerAccountPage() {
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1.5">Account Number <span className="text-red-500">*</span></label>
                           <input type="password" value={newBank.accountNumber} onChange={e => setNewBank(p => ({...p, accountNumber: e.target.value}))}
-                            placeholder="Enter account number"
+                            placeholder="Enter account number" autoComplete="off"
                             className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1.5">Confirm Account Number <span className="text-red-500">*</span></label>
                           <input type="password" value={newBank.confirmAccountNumber} onChange={e => setNewBank(p => ({...p, confirmAccountNumber: e.target.value}))}
-                            placeholder="Re-enter account number"
+                            placeholder="Re-enter account number" autoComplete="off"
                             className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                         </div>
                         <div>
@@ -475,17 +475,17 @@ export default function CustomerAccountPage() {
                     <div className="space-y-3">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">Current Password</label>
-                        <input type="password" placeholder="Enter current password"
+                        <input type="password" placeholder="Enter current password" autoComplete="new-password"
                           className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">New Password</label>
-                        <input type="password" placeholder="Enter new password"
+                        <input type="password" placeholder="Enter new password" autoComplete="new-password"
                           className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">Confirm New Password</label>
-                        <input type="password" placeholder="Re-enter new password"
+                        <input type="password" placeholder="Re-enter new password" autoComplete="new-password"
                           className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30" />
                       </div>
                       <button className="px-4 py-2.5 bg-[#0A3D8F] text-white rounded-lg text-sm font-medium hover:bg-[#083170] cursor-pointer whitespace-nowrap mt-1">

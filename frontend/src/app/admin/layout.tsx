@@ -19,6 +19,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     pathname === '/admin/archive' ||
     pathname === '/admin/companies' ||
     pathname === '/admin/deposits' ||
+    pathname === '/admin/deliveries' ||
     pathname === '/admin/mails' ||
     pathname === '/admin/cheques';
 
@@ -67,7 +68,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           )}
           <main
             className={
-              isSettingsRoute
+              isSettingsRoute || hideTopBar
                 ? 'flex flex-1 min-h-0 min-w-0 flex-col overflow-hidden'
                 : 'flex-1 overflow-y-auto'
             }

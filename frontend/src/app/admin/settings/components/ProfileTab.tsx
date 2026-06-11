@@ -344,7 +344,7 @@ export default function ProfileTab() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4 shadow-sm">
+      <form autoComplete="off" onSubmit={e => e.preventDefault()} className="bg-white rounded-xl border border-slate-200 p-6 space-y-4 shadow-sm">
         <div className="flex items-center space-x-2 pb-1 text-[#0A3D8F]">
           <i className="ri-lock-password-line text-lg"></i>
           <h3 className="text-sm font-bold">Change Password</h3>
@@ -428,7 +428,7 @@ export default function ProfileTab() {
         >
           {pwSuccess ? <><i className="ri-check-line mr-1"></i>Password Updated!</> : 'Update Password'}
         </button>
-      </div>
+      </form>
     </div>
   );
 }

@@ -258,6 +258,7 @@ function LoginForm() {
                       setTotpCode("");
                     }}
                     placeholder="Enter your password"
+                    autoComplete="current-password"
                     className={`${styles.input} ${styles.inputPasswordPad}`}
                     disabled={Boolean(mfaTempToken)}
                   />

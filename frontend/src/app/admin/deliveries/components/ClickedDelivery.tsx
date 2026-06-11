@@ -256,8 +256,7 @@ export default function ClickedDelivery({ request, onClose, onUpdated, readOnly 
   const canApprove = request.status === "pending";
   const canReject = request.status === "pending";
   const canMarkInTransit = request.status === "approved";
-  const canMarkDelivered =
-    request.status === "approved" || request.status === "in_transit";
+  const canMarkDelivered = request.status === "in_transit";
 
   const approveDisabledReason = !canApprove
     ? request.status === "approved"
@@ -274,7 +273,7 @@ export default function ClickedDelivery({ request, onClose, onUpdated, readOnly 
     : undefined;
 
   const deliveredDisabledReason = !canMarkDelivered
-    ? `Must be Approved or In Transit (currently "${s.label}")`
+    ? `Must be In Transit first (currently "${s.label}")`
     : undefined;
 
   const activeStep = s.step;

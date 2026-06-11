@@ -96,6 +96,24 @@ async function getExistingTableNames(): Promise<Set<string>> {
   return new Set(((tablesResult as unknown) as any[]).map((row) => String(Object.values(row)[0])));
 }
 
+const ADMIN_LIST_CONCURRENCY = 4;
+
+async function runWithConcurrency<T>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T) => Promise<void>
+): Promise<void> {
+  if (!items.length) return;
+  let index = 0;
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (index < items.length) {
+      const i = index++;
+      await fn(items[i]);
+    }
+  });
+  await Promise.all(workers);
+}
+
 async function locateRecordById(id: string) {
   const allClientsRaw = await db.select({ id: clients.id, tableName: clients.tableName }).from(clients);
   if (!allClientsRaw.length) return null;
@@ -256,31 +274,29 @@ export const deliveryModel = {
     }
 
     const collected: any[] = [];
-    await Promise.all(
-      allClients.map(async (c) => {
-        try {
-          const [rows] = (await db.execute(
-            sql.raw(
-              `SELECT ${COLUMN_LIST}, '${escapeSql(c.id)}' AS clientId
-               FROM ${escapeIdent(c.tableName)}
-               WHERE record_type IN ('cheque','letter','package','legal')
-                 AND delivery_requested_at IS NOT NULL`
-            )
-          )) as any;
-          const meta = clientMeta.get(c.id);
-          for (const r of rows as any[]) {
-            collected.push({
-              ...r,
-              clientId: c.id,
-              clientName: meta?.companyName,
-              clientEmail: meta?.email,
-            });
-          }
-        } catch (err) {
-          console.warn(`[deliveryModel] skip listAllForAdmin for ${c.tableName}:`, err);
+    await runWithConcurrency(allClients, ADMIN_LIST_CONCURRENCY, async (c) => {
+      try {
+        const [rows] = (await db.execute(
+          sql.raw(
+            `SELECT ${COLUMN_LIST}, '${escapeSql(c.id)}' AS clientId
+             FROM ${escapeIdent(c.tableName)}
+             WHERE record_type IN ('cheque','letter','package','legal')
+               AND delivery_requested_at IS NOT NULL`
+          )
+        )) as any;
+        const meta = clientMeta.get(c.id);
+        for (const r of rows as any[]) {
+          collected.push({
+            ...r,
+            clientId: c.id,
+            clientName: meta?.companyName,
+            clientEmail: meta?.email,
+          });
         }
-      })
-    );
+      } catch (err) {
+        console.warn(`[deliveryModel] skip listAllForAdmin for ${c.tableName}:`, err);
+      }
+    });
 
     collected.sort((a, b) => {
       const ta = a.delivery_requested_at ? new Date(a.delivery_requested_at).getTime() : 0;
