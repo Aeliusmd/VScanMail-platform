@@ -92,6 +92,7 @@ export async function createClientTable(tableName: string) {
       \`delivery_vsendocs_submission_number\` VARCHAR(64) NULL,
       \`delivery_tracking_number\`    VARCHAR(128)  NULL,
       \`delivery_proof_of_service_url\` TEXT        NULL,
+      \`delivery_customer_confirmed_at\` DATETIME    NULL,
 
       \`created_at\`                  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -256,6 +257,7 @@ export async function ensureClientTableDeliveryColumns(tableName: string): Promi
       { name: "delivery_vsendocs_submission_number", sql: "`delivery_vsendocs_submission_number` VARCHAR(64) NULL" },
       { name: "delivery_tracking_number", sql: "`delivery_tracking_number` VARCHAR(128) NULL" },
       { name: "delivery_proof_of_service_url", sql: "`delivery_proof_of_service_url` TEXT NULL" },
+      { name: "delivery_customer_confirmed_at", sql: "`delivery_customer_confirmed_at` DATETIME NULL" },
       // Core column added after initial schema — ensures SELECT * UNION ALL column counts match across all org tables.
       { name: "ai_summary", sql: "`ai_summary` TEXT NULL" },
     ]);
@@ -346,6 +348,20 @@ export async function ensureClientTableDepositColumns(tableName: string): Promis
         // ignore — best effort on engines that reject the MODIFY
       }
     }
+  });
+}
+
+/**
+ * Backfills delivery_customer_confirmed_at for tables created before customer
+ * confirmation existed. Separate cache key so it runs even on tables where
+ * ensureClientTableDeliveryColumns was already memoized.
+ */
+export async function ensureDeliveryCustomerConfirmedColumn(tableName: string): Promise<void> {
+  return ensureOnce(`deliveryConfirm:${tableName}`, async () => {
+    const existing = await getColumnInfo(tableName);
+    await addMissingColumns(tableName, existing, [
+      { name: "delivery_customer_confirmed_at", sql: "`delivery_customer_confirmed_at` DATETIME NULL" },
+    ]);
   });
 }
 

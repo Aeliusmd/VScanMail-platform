@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
     const accessToken = await signAccessToken({
       sub: user.id,
       email: user.email,
+      role: role as "super_admin" | "admin" | "operator" | "client",
       mfaVerifiedAt: Math.floor(Date.now() / 1000),
     });
     db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id)).catch(() => {});

@@ -293,6 +293,7 @@ function CustomerAccountPageContent() {
 
   const [profile, setProfile] = useState(FALLBACK_ACCOUNT.profile);
   const [profileDirty, setProfileDirty] = useState(false);
+  const [phoneDirty, setPhoneDirty] = useState(false);
   const [phoneError, setPhoneError] = useState("");
 
   const [newBank, setNewBank] = useState({
@@ -314,6 +315,10 @@ function CustomerAccountPageContent() {
     confirmPassword: "",
   });
   const [passwordError, setPasswordError] = useState("");
+  const [pwSuccess, setPwSuccess] = useState(false);
+  const [showCurrentPw, setShowCurrentPw] = useState(false);
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [emailChangeOpen, setEmailChangeOpen] = useState(false);
   const [emailChangePreflight, setEmailChangePreflight] = useState<
     "idle" | "loading" | "2fa_required" | "cooldown" | "ready"
@@ -363,6 +368,7 @@ function CustomerAccountPageContent() {
         companyName: org.companyName || data.profile.companyName,
         email: org.client?.email || data.profile.email,
       });
+      setPhoneDirty(false);
       setSecurity(data.security);
       setNotifs(data.notifications);
       setAvatarUrl(data.avatarUrl);
@@ -435,7 +441,7 @@ function CustomerAccountPageContent() {
         }));
       } catch (e) {
         // keep fallback billing
-        console.error("Failed to load billing data:", e);
+        console.warn("Failed to load billing data:", e);
       }
 
       try {
@@ -443,7 +449,7 @@ function CustomerAccountPageContent() {
         if (cancelled) return;
         setBillingStatus(status);
       } catch (e) {
-        console.error("Failed to load billing status:", e);
+        console.warn("Failed to load billing status:", e);
       }
 
       try {
@@ -453,7 +459,7 @@ function CustomerAccountPageContent() {
           setUpgradePlans(toUpgradePlans(plans));
         }
       } catch (e) {
-        console.error("Failed to load subscription plans:", e);
+        console.warn("Failed to load subscription plans:", e);
       }
 
       try {
@@ -468,7 +474,7 @@ function CustomerAccountPageContent() {
         }));
       } catch (e) {
         // keep fallback billing
-        console.error("Failed to load billing usage:", e);
+        console.warn("Failed to load billing usage:", e);
       }
     })();
 
@@ -678,7 +684,7 @@ function CustomerAccountPageContent() {
   };
 
   const saveProfile = async () => {
-    if (profile.phone && !PHONE_RE.test(profile.phone)) {
+    if (phoneDirty && profile.phone && !PHONE_RE.test(profile.phone)) {
       setPhoneError(PHONE_ERROR_MSG);
       return;
     }
@@ -688,6 +694,7 @@ function CustomerAccountPageContent() {
       setProfile(data.profile);
       if (data.avatarUrl !== undefined) setAvatarUrl(data.avatarUrl);
       setProfileDirty(false);
+      setPhoneDirty(false);
       showToast("success", "Profile updated successfully!");
     } catch (e) {
       showToast("error", e instanceof Error ? e.message : "Failed to save profile");
@@ -946,7 +953,11 @@ function CustomerAccountPageContent() {
         body: JSON.stringify(passwordForm),
       });
       setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-      showSuccess("Password updated successfully!");
+      setShowCurrentPw(false);
+      setShowNewPw(false);
+      setShowConfirmPw(false);
+      setPwSuccess(true);
+      setTimeout(() => setPwSuccess(false), 3000);
     } catch (err) {
       setPasswordError(err instanceof Error ? err.message : "Failed to update password");
     } finally {
@@ -1360,9 +1371,10 @@ function CustomerAccountPageContent() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">Phone Number</label>
-                      <input type="tel" value={profile.phone} onChange={e => { setProfile(p => ({ ...p, phone: e.target.value })); setProfileDirty(true); setPhoneError(e.target.value && !PHONE_RE.test(e.target.value) ? PHONE_ERROR_MSG : ""); }}
+                      <input type="tel" value={profile.phone} onChange={e => { setProfile(p => ({ ...p, phone: e.target.value })); setProfileDirty(true); setPhoneDirty(true); setPhoneError(e.target.value && !PHONE_RE.test(e.target.value) ? PHONE_ERROR_MSG : ""); }}
                         placeholder="+1 (XXX) XXX-XXXX"
                         className={`w-full px-3 py-2.5 border rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 transition-all ${phoneError ? "border-red-400 focus:ring-red-200" : "border-gray-200 focus:ring-[#0A3D8F]/30"}`} />
+
                       {phoneError && <p className="mt-1 text-xs text-red-500">{phoneError}</p>}
                     </div>
                     <div>
@@ -1627,37 +1639,58 @@ function CustomerAccountPageContent() {
                     <div className="space-y-3">
                       <div>
                         <label className="mb-1.5 block text-sm font-medium text-gray-700">Current Password</label>
-                        <input
-                          type="password"
-                          value={passwordForm.currentPassword}
-                          onChange={(e) => setPasswordForm((p) => ({ ...p, currentPassword: e.target.value }))}
-                          placeholder="Enter current password"
-                          autoComplete="new-password"
-                          className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30"
-                        />
+                        <div className="relative">
+                          <input
+                            type={showCurrentPw ? "text" : "password"}
+                            value={passwordForm.currentPassword}
+                            onChange={(e) => setPasswordForm((p) => ({ ...p, currentPassword: e.target.value }))}
+                            placeholder="Enter current password"
+                            autoComplete="new-password"
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2.5 pr-10 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30"
+                          />
+                          <button type="button" tabIndex={-1} onClick={() => setShowCurrentPw(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                            <i className={showCurrentPw ? "ri-eye-off-line" : "ri-eye-line"} />
+                          </button>
+                        </div>
                       </div>
                       <div>
                         <label className="mb-1.5 block text-sm font-medium text-gray-700">New Password</label>
-                        <input
-                          type="password"
-                          value={passwordForm.newPassword}
-                          onChange={(e) => setPasswordForm((p) => ({ ...p, newPassword: e.target.value }))}
-                          placeholder="Enter new password"
-                          autoComplete="new-password"
-                          className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30"
-                        />
+                        <div className="relative">
+                          <input
+                            type={showNewPw ? "text" : "password"}
+                            value={passwordForm.newPassword}
+                            onChange={(e) => setPasswordForm((p) => ({ ...p, newPassword: e.target.value }))}
+                            placeholder="Enter new password"
+                            autoComplete="new-password"
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2.5 pr-10 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30"
+                          />
+                          <button type="button" tabIndex={-1} onClick={() => setShowNewPw(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                            <i className={showNewPw ? "ri-eye-off-line" : "ri-eye-line"} />
+                          </button>
+                        </div>
                       </div>
                       <div>
                         <label className="mb-1.5 block text-sm font-medium text-gray-700">Confirm New Password</label>
-                        <input
-                          type="password"
-                          value={passwordForm.confirmPassword}
-                          onChange={(e) => setPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))}
-                          placeholder="Re-enter new password"
-                          autoComplete="new-password"
-                          className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30"
-                        />
+                        <div className="relative">
+                          <input
+                            type={showConfirmPw ? "text" : "password"}
+                            value={passwordForm.confirmPassword}
+                            onChange={(e) => setPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))}
+                            placeholder="Re-enter new password"
+                            autoComplete="new-password"
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2.5 pr-10 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D8F]/30"
+                          />
+                          <button type="button" tabIndex={-1} onClick={() => setShowConfirmPw(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                            <i className={showConfirmPw ? "ri-eye-off-line" : "ri-eye-line"} />
+                          </button>
+                        </div>
                       </div>
+                      {pwSuccess && (
+                        <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 text-sm font-medium text-green-700">
+                          <i className="ri-checkbox-circle-fill text-base" />
+                          Password changed successfully.
+                        </div>
+                      )}
                       {passwordError && (
                         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
                           {passwordError}

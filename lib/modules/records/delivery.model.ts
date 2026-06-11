@@ -1,6 +1,6 @@
 import { db, sql } from "@/lib/modules/core/db/mysql";
 import { clients } from "@/lib/modules/core/db/schema";
-import { ensureClientTableDeliveryColumns } from "@/lib/modules/core/db/dynamic-table";
+import { ensureClientTableDeliveryColumns, ensureDeliveryCustomerConfirmedColumn } from "@/lib/modules/core/db/dynamic-table";
 
 export type DeliveryStatus =
   | "pending"
@@ -46,6 +46,7 @@ export type DeliveryRow = {
   vSendDocsSubmissionNumber: string | null;
   trackingNumber: string | null;
   proofOfServiceUrl: string | null;
+  customerConfirmedAt: string | null;
 };
 
 // Explicit column list keeps UNION ALL stable regardless of per-table schema drift.
@@ -81,6 +82,7 @@ const COLUMN_LIST = [
   "delivery_vsendocs_submission_number",
   "delivery_tracking_number",
   "delivery_proof_of_service_url",
+  "delivery_customer_confirmed_at",
 ].join(", ");
 
 function escapeIdent(ident: string) {
@@ -122,7 +124,10 @@ async function locateRecordById(id: string) {
   const allClients = allClientsRaw.filter((c) => existingTableNames.has(c.tableName));
   if (!allClients.length) return null;
 
-  await Promise.all(allClients.map((c) => ensureClientTableDeliveryColumns(c.tableName)));
+  await Promise.all(allClients.map((c) => Promise.all([
+    ensureClientTableDeliveryColumns(c.tableName),
+    ensureDeliveryCustomerConfirmedColumn(c.tableName),
+  ])));
 
   // IDs are UUIDs — only hex chars and dashes, safe to inline.
   const safeId = id.replace(/[^a-zA-Z0-9\-]/g, "");
@@ -154,7 +159,10 @@ async function locateRecordByClientAndId(clientId: string, id: string) {
   const existingTableNames = await getExistingTableNames();
   if (!existingTableNames.has(clientRow.tableName)) return null;
 
-  await ensureClientTableDeliveryColumns(clientRow.tableName);
+  await Promise.all([
+    ensureClientTableDeliveryColumns(clientRow.tableName),
+    ensureDeliveryCustomerConfirmedColumn(clientRow.tableName),
+  ]);
 
   const safeId = id.replace(/[^a-zA-Z0-9\-]/g, "");
   const [rows] = (await db.execute(
@@ -211,6 +219,7 @@ function mapRow(r: any): DeliveryRow {
     vSendDocsSubmissionNumber: r.delivery_vsendocs_submission_number ?? null,
     trackingNumber: r.delivery_tracking_number ?? null,
     proofOfServiceUrl: r.delivery_proof_of_service_url ?? null,
+    customerConfirmedAt: toIso(r.delivery_customer_confirmed_at),
   };
 }
 
@@ -234,7 +243,10 @@ export const deliveryModel = {
     if (!clientRow?.tableName) return { deliveries: [] as DeliveryRow[] };
     const tableName = clientRow.tableName;
 
-    await ensureClientTableDeliveryColumns(tableName);
+    await Promise.all([
+      ensureClientTableDeliveryColumns(tableName),
+      ensureDeliveryCustomerConfirmedColumn(tableName),
+    ]);
 
     const [rows] = (await db.execute(
       sql.raw(
@@ -267,7 +279,10 @@ export const deliveryModel = {
 
     for (const c of allClients) {
       try {
-        await ensureClientTableDeliveryColumns(c.tableName);
+        await Promise.all([
+          ensureClientTableDeliveryColumns(c.tableName),
+          ensureDeliveryCustomerConfirmedColumn(c.tableName),
+        ]);
       } catch (err) {
         console.warn(`[deliveryModel] ensure failed for ${c.tableName}:`, err);
       }

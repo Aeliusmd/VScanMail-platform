@@ -1,13 +1,23 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useRouter } from "next/navigation";
 import { notificationsApi, type AdminNotification } from "@/lib/api/notifications";
 import { resolveNotificationTargetUrl } from "@/lib/notificationTargetUrl";
+import { useAdminProfile } from "./useAdminProfile";
+import { ApiError } from "@/lib/api-client";
+
+function isAdminRole(role: string | undefined): boolean {
+  return role === "admin" || role === "super_admin";
+}
 
 export default function NotificationBell() {
   const router = useRouter();
+  const { userData } = useAdminProfile();
+  const role = userData?.role;
+  const canLoadNotifications = isAdminRole(role);
+
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
@@ -15,26 +25,49 @@ export default function NotificationBell() {
   const unreadCount = useMemo(() => notifications.filter((n) => !n.notifIsRead).length, [notifications]);
   const hasUnread = unreadCount > 0;
 
-  const loadNotifications = async () => {
-    try {
-      setNotificationsLoading(true);
-      const rows = await notificationsApi.list();
-      setNotifications(rows);
-    } catch (error) {
-      console.error("Failed to load admin notifications:", error);
-      setNotifications([]);
-    } finally {
-      setNotificationsLoading(false);
-    }
-  };
+  const loadNotifications = useCallback(
+    async (silent = false) => {
+      if (!canLoadNotifications) {
+        if (!silent) setNotifications([]);
+        return;
+      }
+
+      try {
+        if (!silent) setNotificationsLoading(true);
+        const rows = await notificationsApi.list();
+        setNotifications(rows);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 403) {
+          if (!silent) setNotifications([]);
+          return;
+        }
+        console.error("Failed to load admin notifications:", error);
+        if (!silent) setNotifications([]);
+      } finally {
+        if (!silent) setNotificationsLoading(false);
+      }
+    },
+    [canLoadNotifications]
+  );
 
   useEffect(() => {
+    if (!canLoadNotifications) {
+      setNotifications([]);
+      return;
+    }
+
     void loadNotifications();
     const timer = window.setInterval(() => {
-      void loadNotifications();
+      void loadNotifications(true);
     }, 30_000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [canLoadNotifications, loadNotifications]);
+
+  useEffect(() => {
+    if (showNotifications && canLoadNotifications) {
+      void loadNotifications(true);
+    }
+  }, [showNotifications, canLoadNotifications, loadNotifications]);
 
   useEffect(() => {
     if (!showNotifications) return;
@@ -64,6 +97,8 @@ export default function NotificationBell() {
   };
 
   const handleNotificationClick = async (notification: AdminNotification) => {
+    if (!canLoadNotifications) return;
+
     setNotifications((prev) =>
       prev.map((n) => (n.id === notification.id ? { ...n, notifIsRead: true } : n))
     );
@@ -71,7 +106,9 @@ export default function NotificationBell() {
     try {
       await notificationsApi.markRead(notification.id);
     } catch (error) {
-      console.error("Failed to mark notification as read:", error);
+      if (!(error instanceof ApiError && error.status === 403)) {
+        console.error("Failed to mark notification as read:", error);
+      }
     }
 
     setShowNotifications(false);
@@ -83,12 +120,16 @@ export default function NotificationBell() {
   };
 
   const handleMarkAllRead = async () => {
+    if (!canLoadNotifications) return;
+
     setNotifications((prev) => prev.map((n) => ({ ...n, notifIsRead: true })));
     try {
       await notificationsApi.markAllRead();
       await loadNotifications();
     } catch (error) {
-      console.error("Failed to mark all notifications as read:", error);
+      if (!(error instanceof ApiError && error.status === 403)) {
+        console.error("Failed to mark all notifications as read:", error);
+      }
     }
   };
 
@@ -118,7 +159,7 @@ export default function NotificationBell() {
             <button
               type="button"
               onClick={handleMarkAllRead}
-              disabled={!hasUnread}
+              disabled={!hasUnread || !canLoadNotifications}
               className="text-xs font-semibold text-[#1E40AF] cursor-pointer hover:underline disabled:cursor-not-allowed disabled:text-gray-300 disabled:no-underline"
             >
               Mark all read

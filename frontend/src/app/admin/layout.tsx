@@ -6,8 +6,10 @@ import { Icon } from '@iconify/react';
 import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
 import SessionTimeoutProvider from "@/components/SessionTimeoutProvider";
+import { useRoleGuard } from "@/hooks/useRoleGuard";
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
+  const authorized = useRoleGuard(["admin", "operator"]);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const pathname = usePathname();
@@ -22,6 +24,14 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     pathname === '/admin/deliveries' ||
     pathname === '/admin/mails' ||
     pathname === '/admin/cheques';
+
+  if (!authorized) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0A3D8F]" />
+      </div>
+    );
+  }
 
   return (
     <SessionTimeoutProvider>

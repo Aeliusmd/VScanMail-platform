@@ -10,13 +10,13 @@ export async function POST(
 ) {
   try {
     const user = await withAuth(req);
-    withRole(user, ["client", "admin"]);
+    withRole(user, ["admin", "super_admin"]);
 
     const { id } = await params;
     const body = await req.json();
     const input = rejectSchema.parse(body);
     const cheque = await chequeModel.findById(id);
-    if (user.role === "client" && cheque.mail_items?.client_id !== user.clientId) {
+    if (!cheque) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 

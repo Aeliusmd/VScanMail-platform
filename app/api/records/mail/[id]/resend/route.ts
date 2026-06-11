@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { withAuth } from "@/lib/modules/auth/auth.middleware";
+import { withAuth, withRole } from "@/lib/modules/auth/auth.middleware";
 import { mailItemModel } from "@/lib/modules/records/mail.model";
 import { notificationService } from "@/lib/modules/notifications/notification.service";
 
@@ -9,12 +9,10 @@ export async function POST(
 ) {
   try {
     const user = await withAuth(req);
+    withRole(user, ["operator", "admin", "super_admin"]);
 
     const { id } = await params;
     const item = await mailItemModel.findById(id);
-    if (user.role === "client" && item.client_id !== user.clientId) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
 
     // Resend based on type and tamper state.
     if (item.tamper_detected) {

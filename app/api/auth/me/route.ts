@@ -39,11 +39,10 @@ export async function GET(req: NextRequest) {
       clientId: user.clientId,
       client,
     });
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || "Failed to load auth info" },
-      { status: 400 }
-    );
+  } catch (error: unknown) {
+    if (error instanceof Response) return error as any;
+    const msg = error instanceof Error ? error.message : "Failed to load auth info";
+    return NextResponse.json({ error: msg }, { status: 400 });
   }
 }
 

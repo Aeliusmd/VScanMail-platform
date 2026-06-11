@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
     const accessToken = await signAccessToken({
       sub: user.id,
       email: user.email,
+      role: actor.role,
       mfaVerifiedAt: existingMfaVerifiedAt,
       emailChangeVerifiedAt: now,
     });

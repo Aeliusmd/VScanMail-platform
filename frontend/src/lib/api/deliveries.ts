@@ -37,6 +37,7 @@ export type DeliveryDto = {
   vSendDocsSubmissionNumber: string | null;
   trackingNumber: string | null;
   proofOfServiceUrl: string | null;
+  customerConfirmedAt: string | null;
 };
 
 export const deliveriesApi = {
@@ -65,6 +66,10 @@ export const deliveriesApi = {
     await apiClient<{ ok: true }>(`/api/records/${base}/${id}/delivery`, {
       method: "DELETE",
     });
+  },
+
+  confirmReceipt: async (id: string): Promise<void> => {
+    await apiClient<{ ok: true }>(`/api/customer/deliveries/${id}/confirm`, { method: "POST" });
   },
 
   listMine: async (): Promise<DeliveryDto[]> => {

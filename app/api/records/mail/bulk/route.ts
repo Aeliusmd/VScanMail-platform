@@ -20,20 +20,14 @@ export async function POST(req: NextRequest) {
       }
 
       const items = await Promise.all(ids.map((id) => mailItemModel.findById(id)));
-      if (items.some((item) => item.client_id !== user.clientId)) {
+      if (items.some((item) => item?.client_id !== user.clientId)) {
         return NextResponse.json({ error: "One or more records were not found" }, { status: 404 });
       }
 
-      if (action === "archive") {
-        await Promise.all(ids.map((id) => mailItemModel.archive(id, user.id, req as unknown as Request)));
-      } else if (action === "unarchive") {
-        await Promise.all(ids.map((id) => mailItemModel.unarchive(id, user.id, req as unknown as Request)));
-      } else if (action === "mark_read") {
-        await Promise.all(ids.map((id) => mailItemModel.update(id, { status: "processed" }, user.id, req as unknown as Request)));
-      } else if (action === "delete") {
+      if (action === "archive" || action === "delete") {
         await customerHiddenModel.hide(user.clientId, ids);
       } else {
-        return NextResponse.json({ error: "Unknown action" }, { status: 400 });
+        return NextResponse.json({ error: "Action not permitted" }, { status: 403 });
       }
 
       return NextResponse.json({ success: true, count: ids.length });

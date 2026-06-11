@@ -41,15 +41,13 @@ export async function GET(req: NextRequest) {
 
     const clientId = user.clientId;
 
-    // 1) Total mails (excluding cheques)
-    const lettersResponse = await mailItemModel.listByClient(clientId, { type: "letter", limit: 1 });
-    const pkgResponse = await mailItemModel.listByClient(clientId, { type: "package", limit: 1 });
-    const totalMails = lettersResponse.total + pkgResponse.total;
-
-    // Unread mails (received status)
-    const lettersUnread = await mailItemModel.listByClient(clientId, { type: "letter", status: "received", limit: 1 });
-    const pkgUnread = await mailItemModel.listByClient(clientId, { type: "package", status: "received", limit: 1 });
-    const unreadMails = lettersUnread.total + pkgUnread.total;
+    // 1) Total mails — all record types (matches the mails page which shows all types)
+    const [allMailsResponse, unreadMailsResponse] = await Promise.all([
+      mailItemModel.listByClient(clientId, { limit: 1 }),
+      mailItemModel.listByClient(clientId, { status: "received", limit: 1 }),
+    ]);
+    const totalMails = allMailsResponse.total;
+    const unreadMails = unreadMailsResponse.total;
 
     // 2) Total cheques
     const chequesResponse = await chequeModel.listByClient(clientId, 1, 1);
@@ -68,10 +66,9 @@ export async function GET(req: NextRequest) {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const totalDeposited = (deposits.deposits || [])
-      .filter((d: any) => d?.markedDepositedAt)
       .filter((d: any) => {
-        const t = new Date(d.markedDepositedAt);
-        return !Number.isNaN(t.getTime()) && t >= monthStart;
+        const t = d?.requestedAt ? new Date(d.requestedAt) : null;
+        return t && !Number.isNaN(t.getTime()) && t >= monthStart;
       })
       .reduce((sum: number, d: any) => sum + Number(d.amountFigures || 0), 0);
 

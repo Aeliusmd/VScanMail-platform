@@ -594,6 +594,38 @@ export const notificationService = {
     });
   },
 
+  async sendDeliveryReceivedConfirmedEmailToAdmin(params: {
+    adminEmail: string;
+    companyName: string;
+    requestId: string;
+    sourceType: "cheque" | "mail";
+    irn: string;
+  }) {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+    const targetUrl = `${appUrl}/admin/deliveries?highlight=${encodeURIComponent(params.requestId)}`;
+    const html = wrapInTemplate(`
+      <h1 style="font-size: 20px; color: #0f172a; margin-top: 0;">Customer confirmed receipt</h1>
+      <p style="color: #64748b; font-size: 15px;">The customer has confirmed they received the package.</p>
+      <div class="highlight-box">
+        <table class="detail-table">
+          <tr><td class="label">Customer</td><td class="value">${escapeHtml(params.companyName)}</td></tr>
+          <tr><td class="label">Request ID</td><td class="value">${escapeHtml(params.requestId)}</td></tr>
+          <tr><td class="label">Source</td><td class="value">${escapeHtml(params.sourceType)}</td></tr>
+          <tr><td class="label">IRN</td><td class="value">${escapeHtml(params.irn)}</td></tr>
+        </table>
+      </div>
+      <div style="text-align: center; margin-top: 32px;">
+        <a href="${targetUrl}" class="button">View Delivery</a>
+      </div>
+    `);
+    await sendEmail({
+      to: params.adminEmail,
+      subject: `VScanMail — Receipt confirmed (${params.companyName}) #${params.requestId.slice(-6)}`,
+      html,
+      messageId: `delivery-confirmed-${params.requestId.replace(/[^a-zA-Z0-9-]/g, "")}-${Date.now()}`,
+    });
+  },
+
   async sendDeliveryApprovedEmailToClient(params: {
     clientId: string;
     toEmail: string;
@@ -681,9 +713,12 @@ export const notificationService = {
     const prefs = await notificationPreferencesService.getForClient(params.clientId);
     if (!prefs.emailEnabled || !prefs.deliveryUpdates) return;
 
+    const customerAppUrl = process.env.CUSTOMER_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "";
+    const deliveriesUrl = `${customerAppUrl}/customer/deliveries?highlight=${encodeURIComponent(params.requestId)}`;
+
     const html = wrapInTemplate(`
       <h1 style="font-size: 20px; color: #0f172a; margin-top: 0;">Delivery completed</h1>
-      <p style="color: #64748b; font-size: 15px;">Your item has been marked delivered.</p>
+      <p style="color: #64748b; font-size: 15px;">Your item has been delivered. Please confirm receipt by clicking the button below.</p>
       <div class="highlight-box">
         <table class="detail-table">
           <tr><td class="label">Request ID</td><td class="value">${escapeHtml(params.requestId)}</td></tr>
@@ -691,8 +726,11 @@ export const notificationService = {
           <tr><td class="label">IRN</td><td class="value">${escapeHtml(params.irn)}</td></tr>
         </table>
       </div>
-      <div style="text-align: center; margin-top: 24px;">
-        <a href="${escapeHtml(params.proofOfServiceUrl)}" class="button">View Proof of Service</a>
+      <div style="text-align: center; margin-top: 32px;">
+        <a href="${deliveriesUrl}" class="button">Got the Package</a>
+      </div>
+      <div style="text-align: center; margin-top: 16px;">
+        <a href="${escapeHtml(params.proofOfServiceUrl)}" style="color: #0A3D8F; font-size: 14px; text-decoration: underline;">View Proof of Service</a>
       </div>
     `);
     await sendEmail({ to: params.toEmail, subject: `VScanMail — Delivery completed #${params.requestId.slice(-6)}`, html });

@@ -1,30 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth, withRole } from "@/lib/modules/auth/auth.middleware";
-import { auditLogModel } from "@/lib/modules/audit/audit.model";
+import { deliveryService } from "@/lib/modules/records/delivery.service";
 
-export async function PATCH(
+export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await withAuth(req);
     withRole(user, ["client"]);
+    if (!user.clientId) return NextResponse.json({ error: "ClientId missing" }, { status: 400 });
 
     const { id } = await params;
-    await auditLogModel.markNotificationRead(id, user.id);
+    await deliveryService.confirmReceived({ recordId: id, clientId: user.clientId, actorId: user.id, req });
     return NextResponse.json({ ok: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof Response) {
       return NextResponse.json(
         { error: error.status === 403 ? "Forbidden" : "Unauthorized" },
         { status: error.status }
       );
     }
-    console.error("[customer/notifications/read PATCH]", error?.message || error);
-    return NextResponse.json(
-      { error: "Failed to mark notification as read" },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : "Failed to confirm receipt";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }
-

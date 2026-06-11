@@ -106,15 +106,20 @@ export async function GET(req: NextRequest) {
     withRole(user, ["super_admin", "admin"]);
 
     const clientId = req.nextUrl.searchParams.get("clientId");
-    
+
     if (clientId) {
       const history = await manualPaymentModel.listByClient(clientId);
       return NextResponse.json(history);
     }
 
+    if (user.role !== "super_admin") {
+      return NextResponse.json({ error: "clientId is required" }, { status: 400 });
+    }
+
     const all = await manualPaymentModel.listAll();
     return NextResponse.json(all);
   } catch (error: any) {
+    if (error instanceof Response) return error as any;
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 }

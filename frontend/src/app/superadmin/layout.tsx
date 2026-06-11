@@ -6,8 +6,10 @@ import SuperAdminHeader from "./components/SuperAdminHeader";
 import SuperAdminSidebar from "./components/SuperAdminSidebar";
 import { SuperAdminToolbarProvider } from "./components/SuperAdminToolbarContext";
 import SessionTimeoutProvider from "@/components/SessionTimeoutProvider";
+import { useRoleGuard } from "@/hooks/useRoleGuard";
 
 export default function SuperAdminLayout({ children }: { children: ReactNode }) {
+  const authorized = useRoleGuard(["super_admin"]);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const pathname = usePathname();
@@ -27,7 +29,6 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
   const isSuperadminArea = pathname?.startsWith("/superadmin");
   const isSuperadminSettings = pathname?.startsWith("/superadmin/settings");
 
-  /** List pages reuse admin UI with search + actions in the page body (like /admin/companies). */
   const isSuperadminListToolbarPage =
     pathname === "/superadmin/companies" ||
     pathname === "/superadmin/deposits" ||
@@ -50,6 +51,14 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
       ),
     };
   }, [isSuperadminSettings, dateString]);
+
+  if (!authorized) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0A3D8F]" />
+      </div>
+    );
+  }
 
   return (
     <SessionTimeoutProvider>
@@ -90,4 +99,3 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
     </SessionTimeoutProvider>
   );
 }
-

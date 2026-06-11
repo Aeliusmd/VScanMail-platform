@@ -56,6 +56,15 @@ async function resolveAssignedAdmin(clientId: string): Promise<ResolvedAdmin | n
   return { userId: fallbackRows[0].id, email: fallbackRows[0].email };
 }
 
+async function resolveAllAdmins(): Promise<ResolvedAdmin[]> {
+  const rows = await db
+    .select({ id: users.id, email: users.email })
+    .from(users)
+    .innerJoin(profiles, eq(profiles.userId, users.id))
+    .where(and(eq(users.isActive, true), eq(profiles.role, "admin")));
+  return rows.map((r) => ({ userId: r.id, email: r.email }));
+}
+
 async function resolveClientUser(clientId: string): Promise<ResolvedClientUser | null> {
   const rows = await db
     .select({ userId: profiles.userId, orgEmail: clients.email, userEmail: users.email })
@@ -568,6 +577,62 @@ export const deliveryService = {
             .catch((err) => console.error("[delivery] delivered email failed:", err));
         }
       }
+    }
+
+    return { ok: true };
+  },
+
+  async confirmReceived(params: { recordId: string; clientId: string; actorId: string; req?: Request }) {
+    const recordRow = await deliveryModel.findRecordRowByClientAndId(params.clientId, params.recordId);
+    if (!recordRow) throw new Error("Record not found");
+    if (String(recordRow._client_id) !== params.clientId) throw new Error("Not authorised");
+
+    const currentStatus = (recordRow.delivery_status as string | null) ?? null;
+    if (currentStatus !== "delivered") throw new Error("Delivery must be in Delivered status to confirm receipt");
+
+    if (recordRow.delivery_customer_confirmed_at) return { ok: true };
+
+    const tableName = String(recordRow._table_name);
+    const now = new Date();
+    await db.execute(
+      sql.raw(
+        `UPDATE ${escapeIdent(tableName)}
+         SET delivery_customer_confirmed_at = '${now.toISOString().slice(0, 19).replace("T", " ")}'
+         WHERE id = '${params.recordId.replace(/[^a-zA-Z0-9\-]/g, "")}'`
+      )
+    );
+
+    const sourceType = recordRow.record_type === "cheque" ? "cheque" : "mail";
+    const irn = String(recordRow.irn || "");
+
+    const [client, allAdmins] = await Promise.all([
+      clientModel.findById(params.clientId),
+      resolveAllAdmins(),
+    ]);
+
+    for (const admin of allAdmins) {
+      await auditService.log({
+        actor: params.actorId,
+        actor_role: "client",
+        action: "delivery.customer_confirmed",
+        entity: params.recordId,
+        clientId: params.clientId,
+        after: { recordId: params.recordId, confirmedAt: now.toISOString() },
+        req: params.req,
+        notifRecipientId: admin.userId,
+        notifTitle: `Receipt confirmed — ${client.company_name}`,
+        notifTargetUrl: `/admin/deliveries?highlight=${params.recordId}`,
+      });
+
+      notificationService
+        .sendDeliveryReceivedConfirmedEmailToAdmin({
+          adminEmail: admin.email,
+          companyName: client.company_name,
+          requestId: params.recordId,
+          sourceType,
+          irn,
+        })
+        .catch((err) => console.error("[delivery] confirmed email to admin failed:", err));
     }
 
     return { ok: true };

@@ -48,7 +48,13 @@ export async function GET(req: NextRequest) {
       failedPaymentCount: sub.failed_payment_count,
     });
   } catch (error: unknown) {
+    if (error instanceof Response) {
+      return NextResponse.json(
+        { error: error.status === 403 ? "Forbidden" : "Unauthorized" },
+        { status: error.status }
+      );
+    }
     const msg = error instanceof Error ? error.message : "Failed to load billing status.";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: msg }, { status: 400 });
   }
 }

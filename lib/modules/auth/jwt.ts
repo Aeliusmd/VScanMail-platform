@@ -1,8 +1,11 @@
 import { SignJWT, jwtVerify } from "jose";
 
+export type AccessTokenRole = "super_admin" | "admin" | "operator" | "client";
+
 export type AccessTokenPayload = {
   sub: string; // user id
   email: string;
+  role?: AccessTokenRole;
   /** Unix seconds — set when the user completes TOTP at login. */
   mfaVerifiedAt?: number;
   /** Unix seconds — set when the user verifies TOTP for an email change step-up. */
@@ -20,6 +23,9 @@ function getSecret() {
 
 export async function signAccessToken(payload: AccessTokenPayload) {
   const claims: Record<string, unknown> = { email: payload.email };
+  if (payload.role) {
+    claims.role = payload.role;
+  }
   if (payload.mfaVerifiedAt != null) {
     claims.mfaVerifiedAt = payload.mfaVerifiedAt;
   }
@@ -63,12 +69,14 @@ export async function verifyAccessToken(token: string) {
   if (typeof sub !== "string") throw new Error("Invalid token subject");
   if (typeof email !== "string") throw new Error("Invalid token payload");
 
+  const role =
+    typeof payload.role === "string" ? (payload.role as AccessTokenRole) : undefined;
   const mfaVerifiedAt =
     typeof payload.mfaVerifiedAt === "number" ? payload.mfaVerifiedAt : undefined;
   const emailChangeVerifiedAt =
     typeof payload.emailChangeVerifiedAt === "number" ? payload.emailChangeVerifiedAt : undefined;
 
-  return { sub, email, mfaVerifiedAt, emailChangeVerifiedAt };
+  return { sub, email, role, mfaVerifiedAt, emailChangeVerifiedAt };
 }
 
 export async function verifyMfaTempToken(token: string) {

@@ -191,7 +191,7 @@ export default function CustomerDashboard() {
                   <i className="ri-bank-card-line text-xl text-[#2F8F3A]" />
                 </div>
                 <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
-                  {(dashboard?.pendingRequests ?? 0) > 0 ? `${dashboard?.pendingRequests} pending` : "0 pending"}
+                  {(dashboard?.pendingCheques ?? 0) > 0 ? `${dashboard?.pendingCheques} pending` : "0 pending"}
                 </span>
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-1">{dashboard?.totalCheques ?? "—"}</h3>

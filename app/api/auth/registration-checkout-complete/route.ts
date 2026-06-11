@@ -97,7 +97,11 @@ export async function POST(req: NextRequest) {
     }
 
     const role = profileRow.role ?? "client";
-    const accessToken = await signAccessToken({ sub: user.id, email: user.email });
+    const accessToken = await signAccessToken({
+      sub: user.id,
+      email: user.email,
+      role: role as "super_admin" | "admin" | "operator" | "client",
+    });
 
     await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
 

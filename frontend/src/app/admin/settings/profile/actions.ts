@@ -113,6 +113,7 @@ export async function updateProfile(formData: z.infer<typeof profileSchema>) {
     const newToken = await signAccessToken({
       sub: user.id,
       email: validatedData.email,
+      role: profile.role as "super_admin" | "admin" | "operator" | "client",
     });
     cookieStore.set("sb-access-token", newToken, {
       httpOnly: true,

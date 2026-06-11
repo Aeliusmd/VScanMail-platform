@@ -16,11 +16,18 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ incidents: [], total: 0 });
     }
 
-    const queries = allClients.map((c) =>
-      sql`SELECT id, irn, ${c.id} AS client_id, tamper_detected, tamper_annotations, scanned_at 
-          FROM ${sql.raw(`\`${c.tableName}\``)} 
-          WHERE tamper_detected = 1`
-    );
+    const TABLE_NAME_RE = /^[a-zA-Z0-9_]+$/;
+    const queries = allClients
+      .filter(c => TABLE_NAME_RE.test(c.tableName))
+      .map((c) =>
+        sql`SELECT id, irn, ${c.id} AS client_id, tamper_detected, tamper_annotations, scanned_at
+            FROM ${sql.raw(`\`${c.tableName}\``)}
+            WHERE tamper_detected = 1`
+      );
+
+    if (!queries.length) {
+      return NextResponse.json({ incidents: [], total: 0 });
+    }
     const unionQuery = sql.join(queries, sql` UNION ALL `);
     const finalQuery = sql`${unionQuery} ORDER BY scanned_at DESC LIMIT 100`;
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { withAuth } from "@/lib/modules/auth/auth.middleware";
+import { withAuth, withRole } from "@/lib/modules/auth/auth.middleware";
 import { chequeModel } from "@/lib/modules/records/cheque.model";
 
 export async function GET(
@@ -8,6 +8,7 @@ export async function GET(
 ) {
   try {
     const user = await withAuth(req);
+    withRole(user, ["client", "operator", "admin", "super_admin"]);
 
     const { id } = await params;
     const cheque = await chequeModel.findById(id);

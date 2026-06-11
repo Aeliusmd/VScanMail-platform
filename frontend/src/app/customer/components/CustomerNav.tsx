@@ -104,16 +104,18 @@ export default function CustomerNav() {
     setShowUserMenu(false);
   }, []);
 
-  const loadNotifications = useCallback(async () => {
+  const loadNotifications = useCallback(async (silent = false) => {
     if (signingOutRef.current) return;
     if (org.loading || !org.clientId) {
-      setNotifications([]);
-      setNotificationsLoading(false);
+      if (!silent) {
+        setNotifications([]);
+        setNotificationsLoading(false);
+      }
       return;
     }
 
     try {
-      setNotificationsLoading(true);
+      if (!silent) setNotificationsLoading(true);
       const rows = await customerNotificationsApi.list();
       if (!mountedRef.current || signingOutRef.current) return;
       setNotifications(rows);
@@ -121,9 +123,9 @@ export default function CustomerNav() {
       const status = typeof error === "object" && error !== null && "status" in error ? Number(error.status) : null;
       if (signingOutRef.current || status === 401) return;
       console.error("Failed to load customer notifications:", error);
-      setNotifications([]);
+      if (!silent) setNotifications([]);
     } finally {
-      if (mountedRef.current && !signingOutRef.current) setNotificationsLoading(false);
+      if (!silent && mountedRef.current && !signingOutRef.current) setNotificationsLoading(false);
     }
   }, [org.clientId, org.loading]);
 
@@ -142,10 +144,16 @@ export default function CustomerNav() {
   useEffect(() => {
     void loadNotifications();
     const timer = window.setInterval(() => {
-      void loadNotifications();
+      void loadNotifications(true);
     }, 30_000);
     return () => window.clearInterval(timer);
   }, [loadNotifications]);
+
+  useEffect(() => {
+    if (showNotifications) {
+      void loadNotifications(true);
+    }
+  }, [showNotifications, loadNotifications]);
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {

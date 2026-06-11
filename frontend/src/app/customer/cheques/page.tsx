@@ -578,15 +578,15 @@ export default function CustomerChequesPage() {
         </div>
 
         {/* Filter Tabs */}
-        <div className="bg-white border-b border-slate-200 px-3 sm:px-6 flex items-center gap-1 overflow-x-auto [scrollbar-width:thin]">
+        <div className="bg-slate-50 border-b border-slate-200 px-4 sm:px-6 py-2.5 flex items-center gap-1.5 overflow-x-auto shrink-0">
           {tabs.map((tab) => (
             <button
               key={tab}
               onClick={() => setStatusFilter(tab)}
-              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer flex-shrink-0 ${
+              className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all whitespace-nowrap cursor-pointer shrink-0 ${
                 statusFilter === tab
-                  ? "border-[#0A3D8F] text-[#0A3D8F]"
-                  : "border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                  ? "bg-[#0A3D8F] text-white shadow-sm"
+                  : "text-slate-500 hover:text-slate-700 hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-200"
               }`}
             >
               {tab}

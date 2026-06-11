@@ -25,6 +25,7 @@ interface CustomerDepositRequest {
   chequeId: string;
   mailItemId: string;
   bankName: string;
+  accountLast4?: string | null;
   chequeNumber: string;
   amount: string;
   requestedAt: string;
@@ -73,6 +74,7 @@ function mapDepositToRequest(d: DepositDto): CustomerDepositRequest {
     chequeId: d.chequeId,
     mailItemId: d.mailItemId,
     bankName: bankLabel,
+    accountLast4: d.destinationBankLast4 || null,
     chequeNumber: d.chequeId.slice(-6),
     amount: formatMoney(Number(d.amountFigures || 0)),
     requestedAt: dateLabel,
@@ -276,25 +278,18 @@ export default function CustomerDepositRequestsPage() {
               />
             </div>
           </div>
-          <div className="flex items-center px-4 overflow-x-auto">
+          <div className="bg-slate-50 border-b border-slate-200 px-4 sm:px-6 py-2.5 flex items-center gap-1.5 overflow-x-auto shrink-0">
             {(["All", "Open Deposit Request", "Processing", "Deposited", "Rejected"] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setStatusFilter(tab)}
-                className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors cursor-pointer ${
+                className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all whitespace-nowrap cursor-pointer shrink-0 ${
                   statusFilter === tab
-                    ? "border-[#0A3D8F] text-[#0A3D8F]"
-                    : "border-transparent text-gray-500 hover:text-gray-700"
+                    ? "bg-[#0A3D8F] text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-700 hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-200"
                 }`}
               >
                 {tab}
-                <span
-                  className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${
-                    statusFilter === tab ? "bg-[#0A3D8F]/10 text-[#0A3D8F]" : "bg-gray-100 text-gray-500"
-                  }`}
-                >
-                  {tab === "All" ? counts.All : counts[tab] ?? 0}
-                </span>
               </button>
             ))}
           </div>
@@ -561,6 +556,12 @@ export default function CustomerDepositRequestsPage() {
                   <p className="text-sm font-bold text-gray-900">{selectedRequest.bankName}</p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-xl">
+                  <p className="text-xs text-gray-500 mb-1">Bank Account</p>
+                  <p className="text-sm font-bold text-gray-900 font-mono tracking-wider">
+                    {selectedRequest.accountLast4 ? `••••${selectedRequest.accountLast4}` : "—"}
+                  </p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-xl">
                   <p className="text-xs text-gray-500 mb-1">Amount</p>
                   <p className="text-xl font-bold text-[#0A3D8F]">{selectedRequest.amount}</p>
                 </div>
@@ -568,7 +569,7 @@ export default function CustomerDepositRequestsPage() {
                   <p className="text-xs text-gray-500 mb-1">Cheque Number</p>
                   <p className="text-sm font-bold text-gray-900">#{selectedRequest.chequeNumber}</p>
                 </div>
-                <div className="p-4 bg-gray-50 rounded-xl">
+                <div className="p-4 bg-gray-50 rounded-xl col-span-2">
                   <p className="text-xs text-gray-500 mb-1">Requested By</p>
                   <p className="text-sm font-bold text-gray-900">{selectedRequest.requestedBy}</p>
                   <p className="text-xs text-gray-400 mt-0.5">{selectedRequest.requestedAt}</p>

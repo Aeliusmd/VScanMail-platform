@@ -90,6 +90,21 @@ export const bankAccountModel = {
     const now = new Date();
 
     await db.transaction(async (tx) => {
+      const duplicate = await tx
+        .select({ id: clientBankAccounts.id })
+        .from(clientBankAccounts)
+        .where(
+          and(
+            eq(clientBankAccounts.clientId, input.clientId),
+            eq(clientBankAccounts.accountNumberHash, input.accountNumberHash)
+          )
+        )
+        .limit(1);
+
+      if (duplicate[0]) {
+        throw new Error("This bank account number already exists.");
+      }
+
       const activeCount = await tx
         .select({ cnt: sql<number>`count(*)` })
         .from(clientBankAccounts)

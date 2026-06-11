@@ -116,7 +116,12 @@ export async function GET(req: NextRequest) {
     const payload = await buildAccountPayload(user.clientId, user.id);
     return NextResponse.json(payload);
   } catch (error: unknown) {
-    if (error instanceof Response) return error as NextResponse;
+    if (error instanceof Response) {
+      return NextResponse.json(
+        { error: error.status === 403 ? "Forbidden" : "Unauthorized" },
+        { status: error.status }
+      );
+    }
     const message = error instanceof Error ? error.message : "Failed to load account";
     return NextResponse.json({ error: message }, { status: 400 });
   }
@@ -229,7 +234,15 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json(payload);
   } catch (error: unknown) {
-    if (error instanceof Response) return error as NextResponse;
+    if (error instanceof Response) {
+      return NextResponse.json(
+        { error: error.status === 403 ? "Forbidden" : "Unauthorized" },
+        { status: error.status }
+      );
+    }
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: error.issues[0]?.message || "Validation failed" }, { status: 400 });
+    }
     const message = error instanceof Error ? error.message : "Failed to save account";
     return NextResponse.json({ error: message }, { status: 400 });
   }

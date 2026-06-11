@@ -57,9 +57,11 @@ export function proxy(request: NextRequest) {
   const payload = decodeJwtPayload(token);
   const role = payload?.role as string | undefined;
 
+  const isStaffRole = role === "admin" || role === "super_admin" || role === "operator";
+
   if (pathname.startsWith("/customer")) {
-    if (role && role !== "client") {
-      return NextResponse.redirect(new URL("/login", request.url));
+    if (isStaffRole) {
+      return NextResponse.redirect(new URL("/admin/deposits", request.url));
     }
   }
 

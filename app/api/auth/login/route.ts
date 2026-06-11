@@ -228,7 +228,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ requiresMfa: true, tempToken });
     }
 
-    const access_token = await signAccessToken({ sub: user.id, email: user.email });
+    const access_token = await signAccessToken({
+      sub: user.id,
+      email: user.email,
+      role: role as "super_admin" | "admin" | "operator" | "client",
+    });
 
     // Update last login timestamp (fire-and-forget — column may not be migrated yet)
     db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id)).catch(() => {});

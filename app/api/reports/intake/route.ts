@@ -11,8 +11,19 @@ export async function GET(req: NextRequest) {
     // Dashboard cards are shown for both admin and client roles.
     withRole(user, ["admin", "client"]);
 
-    const fromDate = req.nextUrl.searchParams.get("from");
-    const toDate = req.nextUrl.searchParams.get("to");
+    const fromDateRaw = req.nextUrl.searchParams.get("from");
+    const toDateRaw = req.nextUrl.searchParams.get("to");
+
+    const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+    if (fromDateRaw && !DATE_RE.test(fromDateRaw)) {
+      return NextResponse.json({ error: "Invalid from date" }, { status: 400 });
+    }
+    if (toDateRaw && !DATE_RE.test(toDateRaw)) {
+      return NextResponse.json({ error: "Invalid to date" }, { status: 400 });
+    }
+    const fromDate = fromDateRaw ?? null;
+    const toDate = toDateRaw ?? null;
+
     const clientId = user.role === "admin" ? null : user.clientId!;
 
     let targetClients = [];
@@ -23,21 +34,31 @@ export async function GET(req: NextRequest) {
       targetClients = await db.select({ id: clients.id, tableName: clients.tableName }).from(clients);
     }
 
+    const TABLE_NAME_RE = /^[a-zA-Z0-9_]+$/;
     let allRecords: any[] = [];
     if (targetClients.length > 0) {
-      const queries = targetClients.map(c => {
-        let q = `SELECT record_type as type, mail_status as status, cheque_decision, scanned_at FROM \`${c.tableName}\``;
-        const conds = [];
-        if (fromDate) conds.push(`scanned_at >= '${fromDate}'`);
-        if (toDate) conds.push(`scanned_at <= '${toDate}'`);
-        if (conds.length > 0) {
-          q += ` WHERE ` + conds.join(' AND ');
-        }
-        return sql.raw(q);
-      });
-      const unionQuery = sql.join(queries, sql` UNION ALL `);
-      const [rows] = await db.execute(unionQuery) as any;
-      allRecords = rows;
+      const queries = targetClients
+        .filter(c => TABLE_NAME_RE.test(c.tableName))
+        .map(c => {
+          const base = sql.raw(
+            `SELECT record_type as type, mail_status as status, cheque_decision, scanned_at FROM \`${c.tableName}\``
+          );
+          if (fromDate && toDate) {
+            return sql`${base} WHERE scanned_at >= ${fromDate} AND scanned_at <= ${toDate}`;
+          }
+          if (fromDate) {
+            return sql`${base} WHERE scanned_at >= ${fromDate}`;
+          }
+          if (toDate) {
+            return sql`${base} WHERE scanned_at <= ${toDate}`;
+          }
+          return base;
+        });
+      if (queries.length > 0) {
+        const unionQuery = sql.join(queries, sql` UNION ALL `);
+        const [rows] = await db.execute(unionQuery) as any;
+        allRecords = rows;
+      }
     }
 
     const byType: Record<string, number> = {};
