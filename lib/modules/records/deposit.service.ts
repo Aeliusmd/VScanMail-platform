@@ -269,8 +269,8 @@ export const depositService = {
     return { ok: true };
   },
 
-  async listMine(params: { clientId: string; limit?: number }) {
-    return depositModel.listForClient(params.clientId, { limit: params.limit });
+  async listMine(params: { clientId: string; limit?: number; from?: string }) {
+    return depositModel.listForClient(params.clientId, { limit: params.limit, from: params.from });
   },
 
   async adminList(params?: { limit?: number }) {

@@ -76,6 +76,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Document type is required (docType missing)" }, { status: 400 });
     }
 
+    if (!urls || !urls.front || !urls.back) {
+      return NextResponse.json({ error: "urls.front and urls.back are required" }, { status: 400 });
+    }
+
     // Quota check — deny if client has exceeded their monthly scan limit
     const quota = await quotaService.checkScanAllowed(clientId);
     if (!quota.allowed) {
@@ -96,9 +100,9 @@ export async function POST(req: NextRequest) {
       tamper_detected: tampering.tamper_detected,
       tamper_annotations: tampering,
       ocr_text: ocrText || "",
-      ai_summary: storedAiResults.summary || (docType === 'cheque' ? `Cheque processing for ${storedAiResults.payee_name || 'unknown'}` : ""),
-      ai_actions: storedAiResults.actions || [],
-      ai_risk_level: storedAiResults.risk_level || (tampering.risk_level as any) || "low",
+      ai_summary: storedAiResults?.summary || (docType === 'cheque' ? `Cheque processing for ${storedAiResults?.payee_name || 'unknown'}` : ""),
+      ai_actions: storedAiResults?.actions || [],
+      ai_risk_level: storedAiResults?.risk_level || (tampering.risk_level as any) || "low",
       scanned_by: user.id,
       scanned_at: new Date().toISOString(),
       status: "received",
@@ -106,20 +110,20 @@ export async function POST(req: NextRequest) {
 
       // Cheque specific mapping
       ...(docType === 'cheque' ? {
-        cheque_amount_figures: storedAiResults.amount_figures,
-        cheque_amount_words: storedAiResults.amount_words,
-        cheque_amounts_match: storedAiResults.validation?.checks?.find((c: any) => c.check === 'amount_match')?.passed,
-        cheque_date_on_cheque: storedAiResults.date,
-        cheque_date_valid: storedAiResults.validation?.checks?.find((c: any) => c.check === 'date_accuracy')?.passed,
-        cheque_beneficiary: storedAiResults.payee_name,
-        cheque_beneficiary_match: storedAiResults.validation?.checks?.find((c: any) => c.check === 'beneficiary_match')?.confidence,
-        cheque_signature_present: storedAiResults.signature_present,
-        cheque_alteration_detected: storedAiResults.validation?.checks?.find((c: any) => c.check === 'alteration_detection')?.passed === false,
-        cheque_crossing_present: storedAiResults.crossing_present,
-        cheque_ai_confidence: storedAiResults.validation?.confidence,
+        cheque_amount_figures: storedAiResults?.amount_figures,
+        cheque_amount_words: storedAiResults?.amount_words,
+        cheque_amounts_match: storedAiResults?.validation?.checks?.find((c: any) => c.check === 'amount_match')?.passed,
+        cheque_date_on_cheque: storedAiResults?.date,
+        cheque_date_valid: storedAiResults?.validation?.checks?.find((c: any) => c.check === 'date_accuracy')?.passed,
+        cheque_beneficiary: storedAiResults?.payee_name,
+        cheque_beneficiary_match: storedAiResults?.validation?.checks?.find((c: any) => c.check === 'beneficiary_match')?.confidence,
+        cheque_signature_present: storedAiResults?.signature_present,
+        cheque_alteration_detected: storedAiResults?.validation?.checks?.find((c: any) => c.check === 'alteration_detection')?.passed === false,
+        cheque_crossing_present: storedAiResults?.crossing_present,
+        cheque_ai_confidence: storedAiResults?.validation?.confidence,
         cheque_ai_raw_result: storedAiResults,
-        cheque_type: storedAiResults.type_classification?.type || "unknown",
-        cheque_status: storedAiResults.validation?.status || 'validated'
+        cheque_type: storedAiResults?.type_classification?.type || "unknown",
+        cheque_status: storedAiResults?.validation?.status || 'validated'
       } : {})
     }, user.id, req);
 
@@ -167,6 +171,7 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error: any) {
+    if (error instanceof Response) return error as any;
     console.error("[records.finalize] failed", {
       actorId,
       message: error instanceof Error ? error.message : "Unknown error",

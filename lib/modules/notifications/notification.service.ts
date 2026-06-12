@@ -185,11 +185,15 @@ export const notificationService = {
       </div>
     `);
 
-    await sendEmail({
-      to: client.email,
-      subject: `VScanMail — New ${mailItem.type} received (${mailItem.irn})`,
-      html,
-    });
+    try {
+      await sendEmail({
+        to: client.email,
+        subject: `VScanMail — New ${mailItem.type} received (${mailItem.irn})`,
+        html,
+      });
+    } catch (err) {
+      console.error("[notificationService.sendNewMailAlert] sendEmail failed:", err);
+    }
   },
 
   async sendTamperAlert(clientId: string, mailItem: any) {
@@ -323,12 +327,16 @@ export const notificationService = {
       .filter(Boolean)
       .join("\n");
 
-    await sendEmail({
-      to: client.email,
-      subject: `VScanMail — Security alert: review envelope (${mailItem.irn})`,
-      html,
-      text: plain,
-    });
+    try {
+      await sendEmail({
+        to: client.email,
+        subject: `VScanMail — Security alert: review envelope (${mailItem.irn})`,
+        html,
+        text: plain,
+      });
+    } catch (err) {
+      console.error("[notificationService.sendTamperAlert] sendEmail failed:", err);
+    }
   },
 
   async sendChequeAlert(clientId: string, cheque: any, validation: any) {

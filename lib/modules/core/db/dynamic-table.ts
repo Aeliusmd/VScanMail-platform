@@ -174,12 +174,10 @@ type ColumnInfo = Map<string, string>; // column name -> COLUMN_TYPE (lowercased
 
 async function getColumnInfo(tableName: string): Promise<ColumnInfo> {
   const [rows] = (await db.execute(
-    sql.raw(
-      `SELECT COLUMN_NAME AS name, COLUMN_TYPE AS type
+    sql`SELECT COLUMN_NAME AS name, COLUMN_TYPE AS type
        FROM INFORMATION_SCHEMA.COLUMNS
        WHERE TABLE_SCHEMA = DATABASE()
-         AND TABLE_NAME = '${escapeSqlString(tableName)}'`
-    )
+         AND TABLE_NAME = ${tableName}`
   )) as any;
   const map: ColumnInfo = new Map();
   for (const r of rows as any[]) {

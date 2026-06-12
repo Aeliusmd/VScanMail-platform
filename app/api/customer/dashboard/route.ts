@@ -49,31 +49,29 @@ export async function GET(req: NextRequest) {
     const totalMails = allMailsResponse.total;
     const unreadMails = unreadMailsResponse.total;
 
-    // 2) Total cheques
-    const chequesResponse = await chequeModel.listByClient(clientId, 1, 1);
-    const totalCheques = chequesResponse.total;
-
-    // 3) Pending requests
-    const pendingMails = await mailItemModel.listByClient(clientId, { status: "action_required", limit: 1 });
-    const pendingCheques = await chequeModel.listByClient(clientId, 1, 1, undefined, "flagged");
-    const pendingRequests = pendingMails.total + pendingCheques.total;
-
-    // Pending cheques (flagged)
-    const pendingChequesCount = pendingCheques.total;
-
-    // Deposits summary (this month, marked deposited)
-    const deposits = await depositService.listMine({ clientId, limit: 500 });
+    // 2) Remaining independent queries — run in parallel
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const totalDeposited = (deposits.deposits || [])
-      .filter((d: any) => {
-        const t = d?.requestedAt ? new Date(d.requestedAt) : null;
-        return t && !Number.isNaN(t.getTime()) && t >= monthStart;
-      })
-      .reduce((sum: number, d: any) => sum + Number(d.amountFigures || 0), 0);
+    const [
+      chequesResponse,
+      pendingMails,
+      pendingCheques,
+      deposits,
+      bankAccountsList,
+    ] = await Promise.all([
+      chequeModel.listByClient(clientId, 1, 1),
+      mailItemModel.listByClient(clientId, { status: "action_required", limit: 1 }),
+      chequeModel.listByClient(clientId, 1, 1, undefined, "flagged"),
+      depositService.listMine({ clientId, from: monthStart.toISOString() }),
+      bankAccountService.listForClient(clientId),
+    ]);
 
-    // Bank accounts count
-    const bankAccounts = (await bankAccountService.listForClient(clientId)).length;
+    const totalCheques = chequesResponse.total;
+    const pendingRequests = pendingMails.total + pendingCheques.total;
+    const pendingChequesCount = pendingCheques.total;
+    const totalDeposited = (deposits.deposits || [])
+      .reduce((sum: number, d: any) => sum + Number(d.amountFigures || 0), 0);
+    const bankAccounts = bankAccountsList.length;
 
     // 4) Recent activity
     const activityResponse = await mailItemModel.listByClient(clientId, { limit: 10 });

@@ -54,15 +54,16 @@ export const usageEventModel = {
     const rows = await db
       .select({
         event_type: usageEvents.eventType,
-        quantity: usageEvents.quantity,
-        total_cost: usageEvents.totalCost,
+        quantity: sql<number>`SUM(${usageEvents.quantity})`,
+        total_cost: sql<string>`SUM(${usageEvents.totalCost})`,
       })
       .from(usageEvents)
-      .where(and(...whereParts));
+      .where(and(...whereParts))
+      .groupBy(usageEvents.eventType);
 
     return rows.map((r) => ({
       event_type: r.event_type,
-      quantity: r.quantity,
+      quantity: Number(r.quantity),
       total_cost: Number(r.total_cost),
     }));
   },

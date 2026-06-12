@@ -25,6 +25,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+    const MAX_FILE_SIZE = 20 * 1024 * 1024;
+    for (const file of [frontFile, backFile, ...contentFiles]) {
+      if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+        return NextResponse.json(
+          { error: `File type not allowed: ${file.type}. Accepted: jpeg, png, webp, pdf.` },
+          { status: 400 }
+        );
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        return NextResponse.json(
+          { error: `File too large: ${file.name}. Maximum size is 20 MB.` },
+          { status: 400 }
+        );
+      }
+    }
+
     // Quota check — deny if client has exceeded their monthly scan limit
     const quota = await quotaService.checkScanAllowed(clientId);
     if (!quota.allowed) {

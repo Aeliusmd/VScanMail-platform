@@ -174,7 +174,7 @@ export const depositModel = {
     return locateChequeByClientAndId(clientId, id);
   },
 
-  async listForClient(clientId: string, opts?: { limit?: number }) {
+  async listForClient(clientId: string, opts?: { limit?: number; from?: string }) {
     const limit = opts?.limit ?? 200;
 
     const [clientRow] = await db
@@ -214,12 +214,16 @@ export const depositModel = {
       "ai_summary AS aiSummary",
     ].join(", ");
 
+    const fromClause = opts?.from
+      ? `AND deposit_requested_at >= '${new Date(opts.from).toISOString().slice(0, 19).replace("T", " ")}'`
+      : "";
     const [rows] = (await db.execute(
       sql.raw(
         `SELECT ${columnList}
          FROM \`${tableName}\`
          WHERE record_type = 'cheque'
            AND deposit_requested_at IS NOT NULL
+           ${fromClause}
          ORDER BY deposit_requested_at DESC
          LIMIT ${Number(limit)}`
       )

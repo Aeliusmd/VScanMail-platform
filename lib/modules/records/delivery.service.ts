@@ -328,15 +328,6 @@ export const deliveryService = {
       )
     );
 
-    await auditService.log({
-      actor: params.actorId,
-      actor_role: params.actorRole,
-      action: `delivery.${params.decision}`,
-      entity: params.recordId,
-      clientId,
-      req: params.req,
-    });
-
     const clientUser = await resolveClientUser(clientId);
     if (clientUser) {
       const sourceType = recordRow.record_type === "cheque" ? "cheque" : "mail";
@@ -408,15 +399,6 @@ export const deliveryService = {
          WHERE id = '${escapeSql(params.recordId)}'`
       )
     );
-
-    await auditService.log({
-      actor: params.actorId,
-      actor_role: params.actorRole,
-      action: "delivery.in_transit",
-      entity: params.recordId,
-      clientId,
-      req: params.req,
-    });
 
     {
       const clientUser = await resolveClientUser(clientId);
@@ -534,15 +516,6 @@ export const deliveryService = {
          WHERE id = '${escapeSql(params.recordId)}'`
       )
     );
-
-    await auditService.log({
-      actor: params.actorId,
-      actor_role: params.actorRole,
-      action: "delivery.delivered",
-      entity: params.recordId,
-      clientId,
-      req: params.req,
-    });
 
     {
       const clientUser = await resolveClientUser(clientId);
