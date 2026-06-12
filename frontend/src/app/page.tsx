@@ -98,8 +98,6 @@ function LandingPage() {
     }
   };
 
-  const isEnterprisePlan = (plan: BillingPlan) =>
-    plan.price === 0 || plan.name.toLowerCase().includes("enterprise");
 
   return (
     <div className={`min-h-screen bg-white ${styles.landingRoot}`}>
@@ -435,7 +433,6 @@ function LandingPage() {
             ) : plans.length > 0 ? (
               plans.map((plan, idx) => {
                 const isPopular = !!plan.badge;
-                const isEnterprise = isEnterprisePlan(plan);
                 const meta = PLAN_ICONS[idx] ?? PLAN_ICONS[0];
                 const tagline = PLAN_TAGLINES[plan.id.toLowerCase()] ?? "";
 
@@ -468,22 +465,12 @@ function LandingPage() {
                           </li>
                         ))}
                       </ul>
-                      {isEnterprise ? (
-                        <button
-                          type="button"
-                          onClick={openContact}
-                          className="block w-full py-3 text-center bg-white text-blue-700 font-bold rounded-xl hover:bg-blue-50 transition-colors text-sm whitespace-nowrap cursor-pointer"
-                        >
-                          Contact Sales
-                        </button>
-                      ) : (
-                        <Link
+                      <Link
                           href="/register"
                           className="block w-full py-3 text-center bg-white text-blue-700 font-bold rounded-xl hover:bg-blue-50 transition-colors text-sm whitespace-nowrap"
                         >
                           Get Started
                         </Link>
-                      )}
                     </div>
                   );
                 }
@@ -513,22 +500,12 @@ function LandingPage() {
                         </li>
                       ))}
                     </ul>
-                    {isEnterprise ? (
-                      <button
-                        type="button"
-                        onClick={openContact}
-                        className="block w-full py-3 text-center bg-slate-100 text-slate-800 font-semibold rounded-xl hover:bg-slate-200 transition-colors text-sm whitespace-nowrap cursor-pointer"
-                      >
-                        Contact Sales
-                      </button>
-                    ) : (
-                      <Link
-                        href="/register"
-                        className="block w-full py-3 text-center bg-slate-100 text-slate-800 font-semibold rounded-xl hover:bg-slate-200 transition-colors text-sm whitespace-nowrap"
-                      >
-                        Get Started
-                      </Link>
-                    )}
+                    <Link
+                      href="/register"
+                      className="block w-full py-3 text-center bg-slate-100 text-slate-800 font-semibold rounded-xl hover:bg-slate-200 transition-colors text-sm whitespace-nowrap"
+                    >
+                      Get Started
+                    </Link>
                   </div>
                 );
               })
