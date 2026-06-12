@@ -124,7 +124,13 @@ export default function ProfileTab() {
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Image must be 5 MB or smaller.");
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = () => {
@@ -132,7 +138,6 @@ export default function ProfileTab() {
       setShowCropper(true);
     };
     reader.readAsDataURL(file);
-    e.target.value = '';
   };
 
   const handleConfirmCrop = async (croppedAreaPixels: Area) => {

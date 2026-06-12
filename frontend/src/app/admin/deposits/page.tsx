@@ -1296,9 +1296,14 @@ function DepositsPageContent() {
                 className="hidden"
                 onChange={(e) => {
                   const f = e.target.files?.[0] || null;
+                  e.target.value = '';
                   setSlipUploadError('');
                   setSlipUploaded(false);
                   setSlipResult(null);
+                  if (f && f.size > 10 * 1024 * 1024) {
+                    setSlipUploadError("Image must be 10 MB or smaller.");
+                    return;
+                  }
                   setSlipFile(f);
                   if (slipPreviewUrl) URL.revokeObjectURL(slipPreviewUrl);
                   setSlipPreviewUrl(f ? URL.createObjectURL(f) : null);

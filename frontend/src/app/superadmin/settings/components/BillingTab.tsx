@@ -327,7 +327,7 @@ export default function BillingTab() {
                   type="text"
                   value={editPlanForm.name || ''}
                   onChange={e => setEditPlanForm(p => ({ ...p, name: e.target.value }))}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#0A3D8F] transition-colors"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] transition-colors"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -337,7 +337,7 @@ export default function BillingTab() {
                     type="number"
                     value={editPlanForm.price || 0}
                     onChange={e => setEditPlanForm(p => ({ ...p, price: Number(e.target.value) }))}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#0A3D8F] transition-colors"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] transition-colors"
                   />
                 </div>
                 <div>
@@ -347,7 +347,7 @@ export default function BillingTab() {
                     value={editPlanForm.max_scans === 999999 ? '' : editPlanForm.max_scans}
                     placeholder={editPlanForm.max_scans === 999999 ? 'Unlimited' : ''}
                     onChange={e => setEditPlanForm(p => ({ ...p, max_scans: Number(e.target.value) }))}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#0A3D8F] transition-colors"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] transition-colors"
                   />
                 </div>
                 <div className="col-span-2">
@@ -356,7 +356,7 @@ export default function BillingTab() {
                     type="text"
                     value={editPlanForm.storage || ''}
                     onChange={e => setEditPlanForm(p => ({ ...p, storage: e.target.value }))}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#0A3D8F] transition-colors"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] transition-colors"
                   />
                 </div>
                 <div className="col-span-2">
@@ -366,7 +366,7 @@ export default function BillingTab() {
                     value={editPlanForm.ai_magic || ''}
                     onChange={e => setEditPlanForm(p => ({ ...p, ai_magic: e.target.value }))}
                     placeholder="e.g., Basic OCR, Advanced AI Summary..."
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#0A3D8F] transition-colors"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] transition-colors"
                   />
                 </div>
                 <div className="col-span-2">
@@ -376,7 +376,7 @@ export default function BillingTab() {
                     value={editPlanForm.cheque_handling || ''}
                     onChange={e => setEditPlanForm(p => ({ ...p, cheque_handling: e.target.value }))}
                     placeholder="e.g., Basic Validation, Priority Deposits..."
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#0A3D8F] transition-colors"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-[#0A3D8F] transition-colors"
                   />
                 </div>
               </div>

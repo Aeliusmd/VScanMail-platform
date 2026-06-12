@@ -123,8 +123,9 @@ export const depositService = {
 
     const now = new Date();
 
-    // Snapshot bank display fields into the cheque row for history.
-    await db.execute(
+    // Conditional UPDATE: only proceeds if the cheque is still in a requestable state.
+    // This prevents duplicate requests from concurrent submissions (two tabs, network retries).
+    const [updateResult] = await db.execute(
       sql.raw(
         `UPDATE ${escapeIdent(tableName)}
          SET cheque_status = 'deposit_requested',
@@ -140,9 +141,13 @@ export const depositService = {
              deposit_reject_reason = NULL,
              deposit_marked_deposited_by = NULL,
              deposit_marked_deposited_at = NULL
-         WHERE id = '${params.chequeId.replace(/'/g, "''")}' AND record_type = 'cheque'`
+         WHERE id = '${params.chequeId.replace(/'/g, "''")}' AND record_type = 'cheque'
+           AND cheque_status NOT IN ('deposit_requested', 'deposited', 'cleared')`
       )
-    );
+    ) as any;
+    if ((updateResult as any)?.affectedRows === 0) {
+      throw new Error("Deposit already requested");
+    }
 
     const client = await clientModel.findById(params.clientId);
     const assignedAdmin = await resolveAssignedAdmin(params.clientId);

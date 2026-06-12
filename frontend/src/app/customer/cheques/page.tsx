@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { chequeApi, type Cheque as ApiCheque, type ChequeStatus as ApiChequeStatus } from "@/lib/api/cheques";
 import { mailApi, type MailItem } from "@/lib/api/mail";
@@ -99,6 +99,8 @@ export default function CustomerChequesPage() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [depositSubmitting, setDepositSubmitting] = useState(false);
   const [depositError, setDepositError] = useState<string | null>(null);
+  const depositSubmittingRef = useRef(false);
+  const pickupSubmittingRef = useRef(false);
   const [zoomUrl, setZoomUrl] = useState<string | null>(null);
   const [zoomScale, setZoomScale] = useState(1);
 
@@ -365,12 +367,13 @@ export default function CustomerChequesPage() {
   };
 
   const handleDeposit = async () => {
+    if (depositSubmittingRef.current) return;
     if (!modalCheque) return;
     if (!selectedBank) {
       setDepositError("Please select a destination bank account.");
       return;
     }
-
+    depositSubmittingRef.current = true;
     try {
       setDepositSubmitting(true);
       setDepositError(null);
@@ -425,11 +428,13 @@ export default function CustomerChequesPage() {
         setDepositError(msg);
       }
     } finally {
+      depositSubmittingRef.current = false;
       setDepositSubmitting(false);
     }
   };
 
   const handlePickup = async () => {
+    if (pickupSubmittingRef.current) return;
     if (!modalCheque) return;
     if (!selectedDeliveryAddress) {
       setDepositError("Please select a delivery address.");
@@ -443,6 +448,7 @@ export default function CustomerChequesPage() {
       return;
     }
 
+    pickupSubmittingRef.current = true;
     try {
       setPickupSubmitting(true);
       setDepositError(null);
@@ -478,6 +484,7 @@ export default function CustomerChequesPage() {
       console.error("Failed to submit pickup request:", e);
       setDepositError(e?.message || "Failed to submit pickup request.");
     } finally {
+      pickupSubmittingRef.current = false;
       setPickupSubmitting(false);
     }
   };

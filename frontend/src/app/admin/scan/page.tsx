@@ -272,7 +272,13 @@ export default function AdminScanPage() {
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert("Image file size must not exceed 10 MB. Please use a smaller image.");
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -292,8 +298,6 @@ export default function AdminScanPage() {
       else if (phase === 'step3_ready') setPhase('step3_done');
     };
     reader.readAsDataURL(file);
-    // Reset the input so the same file can be selected again later
-    e.target.value = '';
   };
 
   const handleSkipContent = () => {
