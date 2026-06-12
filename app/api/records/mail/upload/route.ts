@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth, withRole } from "@/lib/modules/auth/auth.middleware";
+import { quotaService } from "@/lib/modules/billing/quota.service";
 import { mailService } from "@/lib/modules/records/mail.service";
 
 export const maxDuration = 60; // Vercel Pro: allow 60s for AI processing
@@ -21,6 +22,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Missing required fields: front, back, clientId, type" },
         { status: 400 }
+      );
+    }
+
+    // Quota check — deny if client has exceeded their monthly scan limit
+    const quota = await quotaService.checkScanAllowed(clientId);
+    if (!quota.allowed) {
+      return NextResponse.json(
+        { error: quota.reason, used: quota.used, limit: quota.limit },
+        { status: 402 }
       );
     }
 

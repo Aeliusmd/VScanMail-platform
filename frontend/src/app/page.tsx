@@ -12,6 +12,9 @@ type BillingPlan = {
   badge?: string | null;
   features: string[];
   max_scans: number;
+  storage: string;
+  ai_magic: string | null;
+  cheque_handling: string | null;
 };
 
 type ContactForm = {
@@ -450,12 +453,18 @@ function LandingPage() {
                         {tagline && <p className="text-white/70 text-xs mt-1">{tagline}</p>}
                       </div>
                       <div className="text-4xl font-extrabold text-white mb-6">
-                        {isEnterprise ? "Custom" : <>${plan.price}<span className="text-base text-white/60 font-normal">/mo</span></>}
+                        ${plan.price}<span className="text-base text-white/60 font-normal">/mo</span>
                       </div>
                       <ul className="space-y-3 mb-8">
-                        {(plan.features || []).map((item) => (
-                          <li key={item} className="flex items-center gap-2.5 text-sm text-white">
-                            <i className="ri-check-line text-red-300 shrink-0"></i> {item}
+                        {[
+                          { icon: "ri-scan-2-line", color: "text-green-300", label: "Monthly Scans", value: plan.max_scans >= 999999 ? "Unlimited" : String(plan.max_scans) },
+                          { icon: "ri-cloud-line", color: "text-blue-200", label: "Cloud Storage", value: plan.storage },
+                          { icon: "ri-sparkling-2-line", color: "text-purple-300", label: "AI Magic", value: plan.ai_magic || "" },
+                          { icon: "ri-bank-card-line", color: "text-indigo-200", label: "Cheque Handling", value: plan.cheque_handling || "" },
+                        ].map(({ icon, color, label, value }) => (
+                          <li key={label} className="flex items-start gap-2.5 text-sm">
+                            <i className={`${icon} ${color} shrink-0 mt-0.5`}></i>
+                            <span className="text-white/70">{label}: <strong className="text-white font-semibold">{value}</strong></span>
                           </li>
                         ))}
                       </ul>
@@ -489,12 +498,18 @@ function LandingPage() {
                       {tagline && <p className="text-slate-400 text-xs mt-1">{tagline}</p>}
                     </div>
                     <div className="text-4xl font-extrabold text-slate-900 mb-6">
-                      {isEnterprise ? "Custom" : <>${plan.price}<span className="text-base text-slate-400 font-normal">/mo</span></>}
+                      ${plan.price}<span className="text-base text-slate-400 font-normal">/mo</span>
                     </div>
                     <ul className="space-y-3 mb-8">
-                      {(plan.features || []).map((item) => (
-                        <li key={item} className="flex items-center gap-2.5 text-sm text-slate-600">
-                          <i className="ri-check-line text-blue-500 shrink-0"></i> {item}
+                      {[
+                        { icon: "ri-scan-2-line", color: "text-green-500", label: "Monthly Scans", value: plan.max_scans >= 999999 ? "Unlimited" : String(plan.max_scans) },
+                        { icon: "ri-cloud-line", color: "text-blue-400", label: "Cloud Storage", value: plan.storage },
+                        { icon: "ri-sparkling-2-line", color: "text-purple-500", label: "AI Magic", value: plan.ai_magic || "" },
+                        { icon: "ri-bank-card-line", color: "text-indigo-400", label: "Cheque Handling", value: plan.cheque_handling || "" },
+                      ].map(({ icon, color, label, value }) => (
+                        <li key={label} className="flex items-start gap-2.5 text-sm">
+                          <i className={`${icon} ${color} shrink-0 mt-0.5`}></i>
+                          <span className="text-slate-500">{label}: <strong className="text-slate-700 font-semibold">{value}</strong></span>
                         </li>
                       ))}
                     </ul>

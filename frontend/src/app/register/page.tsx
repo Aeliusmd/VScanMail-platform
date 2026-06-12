@@ -119,7 +119,7 @@ export default function RegisterStep1() {
           </div>
 
           <div className={styles.header}>
-            <h2 className={styles.heading}>Company Information</h2>
+            <h2 className={styles.heading}>Registration</h2>
             <p className={styles.subheading}>Tell us about your company</p>
           </div>
 

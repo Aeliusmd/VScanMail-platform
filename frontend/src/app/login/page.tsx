@@ -189,7 +189,7 @@ function LoginForm() {
         <div className={styles.formContainer}>
           <div className={styles.formCard}>
             <div className={styles.header}>
-              <h2 className={styles.heading}>Company Login</h2>
+              <h2 className={styles.heading}>Login</h2>
               <p className={styles.subheading}>Access your digital mailroom dashboard</p>
             </div>
 

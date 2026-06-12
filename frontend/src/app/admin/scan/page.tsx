@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useRef, ChangeEvent } from 'react';
 import Link from 'next/link';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, ApiError } from '@/lib/api-client';
 
 type ScanPhase =
   | 'step1_ready'
@@ -251,7 +251,11 @@ export default function AdminScanPage() {
       setShowSuccess(true);
     } catch (err: any) {
       setSendingEmail(false);
-      alert(`Finalization failed: ${err.message || 'Please try again.'}`);
+      if (err instanceof ApiError && err.status === 402) {
+        alert(`Scan limit reached: ${err.message}`);
+      } else {
+        alert(`Finalization failed: ${err.message || 'Please try again.'}`);
+      }
     }
   };
 

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth, withRole } from "@/lib/modules/auth/auth.middleware";
 import { auditService } from "@/lib/modules/audit/audit.service";
+import { billingService } from "@/lib/modules/billing/billing.service";
+import { quotaService } from "@/lib/modules/billing/quota.service";
 import { db } from "@/lib/modules/core/db/mysql";
 import { clients, profiles, users } from "@/lib/modules/core/db/schema";
 import { notificationService } from "@/lib/modules/notifications/notification.service";
@@ -74,6 +76,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Document type is required (docType missing)" }, { status: 400 });
     }
 
+    // Quota check — deny if client has exceeded their monthly scan limit
+    const quota = await quotaService.checkScanAllowed(clientId);
+    if (!quota.allowed) {
+      return NextResponse.json(
+        { error: quota.reason, used: quota.used, limit: quota.limit },
+        { status: 402 }
+      );
+    }
+
     // Create Official Record in the dynamic client table
     const record = await mailItemModel.create({
       client_id: clientId,
@@ -111,6 +122,16 @@ export async function POST(req: NextRequest) {
         cheque_status: storedAiResults.validation?.status || 'validated'
       } : {})
     }, user.id, req);
+
+    // Track usage — scan + AI analysis if results present
+    billingService.trackUsage(clientId, "scan", 1).catch((e) =>
+      console.error("[records.finalize] trackUsage scan failed:", e)
+    );
+    if (aiResults) {
+      billingService.trackUsage(clientId, "ai_analysis", 1).catch((e) =>
+        console.error("[records.finalize] trackUsage ai failed:", e)
+      );
+    }
 
     const clientUserId = await resolveClientUserId(clientId);
     if (clientUserId) {
