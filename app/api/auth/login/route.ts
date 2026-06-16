@@ -149,7 +149,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (user.isActive === false) {
+    if (!user.isActive) {
       return NextResponse.json(
         { error: "Your account has been deactivated. Please contact your Super Admin to restore access." },
         { status: 403 }

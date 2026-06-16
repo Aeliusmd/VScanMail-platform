@@ -179,7 +179,7 @@ export const notificationService = {
       ` : ""}
 
       <div style="text-align: center; margin-top: 32px;">
-        <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/mail/${mailItem.id}" class="button">
+        <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/mails?open=${mailItem.id}" class="button">
           View Document
         </a>
       </div>
@@ -209,7 +209,7 @@ export const notificationService = {
       ? escapeHtml(truncatePlain(mailItem.ai_summary, 420))
       : "";
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
-    const mailUrl = `${appUrl}/dashboard/mail/${mailItem.id}`;
+    const mailUrl = `${appUrl}/dashboard/mails?open=${mailItem.id}`;
 
     const html = wrapInTemplate(`
       <div style="background:linear-gradient(135deg,#fef2f2 0%,#fff7ed 50%,#ffffff 100%);border-radius:12px;padding:20px 20px 8px;margin:-8px -8px 0 -8px;border:1px solid #fecaca;">
@@ -403,7 +403,7 @@ export const notificationService = {
       ` : ""}
 
       <div style="text-align: center; margin-top: 32px;">
-        <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/cheques/${cheque.id}" class="button">
+        <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/cheques?open=${cheque.id}" class="button">
           Open Approval Portal
         </a>
       </div>

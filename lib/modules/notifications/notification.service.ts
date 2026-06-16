@@ -148,7 +148,7 @@ export const notificationService = {
     }
   },
 
-  async sendNewMailAlert(clientId: string, mailItem: any) {
+  async sendNewMailAlert(clientId: string, mailItem: any, opts: { resend?: boolean } = {}) {
     const prefs = await notificationPreferencesService.getForClient(clientId);
     if (!prefs.emailEnabled || !prefs.newMailScanned) return;
 
@@ -179,16 +179,19 @@ export const notificationService = {
       ` : ""}
 
       <div style="text-align: center; margin-top: 32px;">
-        <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/mail/${mailItem.id}" class="button">
+        <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/mails?open=${mailItem.id}" class="button">
           View Document
         </a>
       </div>
     `);
 
     try {
+      const resendSuffix = opts.resend
+        ? ` · Resent ${new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`
+        : "";
       await sendEmail({
         to: client.email,
-        subject: `VScanMail — New ${mailItem.type} received (${mailItem.irn})`,
+        subject: `VScanMail — New ${mailItem.type} received (${mailItem.irn})${resendSuffix}`,
         html,
       });
     } catch (err) {
@@ -196,7 +199,7 @@ export const notificationService = {
     }
   },
 
-  async sendTamperAlert(clientId: string, mailItem: any) {
+  async sendTamperAlert(clientId: string, mailItem: any, opts: { resend?: boolean } = {}) {
     const client = await clientModel.findById(clientId);
     const ann = mailItem?.tamper_annotations;
     const riskFromModel =
@@ -213,7 +216,7 @@ export const notificationService = {
       ? escapeHtml(truncatePlain(mailItem.ai_summary, 420))
       : "";
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
-    const mailUrl = `${appUrl}/dashboard/mail/${mailItem.id}`;
+    const mailUrl = `${appUrl}/dashboard/mails?open=${mailItem.id}`;
 
     const html = wrapInTemplate(`
       <div style="background:linear-gradient(135deg,#fef2f2 0%,#fff7ed 50%,#ffffff 100%);border-radius:12px;padding:20px 20px 8px;margin:-8px -8px 0 -8px;border:1px solid #fecaca;">
@@ -328,9 +331,12 @@ export const notificationService = {
       .join("\n");
 
     try {
+      const resendSuffix = opts.resend
+        ? ` · Resent ${new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`
+        : "";
       await sendEmail({
         to: client.email,
-        subject: `VScanMail — Security alert: review envelope (${mailItem.irn})`,
+        subject: `VScanMail — Security alert: review envelope (${mailItem.irn})${resendSuffix}`,
         html,
         text: plain,
       });
@@ -339,7 +345,7 @@ export const notificationService = {
     }
   },
 
-  async sendChequeAlert(clientId: string, cheque: any, validation: any) {
+  async sendChequeAlert(clientId: string, cheque: any, validation: any, opts: { resend?: boolean } = {}) {
     const prefs = await notificationPreferencesService.getForClient(clientId);
     if (!prefs.emailEnabled || !prefs.newChequeScanned) return;
 
@@ -411,15 +417,18 @@ export const notificationService = {
       ` : ""}
 
       <div style="text-align: center; margin-top: 32px;">
-        <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/cheques/${cheque.id}" class="button">
+        <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/cheques?open=${cheque.id}" class="button">
           Open Approval Portal
         </a>
       </div>
     `);
 
+    const resendSuffix = opts.resend
+      ? ` · Resent ${new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`
+      : "";
     await sendEmail({
       to: client.email,
-      subject: `VScanMail — Cheque ${statusLabel} ($${amount || "0.00"})`,
+      subject: `VScanMail — Cheque ${statusLabel} ($${amount || "0.00"})${resendSuffix}`,
       html,
     });
   },

@@ -42,6 +42,7 @@ function AllChequesPageContent() {
 
   const searchParams = useSearchParams();
   const tabFromUrl = searchParams.get('tab');
+  const openId = searchParams.get('open');
   const router = useRouter();
   const pathname = usePathname();
   const isSuperadminRoute = pathname.startsWith('/superadmin');
@@ -55,6 +56,42 @@ function AllChequesPageContent() {
       setPage(1);
     }
   }, [tabFromUrl, activeTab]);
+
+  // Auto-open a specific cheque when ?open=[id] is in the URL (e.g. from email links).
+  useEffect(() => {
+    if (!openId) return;
+    fetch(`/api/records/cheques/${openId}`)
+      .then((r) => r.json())
+      .then((item) => {
+        if (!item || item.error) return;
+        const cheque: Cheque = {
+          id: item.id,
+          starred: false,
+          flagged: Boolean(item.cheque_alteration_detected),
+          companyColor: 'bg-blue-600',
+          companyInitial: (item.irn ?? 'C')[0].toUpperCase(),
+          company: item.client_id ?? '',
+          industryColor: 'bg-gray-500',
+          industry: '',
+          contact: '',
+          email: '',
+          mails: 0,
+          cheques: 1,
+          status: item.cheque_status === 'deposited' ? 'Deposited'
+            : item.cheque_status === 'rejected' ? 'Rejected'
+            : item.cheque_decision === 'approved' ? 'Pending Deposit'
+            : 'On Hold',
+          bankName: '',
+          chequeNumber: item.irn ?? item.id,
+          amount: item.cheque_amount_figures ?? 0,
+          description: item.ai_summary ?? '',
+          recipient: item.cheque_beneficiary ?? '',
+          time: item.scanned_at ? new Date(item.scanned_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+        };
+        setOpenedCheque(cheque);
+      })
+      .catch(() => {});
+  }, [openId]);
 
   const notifications: any[] = [];
 

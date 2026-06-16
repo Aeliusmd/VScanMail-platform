@@ -16,14 +16,14 @@ export async function POST(
 
     // Resend based on type and tamper state.
     if (item.tamper_detected) {
-      await notificationService.sendTamperAlert(item.client_id, item);
+      await notificationService.sendTamperAlert(item.client_id, item, { resend: true });
     } else if (item.type === 'cheque') {
       await notificationService.sendChequeAlert(item.client_id, item, {
         status: item.cheque_status || 'validated',
         confidence: item.cheque_ai_confidence || 0.95
-      });
+      }, { resend: true });
     } else {
-      await notificationService.sendNewMailAlert(item.client_id, item);
+      await notificationService.sendNewMailAlert(item.client_id, item, { resend: true });
     }
 
     return NextResponse.json({ success: true });

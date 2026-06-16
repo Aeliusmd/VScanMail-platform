@@ -41,6 +41,7 @@ function AllMailsPageContent() {
 
   const searchParams = useSearchParams();
   const tabFromUrl = searchParams.get('tab');
+  const openId = searchParams.get('open');
   const router = useRouter();
   const pathname = usePathname();
   const isSuperadminRoute = pathname.startsWith('/superadmin');
@@ -55,6 +56,37 @@ function AllMailsPageContent() {
       setPage(1);
     }
   }, [tabFromUrl, activeTab]);
+
+  // Auto-open a specific mail when ?open=[id] is in the URL (e.g. from email links).
+  useEffect(() => {
+    if (!openId) return;
+    fetch(`/api/records/mail/${openId}`)
+      .then((r) => r.json())
+      .then((item) => {
+        if (!item || item.error) return;
+        const statusToTag = (s: string): 'Inbox' | 'Delivered' | 'Pending' => {
+          if (s === 'delivered') return 'Delivered';
+          if (s === 'received' || s === 'processed' || s === 'scanned') return 'Inbox';
+          return 'Pending';
+        };
+        const mail: Mail = {
+          id: item.id,
+          starred: false,
+          flagged: Boolean(item.tamper_detected),
+          senderColor: 'bg-blue-600',
+          senderInitial: (item.irn ?? 'M')[0].toUpperCase(),
+          sender: item.irn ?? item.id,
+          tag: statusToTag(item.status ?? ''),
+          subject: `${item.type === 'cheque' ? 'Cheque' : 'Letter'} — ${item.irn ?? item.id}`,
+          preview: item.ai_summary ?? 'No AI summary available.',
+          hasAttachment: Array.isArray(item.content_scan_urls) && item.content_scan_urls.length > 0,
+          company: item.client_id ?? '',
+          time: item.scanned_at ? new Date(item.scanned_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+        };
+        setOpenedMail(mail);
+      })
+      .catch(() => {});
+  }, [openId]);
 
   // Notifications (keeping empty for now as user said current database is empty)
   const notifications: any[] = [];

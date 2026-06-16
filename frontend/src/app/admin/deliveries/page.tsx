@@ -74,6 +74,7 @@ function AdminDeliveriesPageContent() {
   const searchParams = useSearchParams();
   const companyFromUrl = searchParams.get("company") ?? "";
   const clientIdFromUrl = searchParams.get("clientId") ?? "";
+  const highlightId = searchParams.get("highlight") ?? "";
 
   const isSuperadminRoute = pathname.startsWith("/superadmin");
   const toolbar = useSuperAdminToolbarOptional();
@@ -95,6 +96,13 @@ function AdminDeliveriesPageContent() {
   useEffect(() => {
     setQuery(companyFromUrl);
   }, [companyFromUrl]);
+
+  // Auto-open delivery from email ?highlight= link.
+  useEffect(() => {
+    if (!highlightId || rows.length === 0) return;
+    const target = rows.find((r) => r.id === highlightId);
+    if (target) setOpened(target);
+  }, [highlightId, rows]);
 
   const handleSearchChange = (value: string) => {
     setQuery(value);

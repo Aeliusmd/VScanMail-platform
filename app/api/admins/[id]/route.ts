@@ -14,7 +14,7 @@ import { auditService } from "@/lib/modules/audit/audit.service";
 
 const updateAdminSchema = z.object({
   firstName: z.string().min(1).max(100).optional(),
-  lastName: z.string().min(1).max(100).optional(),
+  lastName: z.string().max(100).optional(),
   fullName: z.string().optional(), // Fallback if frontend isn't updated yet
   phone: z.string().optional(),
   status: z.enum(["Active", "Inactive"]).optional(),

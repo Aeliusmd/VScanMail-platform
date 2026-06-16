@@ -274,12 +274,12 @@ export const stripeService = {
           stripe_subscription_id: stripeSub.id,
           plan_tier: mappedTier ?? existing?.plan_tier ?? "starter",
           status: newStatus,
-          current_period_start: new Date(
-            stripeSub.current_period_start * 1000
-          ).toISOString(),
-          current_period_end: new Date(
-            stripeSub.current_period_end * 1000
-          ).toISOString(),
+          current_period_start: stripeSub.current_period_start
+            ? new Date(stripeSub.current_period_start * 1000).toISOString()
+            : new Date().toISOString(),
+          current_period_end: stripeSub.current_period_end
+            ? new Date(stripeSub.current_period_end * 1000).toISOString()
+            : new Date().toISOString(),
         });
 
         if (newStatus === "active") {
