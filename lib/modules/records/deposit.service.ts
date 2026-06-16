@@ -305,16 +305,22 @@ export const depositService = {
     const rejectReason = params.decision === "rejected" ? String(params.rejectReason || "").trim() : "";
     if (params.decision === "rejected" && !rejectReason) throw new Error("Reject reason is required");
 
-    await db.execute(
+    // Conditional UPDATE: only proceeds if the deposit hasn't already been decided.
+    // This prevents duplicate notifications from rapid double-clicks or concurrent requests.
+    const [updateResult] = await db.execute(
       sql.raw(
         `UPDATE ${escapeIdent(tableName)}
          SET deposit_decision = '${params.decision}',
              deposit_decided_by = '${params.actorId.replace(/'/g, "''")}',
              deposit_decided_at = '${decidedAtSql}',
              deposit_reject_reason = ${params.decision === "rejected" ? `'${rejectReason.replace(/'/g, "''")}'` : "NULL"}
-         WHERE id = '${params.chequeId.replace(/'/g, "''")}' AND record_type = 'cheque'`
+         WHERE id = '${params.chequeId.replace(/'/g, "''")}' AND record_type = 'cheque'
+           AND deposit_decision = 'pending'`
       )
-    );
+    ) as any;
+    if ((updateResult as any)?.affectedRows === 0) {
+      throw new Error("This deposit request has already been decided");
+    }
 
     await auditService.log({
       actor: params.actorId,

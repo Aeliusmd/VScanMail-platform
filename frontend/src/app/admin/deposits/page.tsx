@@ -174,6 +174,7 @@ function DepositsPageContent() {
   const [showApproveDateInput, setShowApproveDateInput] = useState(false);
   const [depositDateInput, setDepositDateInput] = useState('');
   const [depositDateError, setDepositDateError] = useState('');
+  const [approvingDeposit, setApprovingDeposit] = useState(false);
   const approveDateInputRef = useRef<HTMLInputElement | null>(null);
   const [revealedAccount, setRevealedAccount] = useState<{ number: string; expiresAt: number } | null>(null);
   const [revealingAccount, setRevealingAccount] = useState(false);
@@ -330,6 +331,7 @@ function DepositsPageContent() {
     setShowApproveDateInput(false);
     setDepositDateInput('');
     setDepositDateError('');
+    setApprovingDeposit(false);
     setRevealedAccount(null);
     setRevealingAccount(false);
     setRevealAccountError('');
@@ -370,6 +372,7 @@ function DepositsPageContent() {
     setShowApproveDateInput(false);
     setDepositDateInput('');
     setDepositDateError('');
+    setApprovingDeposit(false);
     setRevealedAccount(null);
     setRevealingAccount(false);
     setRevealAccountError('');
@@ -415,6 +418,7 @@ function DepositsPageContent() {
   };
 
   const handleConfirmApprove = async (id: string) => {
+    if (approvingDeposit) return;
     if (!depositDateInput.trim()) {
       setDepositDateError('Please enter a deposit date.');
       return;
@@ -428,6 +432,7 @@ function DepositsPageContent() {
     const target = requests.find((r) => r.id === id);
     if (!target) return;
 
+    setApprovingDeposit(true);
     try {
       await depositsApi.adminApprove(target.chequeId, depositDateInput.trim());
       setRequests((prev) =>
@@ -450,6 +455,8 @@ function DepositsPageContent() {
       setDepositDateInput('');
     } catch (e) {
       console.error('Failed to approve deposit:', e);
+    } finally {
+      setApprovingDeposit(false);
     }
   };
 
@@ -1144,10 +1151,15 @@ function DepositsPageContent() {
                       <button
                         type="button"
                         onClick={() => handleConfirmApprove(selectedRequest.id)}
-                        className="px-5 py-2.5 bg-[#2F8F3A] text-white text-sm font-semibold rounded-lg hover:bg-[#267a30] transition-colors whitespace-nowrap cursor-pointer"
+                        disabled={approvingDeposit}
+                        className="px-5 py-2.5 bg-[#2F8F3A] text-white text-sm font-semibold rounded-lg hover:bg-[#267a30] transition-colors whitespace-nowrap cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <Icon icon="ri:check-line" className="inline mr-1.5" />
-                        Confirm Approve
+                        {approvingDeposit ? (
+                          <Icon icon="ri:loader-4-line" className="inline mr-1.5 animate-spin" />
+                        ) : (
+                          <Icon icon="ri:check-line" className="inline mr-1.5" />
+                        )}
+                        {approvingDeposit ? 'Approving…' : 'Confirm Approve'}
                       </button>
                       <button
                         type="button"
@@ -1155,7 +1167,8 @@ function DepositsPageContent() {
                           setShowApproveDateInput(false);
                           setDepositDateError('');
                         }}
-                        className="px-4 py-2.5 bg-slate-100 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-200 transition-colors whitespace-nowrap cursor-pointer"
+                        disabled={approvingDeposit}
+                        className="px-4 py-2.5 bg-slate-100 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-200 transition-colors whitespace-nowrap cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         Cancel
                       </button>

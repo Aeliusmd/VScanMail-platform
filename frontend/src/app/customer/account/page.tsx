@@ -1216,7 +1216,7 @@ function CustomerAccountPageContent() {
 
         {toastMsg && (
           <div
-            className={`mb-4 flex items-center gap-3 p-4 rounded-xl border ${
+            className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 px-5 py-3 rounded-xl border shadow-lg ${
               toastKind === "success"
                 ? "bg-green-50 border-green-200"
                 : toastKind === "warning"
